@@ -1,0 +1,12 @@
+services:
+  miner-api:
+    image: myhub/rest-EXC-commit:latest
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      TERM: ${TERM:-xterm}
+      TZ: ${TZ:-KST}
+    ports:
+      - 10002:10002
+    tty: true

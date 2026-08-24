@@ -1,0 +1,20 @@
+services:
+  challenge-api:
+    image: redteamsubnet61/rest-exc-challenge:0.0.0
+    build:
+      context: ./src/exc_challenge/challenge
+    restart: unless-stopped
+    environment:
+      TERM: ${TERM:-xterm}
+      TZ: ${TZ:-KST}
+      EXC_CHALLENGE_API_PORT: ${EXC_CHALLENGE_API_PORT:-10001}
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - "./volumes/configs/rest-exc-challenge:${EXC_CHALLENGE_API_CONFIGS_DIR:-/etc/rest-exc-challenge}"
+      - "./volumes/storage/rest-exc-challenge/logs:${EXC_CHALLENGE_API_LOGS_DIR:-/var/log/rest-exc-challenge}"
+      - "./volumes/storage/rest-exc-challenge/data:${EXC_CHALLENGE_API_DATA_DIR:-/var/lib/rest-exc-challenge}"
+    ports:
+      - "${EXC_CHALLENGE_API_PORT:-10001}:${EXC_CHALLENGE_API_PORT:-10001}"
+    tty: true
