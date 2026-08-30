@@ -139,7 +139,9 @@ repos:
       - id: flake8
         name: "🐍 flake8 - Lint python code"
         files: \.pyi?$
-        args: ["--max-line-length=120"]
+        ## E203 is black-incompatible: black mandates the slice spacing that
+        ## E203 flags, so without this the two hooks cannot both pass.
+        args: ["--max-line-length=120", "--extend-ignore=E203"]
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.9.4

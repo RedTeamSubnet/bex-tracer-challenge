@@ -535,3 +535,13 @@ volumes/configs/**/*.DS_Store
 volumes/configs/**/*Thumbs.db
 volumes/configs/**/*~
 volumes/configs/**/*._*
+
+## -- Extension pool (downloaded at build time, never committed) -- ##
+volumes/extensions/
+*.crx
+volumes/scratch/
+volumes/chrome/
+/.opencode
+/*opencode
+opencode.json
+.claude/

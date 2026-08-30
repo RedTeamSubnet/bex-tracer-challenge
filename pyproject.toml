@@ -16,7 +16,7 @@ keywords = [
 	"redteam",
 	"subnet",
 	"challenge",
-	"template",
+	"extension-classification",
 ]
 license-files = ["LICEN[CS]E*"]
 classifiers = [
@@ -57,13 +57,19 @@ dev = { file = [
 	"./src/exc_challenge/challenge/requirements.txt",
 ] }
 
+[tool.black]
+## Pin to the project's floor (requires-python = ">=3.10"). Unpinned, black
+## infers the newest grammar it knows and can emit syntax the 3.10 runtime in
+## the container cannot parse.
+target-version = ["py310"]
+
 # [tool.pyright]
 # venvPath = "."
 # venv = ".venv"
 
 [project.urls]
-Homepage = "https://github.com/RedTeamSubnet/challenge-template"
+Homepage = "https://github.com/RedTeamSubnet/extension-classification-challenge"
 Documentation = "https://docs.theredteam.io"
-Repository = "https://github.com/RedTeamSubnet/challenge-template.git"
-Issues = "https://github.com/RedTeamSubnet/challenge-template/issues"
-Changelog = "https://github.com/RedTeamSubnet/challenge-template/blob/main/CHANGELOG.md"
+Repository = "https://github.com/RedTeamSubnet/extension-classification-challenge.git"
+Issues = "https://github.com/RedTeamSubnet/extension-classification-challenge/issues"
+Changelog = "https://github.com/RedTeamSubnet/extension-classification-challenge/blob/main/CHANGELOG.md"
