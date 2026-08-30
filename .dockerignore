@@ -559,3 +559,24 @@ README.md
 **/*.bak
 **/example.py
 **/test.py
+
+# --- repo-root build context (added 2026-08-27) -----------------------------
+# The context moved from ./src/exc_challenge/challenge to the repo root so the
+# Dockerfile can reach extensions.yml and scripts/. Everything the image does
+# not need is excluded here, or the 185MB Chrome layer gets a slow context on
+# top of it.
+.git
+.github
+.claude
+.ignore
+docs
+tests
+examples
+templates/compose
+volumes
+scripts/install-configs.sh
+scripts/release.sh
+scripts/changelog.sh
+*.md
+!src/exc_challenge/challenge/templates/*.html
+examples/

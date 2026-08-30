@@ -24,7 +24,7 @@ services:
     #   retries: 3
 
   miner-commit-api:
-    image: myhub/rest-EXC-commit:latest
+    image: redteamsubnet61/submission-exc-challenge:latest
     build:
       context: ./examples/miner_commit
     restart: unless-stopped

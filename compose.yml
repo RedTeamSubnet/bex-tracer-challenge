@@ -2,7 +2,14 @@ services:
   challenge-api:
     image: redteamsubnet61/rest-exc-challenge:0.0.0
     build:
-      context: ./src/exc_challenge/challenge
+      ## Repo root, so the Dockerfile can reach extensions.yml and scripts/.
+      context: .
+      dockerfile: ./src/exc_challenge/challenge/Dockerfile
+    ## Chrome for Testing ships no linux-arm64 build before 153, and 153 is
+    ## Beta. Staying on Stable 152 means amd64 - on Apple Silicon this build
+    ## and every round runs under QEMU and is slow. Prod is x86, so this is a
+    ## local-dev tax only.
+    platform: linux/amd64
     restart: unless-stopped
     environment:
       TERM: ${TERM:-xterm}
@@ -15,6 +22,41 @@ services:
       - "./volumes/configs/rest-exc-challenge:${EXC_CHALLENGE_API_CONFIGS_DIR:-/etc/rest-exc-challenge}"
       - "./volumes/storage/rest-exc-challenge/logs:${EXC_CHALLENGE_API_LOGS_DIR:-/var/log/rest-exc-challenge}"
       - "./volumes/storage/rest-exc-challenge/data:${EXC_CHALLENGE_API_DATA_DIR:-/var/lib/rest-exc-challenge}"
+    ## Chrome maps shared memory for every renderer. The 64MB Docker default
+    ## makes tabs crash under load; the alternative, --disable-dev-shm-usage,
+    ## pushes that traffic onto disk and slows every round.
+    shm_size: 2gb
+    tmpfs:
+      ## Per-round profiles and extension copies. On tmpfs so teardown is free
+      ## and nothing survives a round. `exec` is set explicitly because Docker
+      ## mounts --tmpfs noexec by default, and Chrome maps files out of the
+      ## profile directory.
+      - /run/exc:mode=1777,size=2g,exec
+    mem_limit: 8g
+    pids_limit: 4096
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ## docker-entrypoint.sh runs as root: it chowns/chmods the app tree, then
+    ## gosu's down to EXC-user. A bare `cap_drop: ALL` makes the container die
+    ## at startup with "exec docker-entrypoint.sh failed: Permission denied" -
+    ## the app dirs are 770 owned by EXC-user, and root only traverses them by
+    ## virtue of DAC_OVERRIDE. These five are what the entrypoint needs and
+    ## nothing more; NET_RAW, SYS_ADMIN, MKNOD and the rest stay dropped.
+    ## Granting DAC_OVERRIDE costs little here since CHOWN is already present.
+    ## gosu is not setuid, so no-new-privileges does not interfere with it.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
     ports:
       - "${EXC_CHALLENGE_API_PORT:-10001}:${EXC_CHALLENGE_API_PORT:-10001}"
     tty: true
+
+## PROD DOES NOT READ THIS FILE. The validator starts the challenge itself, so
+## every setting above must be mirrored into the `challenge_container_run_kwargs`
+## block of `active_challenges.yaml` - see docs/BUILD.md Step 6. Anything set
+## only here silently does not apply in production.
