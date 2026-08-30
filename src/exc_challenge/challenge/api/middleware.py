@@ -17,8 +17,8 @@ def add_middlewares(app: FastAPI) -> None:
     """
 
     # Add more middlewares here...
-    app.add_middleware(GZipMiddleware, **config.api.gzip.model_dump())
-    app.add_middleware(CORSMiddleware, **config.api.security.cors.model_dump())
+    app.add_middleware(GZipMiddleware, **config.api.gzip.declared_dump())
+    app.add_middleware(CORSMiddleware, **config.api.security.cors.declared_dump())
     app.add_middleware(
         TrustedHostMiddleware, allowed_hosts=config.api.security.allowed_hosts
     )

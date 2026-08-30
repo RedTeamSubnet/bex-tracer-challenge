@@ -67,7 +67,7 @@ def run_server(app: FastAPI | ASGIApplication | Callable[..., Any] | str) -> Non
         app=app,
         host=config.api.bind_host,
         port=config.api.port,
-        **config.api.uvicorn.model_dump(),
+        **config.api.uvicorn.declared_dump(),
     )
 
     return
