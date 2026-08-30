@@ -10,6 +10,7 @@ from api.core.constants import ENV_PREFIX
 from ._base import BaseMainConfig
 from ._uvicorn import UvicornConfig, FrozenUvicornConfig
 from ._api import ApiConfig, FrozenApiConfig
+from ._challenge import ChallengeConfig
 
 
 # Main config schema:
@@ -17,6 +18,7 @@ class MainConfig(BaseMainConfig):
     env: EnvEnum = Field(default=EnvEnum.LOCAL, alias="env")
     debug: bool = Field(default=False, alias="debug")
     api: ApiConfig = Field(default_factory=ApiConfig)
+    challenge: ChallengeConfig = Field(default_factory=ChallengeConfig)
 
     @field_validator("api", mode="after")
     @classmethod

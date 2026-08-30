@@ -1,0 +1,39 @@
+challenge:
+  # Pool of extensions published to miners. Path is inside the container.
+  pool_path: "/app/extensions.yml"
+
+  # T - rounds per /score call. Each round is one browser launch.
+  n_rounds: 5
+  # Extensions enabled per round, drawn with `secrets`, never revealed.
+  # INVARIANT: k_max must be < the number of entries in pool_path, or
+  # build_round_schedule() raises. Today's pool has 27 entries.
+  k_min: 5
+  k_max: 5
+
+  # P - concurrent rounds. RAM-bound, roughly 1GB peak per Chrome instance.
+  ## Raise only with measurement - see the field description in _challenge.py
+  max_parallel_rounds: 1
+
+  # Wait after page load for extensions to act. Set to the p99 of
+  # time_to_stable_ms across the pool, floor 2s, cap 8s.
+  settle_seconds: 4.0
+
+  # Hard cap on the miner script.
+  script_budget_sec: 10.0
+
+  submission_file_name: "solution.js"
+  submission_max_lines: 500
+
+  # api_key is deliberately NOT set here - this file is committed. Supply it via
+  # EXC_CHALLENGE_CHALLENGE_API_KEY or /run/secrets.
+
+  browser:
+    chrome_bin: "/opt/chrome/browser/chrome"
+    chromedriver_bin: "/opt/chrome/driver/chromedriver"
+    extensions_dir: "/opt/extensions"
+    scratch_dir: "/run/exc"
+    # Prod is always headless. False only for local dev under Xvfb.
+    headless: true
+    # Prefer shm_size: 2gb on the container over this flag.
+    shm_fallback: false
+    page_load_timeout_sec: 30.0

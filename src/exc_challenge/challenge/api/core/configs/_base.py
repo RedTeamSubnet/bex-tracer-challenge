@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
@@ -17,6 +19,18 @@ class BaseConfig(BaseSettings):
         validate_assignment=True,
         arbitrary_types_allowed=True,
     )
+
+    def declared_dump(self) -> dict[str, Any]:
+        """`model_dump()` narrowed to the fields this model actually declares.
+
+        `extra="allow"` plus `env_file` means every subclass also absorbs the
+        unrelated keys in `.env` - `ENV`, `DEBUG`, other components' settings,
+        the API key. Splatting a plain `model_dump()` into a constructor passes
+        those on as unexpected kwargs and carries the secrets with them, so any
+        `**config.<x>.model_dump()` call site wants this instead.
+        """
+
+        return self.model_dump(include=set(type(self).model_fields))
 
 
 class FrozenBaseConfig(BaseConfig):
