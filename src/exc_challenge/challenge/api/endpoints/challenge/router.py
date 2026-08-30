@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Request, HTTPException
+import threading
+
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import JSONResponse
 
 from api.core.constants import ErrorCodeEnum
+from api.core.dependencies.auth import auth_api_key
 from api.core.exceptions import BaseHTTPException
 from api.logger import logger
 
@@ -9,6 +12,13 @@ from .schemas import MinerInput, MinerOutput
 from . import service
 
 router = APIRouter(tags=["Challenge"])
+
+# Single-flight: one scoring run at a time. A run holds several Chrome
+# instances and a fixed RAM budget, so overlapping runs would thrash the box
+# and make every round's timing - and therefore its labels - unreliable.
+# The endpoint is `def`, so FastAPI runs it in a threadpool and a threading
+# lock is the right primitive.
+_scoring_lock = threading.Lock()
 
 
 @router.get(
@@ -46,11 +56,21 @@ def get_task(request: Request):
     description="This endpoint score miner output.",
     response_class=JSONResponse,
     responses={422: {}},
+    dependencies=[Depends(auth_api_key)],
 )
 def post_score(request: Request, miner_input: MinerInput, miner_output: MinerOutput):
 
     _request_id = request.state.request_id
     logger.info(f"[{_request_id}] - Scoring the miner output...")
+
+    if not _scoring_lock.acquire(blocking=False):
+        logger.warning(
+            f"[{_request_id}] - Rejected: a scoring run is already in progress."
+        )
+        raise BaseHTTPException(
+            error_enum=ErrorCodeEnum.TOO_MANY_REQUESTS,
+            message="A scoring run is already in progress!",
+        )
 
     _score: float = 0.0
     try:
@@ -66,6 +86,8 @@ def post_score(request: Request, miner_input: MinerInput, miner_output: MinerOut
             error_enum=ErrorCodeEnum.INTERNAL_SERVER_ERROR,
             message="Failed to score the miner output!",
         )
+    finally:
+        _scoring_lock.release()
 
     return _score
 

@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from potato_util.generator import gen_random_string
 
+from api.config import config
+
 
 class MinerInput(BaseModel):
     random_val: str | None = Field(
@@ -9,6 +11,13 @@ class MinerInput(BaseModel):
         title="Random Value",
         description="Random value to prevent caching.",
         examples=["a1b2c3d4e5f6g7h8"],
+    )
+    extension_ids: list[str] = Field(
+        default_factory=list,
+        title="Extension IDs",
+        description="The published extension pool. A random subset is enabled "
+        "per round; return one boolean per id.",
+        examples=[["kbfnbcaeplbcioakkpcpgfkobkghlhen"]],
     )
 
 
@@ -40,11 +49,20 @@ class MinerOutput(BaseModel):
     @field_validator("commit_files", mode="after")
     @classmethod
     def _check_commit_files(cls, val: list[CommitFilePM]) -> list[CommitFilePM]:
+        _expected_name: str = config.challenge.submission_file_name
+        _max_lines: int = config.challenge.submission_max_lines
+
+        _file_names = [_miner_file_pm.file_name for _miner_file_pm in val]
+        if _file_names != [_expected_name]:
+            raise ValueError(
+                f"expected exactly one file named `{_expected_name}`, got {_file_names}!"
+            )
+
         for _miner_file_pm in val:
             _content_lines = _miner_file_pm.content.splitlines()
-            if len(_content_lines) > 500:
+            if len(_content_lines) > _max_lines:
                 raise ValueError(
-                    f"`{_miner_file_pm.file_name}` file contains too many lines, should be <= 500 lines!"
+                    f"`{_miner_file_pm.file_name}` file contains too many lines, should be <= {_max_lines} lines!"
                 )
 
         return val
