@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quarterly Review — Draft</title>
+<!--
+  BAIT PAGE. Every element here exists to give some class of extension a
+  reason to act. ZERO GROUND TRUTH: nothing on this page, in any global, any
+  query param or any server-rendered value, reveals which extensions are
+  enabled. See docs/BUILD.md Step 4.
+
+  Element -> the extension class it baits:
+    #ad-banner / .adsbygoogle / ad-shaped iframes  -> blockers (uBlock Lite, DNR)
+    <input type="password"> in a real <form>       -> password managers (Bitwarden)
+    light backgrounds + explicit colors            -> recolorers (Dark Reader)
+    <textarea> + contenteditable                   -> writing assistants (Grammarly)
+    cookie banner                                  -> consent handlers
+    <canvas>, images, external links               -> fingerprint/utility extensions
+-->
+<style>
+  :root { color-scheme: light; }
+  body {
+    background: #ffffff; color: #1a1a1a;
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0; padding: 0;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 24px 20px 80px; }
+  header { background: #f5f7fa; border-bottom: 1px solid #e2e6ea; padding: 18px 20px; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: #111827; }
+  h2 { font-size: 17px; margin: 32px 0 10px; color: #111827; }
+  .card { background: #fafbfc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+  label { display: block; font-size: 13px; color: #4b5563; margin: 12px 0 4px; }
+  input, textarea {
+    width: 100%; box-sizing: border-box; padding: 9px 11px;
+    background: #ffffff; color: #111827;
+    border: 1px solid #d1d5db; border-radius: 6px; font: inherit;
+  }
+  textarea { min-height: 120px; resize: vertical; }
+  button {
+    margin-top: 14px; padding: 9px 18px; background: #2563eb; color: #ffffff;
+    border: 0; border-radius: 6px; font: inherit; cursor: pointer;
+  }
+  #ad-banner, .adsbygoogle, .ad-slot {
+    background: #eef1f4; border: 1px dashed #c7ccd1; color: #9aa0a6;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; margin: 20px auto;
+  }
+  #ad-banner { width: 728px; max-width: 100%; height: 90px; }
+  .adsbygoogle { width: 300px; height: 250px; }
+  .ad-slot { width: 320px; height: 50px; }
+  #cookie-consent {
+    position: fixed; left: 0; right: 0; bottom: 0; background: #1f2937; color: #f9fafb;
+    padding: 14px 18px; display: flex; gap: 12px; align-items: center;
+    justify-content: center; font-size: 14px;
+  }
+  #cookie-consent button { margin: 0; background: #10b981; }
+  .muted { color: #6b7280; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Quarterly Review — Draft</h1>
+  <p class="muted">Last edited a few minutes ago · Shared with 4 people</p>
+</header>
+
+<div class="wrap">
+
+  <!-- 728x90 leaderboard: the canonical ad shape blockers hide -->
+  <div id="ad-banner" class="ad ad-banner banner-ad" data-ad-slot="top">Advertisement</div>
+
+  <h2>Sign in to continue editing</h2>
+  <div class="card">
+    <!-- A real form with a real password field. Password managers ignore
+         detached inputs; they need an actual form to attach their overlay to. -->
+    <form id="login-form" action="/session" method="post" autocomplete="on">
+      <label for="username">Work email</label>
+      <input type="email" id="username" name="username" autocomplete="username"
+             placeholder="you@example.com">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password"
+             placeholder="••••••••">
+      <button type="submit">Sign in</button>
+    </form>
+  </div>
+
+  <h2>Notes</h2>
+  <div class="card">
+    <!-- Long-form editable text: what writing assistants attach to -->
+    <label for="notes">Meeting notes</label>
+    <textarea id="notes" name="notes" spellcheck="true">Their was three main topic discussed in todays meeting. The team have agreed that we should of started the migration earlier, and its clear that alot of the delays was avoidable.</textarea>
+    <div id="rich-editor" contenteditable="true"
+         style="margin-top:12px;padding:11px;border:1px solid #d1d5db;border-radius:6px;background:#fff;min-height:60px;">
+      Add a comment&hellip;
+    </div>
+  </div>
+
+  <!-- 300x250 medium rectangle -->
+  <div class="adsbygoogle" data-ad-client="ca-pub-0000000000000000">Sponsored</div>
+
+  <h2>Attachments</h2>
+  <div class="card">
+    <p class="muted">Charts render locally.</p>
+    <canvas id="chart" width="320" height="120"
+            style="border:1px solid #e5e7eb;border-radius:6px;background:#fff;"></canvas>
+    <p>
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
+           width="24" height="24" alt="attachment icon">
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=="
+           width="24" height="24" alt="attachment icon">
+    </p>
+    <p class="muted">
+      References:
+      <a href="https://example.com/spec" rel="noopener">spec</a> ·
+      <a href="https://example.org/tracker" rel="noopener">tracker</a> ·
+      <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" rel="noopener">recording</a>
+    </p>
+  </div>
+
+  <div class="ad-slot" data-ad-slot="footer">Ad</div>
+
+</div>
+
+<div id="cookie-consent">
+  <span>We use cookies to improve your experience.</span>
+  <button id="accept-cookies" type="button">Accept all</button>
+  <button id="reject-cookies" type="button" style="background:#4b5563;">Reject</button>
+</div>
+
+<script>
+  // Draw something so the canvas is non-blank for extensions that sample it.
+  (function () {
+    var c = document.getElementById('chart');
+    if (!c || !c.getContext) return;
+    var g = c.getContext('2d');
+    g.fillStyle = '#f3f4f6'; g.fillRect(0, 0, 320, 120);
+    g.fillStyle = '#2563eb';
+    [40, 72, 55, 96, 63, 84].forEach(function (h, i) {
+      g.fillRect(18 + i * 48, 120 - h, 30, h);
+    });
+  })();
+
+  // A fixed banner that never dismisses would cover the lower page for the whole
+  // round and intercept every click beneath it. Real banners dismiss; so does this.
+  ['accept-cookies', 'reject-cookies'].forEach(function (id) {
+    var btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', function () {
+      var bar = document.getElementById('cookie-consent');
+      if (bar) bar.remove();
+    });
+  });
+
+  // Marker the harness waits on. Carries no information about the enabled set.
+  window.__baitReady = true;
+</script>
+
+</body>
+</html>
