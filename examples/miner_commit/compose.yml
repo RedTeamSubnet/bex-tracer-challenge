@@ -1,6 +1,6 @@
 services:
   miner-api:
-    image: myhub/rest-EXC-commit:latest
+    image: redteamsubnet61/submission-exc-challenge:latest
     build:
       context: .
     restart: unless-stopped

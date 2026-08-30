@@ -64,8 +64,8 @@ Check with web browser:
 To build the docker image, run the following command:
 
 ```sh
-docker build -t myhub/rest-EXC-commit:0.0.1 .
+docker build -t redteamsubnet61/submission-exc-challenge:0.0.1 .
 
 # For MacOS (Apple Silicon) to build AMD64:
-DOCKER_BUILDKIT=1 docker build --platform linux/amd64 -t myhub/rest-EXC-commit:0.0.1 .
+DOCKER_BUILDKIT=1 docker build --platform linux/amd64 -t redteamsubnet61/submission-exc-challenge:0.0.1 .
 ```

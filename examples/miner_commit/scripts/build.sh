@@ -28,5 +28,5 @@ fi
 docker build \
 	--progress plain \
 	--platform linux/amd64 \
-	-t myhub/rest-EXC-commit:latest \
+	-t redteamsubnet61/submission-exc-challenge:latest \
 	.
