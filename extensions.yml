@@ -1,0 +1,230 @@
+# Extension pool - the closed world miners are told about.
+#
+# Every `id` under `pool:` is published to miners via GET /task. A random subset
+# of k in [k_min, k_max] is enabled per round; miners return a boolean per id.
+#
+# Five fields, and no more:
+#   id                 identifies the extension. Not copied from a store URL -
+#                      `fetch_extensions.py` derives it from the .crx signing key
+#                      and fails the build if it disagrees with this pin.
+#   name               a label for humans. Nothing depends on it.
+#   version + sha256   the pin. A drifted hash fails the build loudly, on purpose.
+#   time_to_stable_ms  measured during curation; feeds the settle window. Cannot
+#                      be derived from a manifest - it needs a real Chrome run.
+#   notes              only where curation has a finding worth carrying.
+#
+# Manifest facts - manifest_version, web_accessible_resources, use_dynamic_url,
+# content scripts, DNR rulesets - are deliberately NOT stored here. They live in
+# each extension's manifest, the store re-publishes often, and a copy in yaml
+# would be quietly wrong within days. Read them live instead:
+#
+#     python3 scripts/screen_extensions.py
+#
+# HARD RULE: manifest_version must be 3. Chrome 152 hard-rejects MV2 - the
+# extension never loads and Selenium reports no error. `fetch_extensions.py`
+# checks the downloaded manifest and fails the whole build on an MV2 entry, so
+# one here makes the image unbuildable. That check reads the real manifest, which
+# is why no `manifest_version` field is kept below.
+#
+# STATUS 2026-08-27: 27 candidates. Ids, versions and hashes verified against the
+# live store. Headless signal stability and time_to_stable_ms are NOT yet
+# measured - that is the remaining Step 1 work. Entries carrying a SUSPECT note
+# are expected to fail curation.
+
+chrome_for_testing_version: "152.0.7977.54"
+
+pool:
+  - id: cfhdojbkjhnklbpkdaibdccddilifddb
+    name: "Adblock Plus"
+    version: "4.43.3"
+    sha256: "1e1169d53a0b580d00291f9df5c7b84cfd32c08aefd6dad14dde1f8583cf10b7"
+    time_to_stable_ms: null
+
+  - id: mlomiejdfkolichcflejclcbmpeaniij
+    name: "Ghostery"
+    version: "10.5.58"
+    sha256: "24f365bf0cd09f73aace740365603b6c7fba20cd384453c65ceba87d622139a0"
+    time_to_stable_ms: null
+
+  - id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
+    name: "Privacy Badger"
+    version: "2026.8.7"
+    sha256: "b3ef5ba7a11175425f9b8defa0c4d3c7226bc1392d3cf53e7604d82a112fdf27"
+    time_to_stable_ms: null
+
+  - id: bkdgflcldnnnapblkhphbgpggdiikppg
+    name: "DuckDuckGo"
+    version: "2026.8.6"
+    sha256: "cf6787797685f5264cf089ad38c597e29ceb56a3616af07bb6d1d2080b5fefd3"
+    time_to_stable_ms: null
+
+  - id: nngceckbapebfimnlniiiahkandclblb
+    name: "Bitwarden"
+    version: "2026.8.0"
+    sha256: "d1a5942d9c234d03382da99279932055064caae7a32cc9b157940c863165d59f"
+    time_to_stable_ms: null
+    notes: >
+      SUSPECT. 2026-08-25 A/B against a control found zero headless footprint, before and
+      after real click()/send_keys() gestures. No WAR fallback. Move to rejected: if curation
+      cannot reproduce a signal.
+
+  - id: hdokiejnpimakedhajhdlcegeplioahd
+    name: "LastPass"
+    version: "4.155.1"
+    sha256: "34fc2120a895e093e4f7aa8cfaf1c1b65b51cf59ab34de27c0ee2c3ba4f9cdf3"
+    time_to_stable_ms: null
+
+  - id: aeblfdkhhhdcdjpifhhbdiojplfjncoa
+    name: "1Password"
+    version: "8.12.34.34"
+    sha256: "7f0b3a8f66469091c74dc6943d77d01fda657a0eb3ff3247afc3be8b841edb75"
+    time_to_stable_ms: null
+
+  - id: fdjamakpfbbddfjaooikfcpapjohcfmg
+    name: "Dashlane"
+    version: "6.2635.2"
+    sha256: "d65a3a7216a7d2b94529f20418b8592c12db233fc982f5dbb4a76ad35680eb07"
+    time_to_stable_ms: null
+
+  - id: fooolghllnmhmmndgjiamiiodkpenpbb
+    name: "NordPass"
+    version: "7.10.10"
+    sha256: "411b93038f90e512c6832d3ae0d63f15306dea6830751b56a8a9816b2969df76"
+    time_to_stable_ms: null
+
+  - id: bmnlcjabgnpnenekpadlanbbkooimhnj
+    name: "Honey"
+    version: "19.5.0"
+    sha256: "976de2fcdb4a030d7a25f403c700af7fea905bcc4b11a34c8e51b81766258ae8"
+    time_to_stable_ms: null
+
+  - id: nenlahapcbofgnanklpelkaejcehkggg
+    name: "Capital One Shopping"
+    version: "0.1.1389"
+    sha256: "06ceef506bd506f1a68eb67d23250ad13e5c6a27bd269c87f52d5595261c6af1"
+    time_to_stable_ms: null
+
+  - id: chhjbpecpncaggjpdakmflnfcopglcmi
+    name: "Rakuten"
+    version: "26.16.0"
+    sha256: "c999d3ed3cab93cdc97992379f260dd895858754cf63122248cf3438ef0354d0"
+    time_to_stable_ms: null
+
+  - id: kbfnbcaeplbcioakkpcpgfkobkghlhen
+    name: "Grammarly"
+    version: "14.1324.0"
+    sha256: "0a70b4f2f955837bd6d673d43fbb7616c8c9e2a5d9509e556899685e2c88a1d6"
+    time_to_stable_ms: null
+
+  - id: npnbdojkgkbcdfdjlfdmplppdphlhhcf
+    name: "ProWritingAid"
+    version: "2.8.48222"
+    sha256: "8960eeec980fc35f2380b982349a123a6a1c0169c54a7855b21fdf7a848e5a81"
+    time_to_stable_ms: null
+
+  - id: oldceeleldhonbafppcapldpdifcinji
+    name: "LanguageTool"
+    version: "11.2.3"
+    sha256: "3eb8741cc5f83ccd5ad5828a8bf133995c377bbc63f01030f54090ad7e33cd21"
+    time_to_stable_ms: null
+
+  - id: eimadpbcbfnmbkopoojfekhnkhdbieeh
+    name: "Dark Reader"
+    version: "4.9.129"
+    sha256: "9dcb1bd6dcad43892ddc028ff65f982df3edba135a9a6445e4fa71671e37aa13"
+    time_to_stable_ms: null
+
+  - id: bfbmjmiodbnnpllbbbfblcplfjjepjdn
+    name: "Turn Off the Lights"
+    version: "4.6.9"
+    sha256: "e914122cba3b209c18c34a28fbd1c0a8aefd78fa43576e3be8867cf26ca8b203"
+    time_to_stable_ms: null
+
+  - id: aapbdbdomjkkjkaonfhkkikfgjllcleb
+    name: "Google Translate"
+    version: "2.0.17"
+    sha256: "3f752c27ae39de4bfc881ecacea4a3b4c50c676daecfd9f2fc8c50f5688c8dd1"
+    time_to_stable_ms: null
+
+  - id: bpoadfkcbjbfhfodiogcnhhhpibjhbnh
+    name: "Immersive Translate"
+    version: "1.32.7"
+    sha256: "8e8d74ecbec062e78babb7ebbbcfb6e9a2c0e6982e717ef0a7207e72a3b00e27"
+    time_to_stable_ms: null
+
+  - id: pioclpoplcdbaefihamjohnefbikjilc
+    name: "Evernote Web Clipper"
+    version: "7.41.1"
+    sha256: "5fc9205b34a282b34b2fd2b37b328592fe11815be2ab6584d5f357ab3b2f9642"
+    time_to_stable_ms: null
+
+  - id: knheggckgoiihginacbkhaalnibhilkk
+    name: "Notion Web Clipper"
+    version: "0.2.13"
+    sha256: "a38b4be0f9260a660b17318e6c34f1e37d1c419493fbda5cdfd7e9b940b24a9e"
+    time_to_stable_ms: null
+    notes: >
+      SUSPECT. No web-accessible resources and no content scripts - nothing a page can
+      observe.
+
+  - id: bcjindcccaagfpapjjmafapmmgkkhgoa
+    name: "JSON Formatter"
+    version: "0.10.2"
+    sha256: "5e0ebde71ee60f997a9f5fc0850e6ae4a9f67006dbf662f00507f99e957c2b21"
+    time_to_stable_ms: null
+    notes: >
+      SUSPECT. Only acts on JSON content-type responses; screen it against a JSON route, not
+      the HTML bait page.
+
+  - id: bhlhnicpbhignbdhedgjhgdocnmhomnp
+    name: "ColorZilla"
+    version: "4.1"
+    sha256: "ce8e2eb1c7720d1acc01bb245011194fa555d6d8a006222fad867d35e6b4d8b0"
+    time_to_stable_ms: null
+
+  - id: gppongmhjkpfnbhagpmjfkannfbllamg
+    name: "Wappalyzer"
+    version: "6.12.6"
+    sha256: "1d1de5459a90e9e784fece758e63c790d47ec60ee80f8e19674da90f3432c307"
+    time_to_stable_ms: null
+
+  - id: lmjnegcaeklhafolokijcfjliaokphfk
+    name: "Video DownloadHelper"
+    version: "10.5.24.2"
+    sha256: "b388f6ec2dece7b5ae0d0f89b07360374d555bf99c91e729db5cddd3a0575d01"
+    time_to_stable_ms: null
+    notes: >
+      SUSPECT. Content scripts are scoped to video hosts, so a generic bait page never
+      triggers it.
+
+  - id: liecbddmkiiihnedobmlmillhodjkdmb
+    name: "Loom"
+    version: "5.5.206"
+    sha256: "6b3a08e400e2fd42aeecb85449f7961ff694b911f40da6b14899e5dc813c0129"
+    time_to_stable_ms: null
+
+  - id: oeopbcgkkoapgobdbedcemjljbihmemj
+    name: "Checker Plus for Gmail"
+    version: "36.4"
+    sha256: "695935ba2e05f010c7d816843ec7157f760b9db1b14bf2a0ef1e9c33703f2db0"
+    time_to_stable_ms: null
+
+# ---------------------------------------------------------------------------
+# REJECTED - kept so nobody re-adds them
+# ---------------------------------------------------------------------------
+rejected:
+  - id: cjpalhdlnbpafiamejdnhcphjbkeiagm
+    name: "uBlock Origin"
+    reason: >
+      manifest_version 2 - re-confirmed 2026-08-27 by downloading v1.74.0 and
+      reading its manifest. Chrome for Testing 152 refuses to load it: it does not appear
+      in chrome://extensions-internals/ at all and Selenium reports no error. Use uBlock
+      Origin Lite instead.
+
+  - id: ddkjiahejlhfcafbddmgiahcphecmpfh
+    name: "uBlock Origin Lite"
+    reason: >
+      Dropped 2026-08-27 when the pool was replaced by the 27-candidate list. All of its
+      WAR paths are dynamic and it ships no content scripts, leaving behavioural DNR
+      timing as the only signal, at 1-4s per round in ruleset re-indexing. Re-add only if
+      the pool needs a pure-DNR label and the round budget can absorb it.
