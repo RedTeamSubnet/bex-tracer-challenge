@@ -1,8 +1,25 @@
+from pathlib import Path
+
 from pydantic import BaseModel, Field, field_validator
 
 from potato_util.generator import gen_random_string
 
 from api.config import config
+
+# The checked-in stub, used as the OpenAPI example. Swagger pre-fills request
+# bodies from these, so a placeholder like "console.log('hi')" means anyone
+# who hits Try-it-out scores 0.0 with a confusing "no window.detect_extensions".
+_STUB_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "templates"
+    / "static"
+    / "detections"
+    / config.challenge.submission_file_name
+)
+try:
+    _STUB_CONTENT = _STUB_PATH.read_text(encoding="utf-8")
+except OSError:  # pragma: no cover - the app still runs without an example
+    _STUB_CONTENT = "window.detect_extensions = async () => ({});"
 
 
 class MinerInput(BaseModel):
@@ -35,7 +52,7 @@ class CommitFilePM(BaseModel):
         min_length=2,
         title="File Content",
         description="Content of the file as a string.",
-        examples=["console.log('Challenge accepted!');"],
+        examples=[_STUB_CONTENT],
     )
 
 

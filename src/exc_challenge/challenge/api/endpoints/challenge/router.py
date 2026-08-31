@@ -59,6 +59,14 @@ def get_task(request: Request):
     dependencies=[Depends(auth_api_key)],
 )
 def post_score(request: Request, miner_input: MinerInput, miner_output: MinerOutput):
+    """Score a submission.
+
+    `miner_input` is part of the subnet-wide /score contract - the validator
+    posts back the task it issued - but it is deliberately NOT forwarded to
+    `service.score()`. The pool must come from our own extensions.yml, never
+    from the request: a caller-supplied pool of one extension would make MCC
+    trivial to max. Do not "fix" this by passing it through.
+    """
 
     _request_id = request.state.request_id
     logger.info(f"[{_request_id}] - Scoring the miner output...")
@@ -72,9 +80,8 @@ def post_score(request: Request, miner_input: MinerInput, miner_output: MinerOut
             message="A scoring run is already in progress!",
         )
 
-    _score: float = 0.0
     try:
-        _score = service.score(request_id=_request_id, miner_output=miner_output)
+        _score: float = service.score(request_id=_request_id, miner_output=miner_output)
         logger.success(
             f"[{_request_id}] - Successfully scored the miner output: {_score}"
         )

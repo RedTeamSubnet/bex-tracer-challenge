@@ -19,6 +19,7 @@ import functools
 import json
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -355,7 +356,9 @@ def main() -> int:
         print(f"bait:     {page_url}\n")
         if not args.rounds:
             return _prove_they_load(pool, ids, settings, page_url, args)
-        return _score_rounds(pool, ids, probes, settings, page_url, args)
+        return _score_rounds(
+            pool, ids, probes, settings, page_url, args, layout.bait_dir
+        )
 
 
 def _prove_they_load(
@@ -392,6 +395,32 @@ def _prove_they_load(
     return 0
 
 
+def _stage_miner_js(miner_js: str, bait_dir: Path) -> Path:
+    """Write the miner's code where the bait page's <script src> will find it.
+
+    The API does the same thing in `endpoints/challenge/utils.py`; this is the
+    dev-tool copy so `run_round.py` keeps working from a checkout, where the app
+    config (and therefore that module) may not import.
+    """
+    target = bait_dir / "static" / "detections" / "solution.js"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    backup = target.with_suffix(".js.stub")
+    if target.is_file() and not backup.exists():
+        shutil.copy2(target, backup)
+    target.write_text(miner_js, encoding="utf-8")
+    return target
+
+
+def _restore_stub(target: Path) -> None:
+    """Put the checked-in stub back. Never raises - it runs in a `finally`."""
+    backup = target.with_suffix(".js.stub")
+    try:
+        if backup.is_file():
+            shutil.copy2(backup, target)
+    except OSError as err:
+        print(f"warning: could not restore {target.name}: {err}", file=sys.stderr)
+
+
 def _score_rounds(
     pool: list[Extension],
     ids: list[str],
@@ -399,36 +428,45 @@ def _score_rounds(
     settings: BrowserSettings,
     page_url: str,
     args: argparse.Namespace,
+    bait_dir: Path,
 ) -> int:
     miner_js = (
         war_probe_miner(probes)
         if args.miner == "war-probe"
         else Path(args.miner).read_text(encoding="utf-8")
     )
+    # The miner's code is no longer injected at sample time - the bait page
+    # loads it with a <script src>, so it has to be on disk before Chrome
+    # navigates. Same staging the API does, restored on the way out.
+    staged = _stage_miner_js(miner_js, bait_dir)
     k = min(args.k, len(ids))
     manager = PayloadManager(ids)
     manager.build_schedule(args.rounds, k, k)
 
     misses = 0
-    for rec in manager.rounds:
-        names = sorted(e.name for e in pool if e.id in rec.enabled)
-        print(f"[round {rec.index}] enabling {len(rec.enabled)}: {', '.join(names)}")
+    try:
+        for rec in manager.rounds:
+            names = sorted(e.name for e in pool if e.id in rec.enabled)
+            print(f"[round {rec.index}] enabling {len(rec.enabled)}: {', '.join(names)}")
 
-        started = time.monotonic()
-        try:
-            with chrome_on_bait_page(
-                settings, f"run-{rec.index}", sorted(rec.enabled), page_url, args
-            ) as session:
-                predicted = session.run_script(miner_js, ids, args.budget)
-        except BrowserError as err:
-            manager.record(rec.index, None, error=str(err))
-            print(f"    -> FAILED after {time.monotonic() - started:.1f}s: {err}\n")
-            continue
+            started = time.monotonic()
+            try:
+                with chrome_on_bait_page(
+                    settings, f"run-{rec.index}", sorted(rec.enabled), page_url, args
+                ) as session:
+                    predicted = session.run_script(ids, args.budget)
+            except BrowserError as err:
+                manager.record(rec.index, None, error=str(err))
+                print(f"    -> FAILED after {time.monotonic() - started:.1f}s: {err}\n")
+                continue
 
-        elapsed = time.monotonic() - started
-        score = manager.record(rec.index, predicted, duration_sec=round(elapsed, 2))
-        misses += print_verdicts(pool, rec.enabled, predicted, probes)
-        print(f"    -> score {score:.4f}  ({elapsed:.1f}s)\n")
+            elapsed = time.monotonic() - started
+            score = manager.record(rec.index, predicted, duration_sec=round(elapsed, 2))
+            misses += print_verdicts(pool, rec.enabled, predicted, probes)
+            print(f"    -> score {score:.4f}  ({elapsed:.1f}s)\n")
+
+    finally:
+        _restore_stub(staged)
 
     print(f"run score: {manager.calculate_score():.4f}")
 

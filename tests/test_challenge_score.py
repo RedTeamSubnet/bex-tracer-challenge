@@ -47,7 +47,7 @@ def challenge_config(monkeypatch):
 def fake_browser(answer):
     """Stand in for `run_round`, answering as `answer(enabled, pool)` says."""
 
-    def _run_round(subset, miner_js, *, pool, **_kwargs):
+    def _run_round(subset, *, pool, **_kwargs):
         return answer(set(subset), list(pool))
 
     return _run_round
@@ -211,6 +211,24 @@ def test_score_requires_the_api_key(client):
 
 def test_score_rejects_a_wrong_api_key(client):
     response = client.post("/score", json=payload(), headers={"X-API-Key": "nope"})
+    assert response.status_code == 401
+
+
+def test_score_rejects_a_key_with_illegal_characters(client):
+    """Reaches the charset check - `nope` is too short and stops at the length
+    guard, so without this the pattern branch is never exercised."""
+    response = client.post(
+        "/score", json=payload(), headers={"X-API-Key": "has spaces and.dots"}
+    )
+    assert response.status_code == 401
+
+
+def test_score_rejects_a_well_formed_but_wrong_key(client):
+    """Well-formed and long enough, so this is the only test that reaches
+    compare_digest - the branch that actually decides."""
+    response = client.post(
+        "/score", json=payload(), headers={"X-API-Key": "a" * 40}
+    )
     assert response.status_code == 401
 
 

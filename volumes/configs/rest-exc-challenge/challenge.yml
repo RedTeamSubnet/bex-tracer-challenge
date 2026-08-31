@@ -14,9 +14,11 @@ challenge:
   ## Raise only with measurement - see the field description in _challenge.py
   max_parallel_rounds: 1
 
-  # Wait after page load for extensions to act. Set to the p99 of
-  # time_to_stable_ms across the pool, floor 2s, cap 8s.
-  settle_seconds: 4.0
+  # Wait after page load for extensions to act. Covers the SLOWER of two
+  # clocks, measured by scripts/audit_activity.py:
+  #   DOM settles      by ~3.5s (LastPass is the slowest)
+  #   DNR rulesets bite at ~5s  (sample earlier and every blocker reads inert)
+  settle_seconds: 6.0
 
   # Hard cap on the miner script.
   script_budget_sec: 10.0

@@ -111,8 +111,15 @@ class BrowserSettings:
     page_load_timeout_sec: float = 30.0
 
 
-def wrap_miner_script(miner_js: str, budget_sec: float) -> str:
-    """Wrap miner code so a hang, a throw and a result are all reportable."""
+def wrap_miner_script(budget_sec: float) -> str:
+    """Call the miner's entrypoint so a hang, a throw and a result are all
+    reportable.
+
+    The miner's code is NOT injected here. It is served as
+    `static/detections/<submission_file_name>` and loaded by the bait page's
+    own `<script src>`, so by the time this runs `window.detect_extensions`
+    is already defined. This wrapper only invokes it and normalises the outcome.
+    """
     return f"""
         const done = arguments[arguments.length - 1];
         let settled = false;
@@ -124,7 +131,6 @@ def wrap_miner_script(miner_js: str, budget_sec: float) -> str:
         const timer = setTimeout(() => finish({{__timeout: true}}), {int(budget_sec * 1000)});
         (async () => {{
             try {{
-                {miner_js}
                 if (typeof window.{_MINER_ENTRYPOINT} !== "function") {{
                     finish({{__error: "no window.{_MINER_ENTRYPOINT}"}});
                     return;
@@ -289,13 +295,21 @@ class ChromeSession:
             raise BrowserInfraError(f"could not load the bait page: {err}") from err
         time.sleep(settle_seconds)
 
-    def run_script(
-        self, miner_js: str, pool: list[str], budget_sec: float
-    ) -> dict[str, bool]:
+    def run_script(self, pool: list[str], budget_sec: float) -> dict[str, bool]:
+        """Invoke the miner's entrypoint and normalise what it returned.
+
+        The wrapper turns the miner's own failures - a throw, a hang, a missing
+        entrypoint - into a result payload, so a `WebDriverException` out of
+        here is never the submission's fault. It is the renderer dying, which
+        is what shm exhaustion under concurrency looks like ("tab crashed").
+        That has to surface as `BrowserInfraError` or `service.py` books it
+        against the miner and the setup-failure guard never fires.
+        """
         self.driver.set_script_timeout(budget_sec + _SCRIPT_TIMEOUT_MARGIN_SEC)
-        result = self.driver.execute_async_script(
-            wrap_miner_script(miner_js, budget_sec)
-        )
+        try:
+            result = self.driver.execute_async_script(wrap_miner_script(budget_sec))
+        except WebDriverException as err:
+            raise BrowserInfraError(f"browser died running the script: {err}") from err
 
         if not isinstance(result, dict):
             raise BrowserError(f"wrapper returned {type(result).__name__}")
@@ -413,7 +427,6 @@ def _suppress(action: Any) -> None:
 
 def run_round(
     subset: set[str],
-    miner_js: str,
     *,
     pool: list[str],
     page_url: str,
@@ -443,7 +456,7 @@ def run_round(
         session.open_page(page_url, settle_seconds)
         session.interact()
         time.sleep(_GESTURE_SETTLE_SEC)
-        return session.run_script(miner_js, pool, script_budget_sec)
+        return session.run_script(pool, script_budget_sec)
 
 
 __all__ = [

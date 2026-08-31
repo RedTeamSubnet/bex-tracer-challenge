@@ -53,11 +53,13 @@ class ChallengeConfig(BaseConfig):
         "over-set P quietly deflates every miner's score",
     )
     settle_seconds: float = Field(
-        default=4.0,
+        default=6.0,
         gt=0,
         le=30,
-        description="Wait after load before running the miner script; "
-        "derive from the p99 of time_to_stable_ms across the pool",
+        description="Wait after page load before sampling. Must cover the "
+        "SLOWER of two clocks: the DOM settles by ~3.5s, but a blocker's "
+        "declarativeNetRequest rulesets do not bite until ~5s. Measured by "
+        "scripts/audit_activity.py",
     )
     script_budget_sec: float = Field(
         default=10.0, gt=0, description="Hard cap on the miner script"

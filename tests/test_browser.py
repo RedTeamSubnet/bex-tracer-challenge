@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from selenium.common.exceptions import WebDriverException
 
 sys.path.insert(
     0, str(Path(__file__).resolve().parent.parent / "src/exc_challenge/challenge")
@@ -16,6 +17,7 @@ sys.path.insert(
 
 from api.endpoints.challenge._browser import (  # noqa: E402
     BrowserError,
+    BrowserInfraError,
     BrowserSettings,
     ChromeSession,
     _BASE_ARGS,
@@ -73,17 +75,20 @@ def test_normalize_rejects_non_objects(raw):
 
 
 def test_wrapper_converts_budget_to_milliseconds():
-    assert "10000" in wrap_miner_script("", 10.0)
+    assert "10000" in wrap_miner_script(10.0)
 
 
-def test_wrapper_embeds_miner_code_and_entrypoint():
-    wrapped = wrap_miner_script("const marker = 1;", 5.0)
-    assert "const marker = 1;" in wrapped
+def test_wrapper_calls_the_entrypoint_without_embedding_source():
+    """The miner's code is served as static/detections/<name> and loaded by
+    the bait page, so the wrapper must only CALL it. Embedding source here
+    again would mean the submission runs twice, from two different places."""
+    wrapped = wrap_miner_script(5.0)
     assert "window.detect_extensions" in wrapped
+    assert "arguments[arguments.length - 1]" in wrapped
 
 
 def test_wrapper_handles_timeout_error_and_success():
-    wrapped = wrap_miner_script("", 5.0)
+    wrapped = wrap_miner_script(5.0)
     assert "__timeout" in wrapped
     assert "__error" in wrapped
     assert "ok:" in wrapped
@@ -207,9 +212,67 @@ def test_scratch_is_removed_on_exit(settings):
     assert not root.exists()
 
 
+# -- run_script: who gets the blame ----------------------------------------
+#
+# `service.py` refuses to publish a score once too many rounds fail on us, and
+# it tells the two apart with `isinstance(err, BrowserInfraError)`. These two
+# tests pin that classification from both sides; if either flips, the guard
+# either stops firing or starts firing on honest miner failures.
+
+
+class _ScriptDriver:
+    """Stands in for the Selenium driver, for `run_script` only."""
+
+    def __init__(self, outcome):
+        self._outcome = outcome
+
+    def set_script_timeout(self, _seconds):
+        pass
+
+    def execute_async_script(self, _script):
+        if isinstance(self._outcome, Exception):
+            raise self._outcome
+        return self._outcome
+
+
+def test_a_dead_renderer_is_our_fault_not_the_miners(settings):
+    """`tab crashed` is what shm exhaustion under concurrency looks like.
+
+    The wrapper turns the miner's own failures into a payload, so a
+    WebDriverException out of `execute_async_script` is always the browser
+    dying - and it must reach `service.py` as `BrowserInfraError`, or a run we
+    broke gets booked against the miner as a low score.
+    """
+    session = ChromeSession(settings, "test")
+    session.driver = _ScriptDriver(WebDriverException("tab crashed"))
+
+    with pytest.raises(BrowserInfraError, match="browser died"):
+        session.run_script(POOL, budget_sec=1.0)
+
+
+@pytest.mark.parametrize(
+    "payload, expected",
+    [
+        ({"__timeout": True}, "budget"),
+        ({"__error": "boom"}, "threw"),
+        ("not-a-dict", "wrapper returned"),
+    ],
+)
+def test_a_broken_submission_stays_the_miners_fault(settings, payload, expected):
+    """The mirror image: these are the miner's own failures and must NOT be
+    counted as infrastructure, or a genuinely broken submission would take the
+    whole run down with a 500 instead of scoring 0."""
+    session = ChromeSession(settings, "test")
+    session.driver = _ScriptDriver(payload)
+
+    with pytest.raises(BrowserError, match=expected) as caught:
+        session.run_script(POOL, budget_sec=1.0)
+    assert not isinstance(caught.value, BrowserInfraError)
+
+
 def test_run_round_rejects_an_empty_subset(settings):
     with pytest.raises(BrowserError, match="empty"):
-        run_round(set(), "", pool=POOL, page_url="http://x", settings=settings)
+        run_round(set(), pool=POOL, page_url="http://x", settings=settings)
 
 
 def test_run_round_drives_the_page_before_sampling(settings, monkeypatch):
@@ -239,16 +302,14 @@ def test_run_round_drives_the_page_before_sampling(settings, monkeypatch):
             calls.append("interact")
             return []
 
-        def run_script(self, miner_js, pool, budget):
+        def run_script(self, pool, budget):
             calls.append("run_script")
             return {e: False for e in pool}
 
     monkeypatch.setattr(browser, "ChromeSession", FakeSession)
     monkeypatch.setattr(browser.time, "sleep", lambda _s: None)
 
-    browser.run_round(
-        {"aaaa"}, "// js", pool=POOL, page_url="http://x", settings=settings
-    )
+    browser.run_round({"aaaa"}, pool=POOL, page_url="http://x", settings=settings)
 
     assert calls == ["launch", "open_page", "interact", "run_script"]
 
