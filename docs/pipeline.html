@@ -1,0 +1,950 @@
+<title>Pool to Score</title>
+<style>
+  :root {
+    --ground:      #F4F6F8;
+    --surface:     #FFFFFF;
+    --surface-2:   #EDF0F4;
+    --border:      #D8DEE6;
+    --border-firm: #B9C2CE;
+    --ink:         #151A21;
+    --ink-soft:    #46505F;
+    --ink-faint:   #6E7887;
+
+    --build:       #9A6B12;   /* build time — baked, permanent */
+    --build-bg:    #F6EDDC;
+    --run:         #0B6E77;   /* request time — ephemeral, per round */
+    --run-bg:      #DEEEEF;
+    --danger:      #A32A20;
+    --danger-bg:   #F7E4E2;
+
+    --shadow: 0 1px 2px rgba(16, 22, 30, .05), 0 8px 20px -14px rgba(16, 22, 30, .28);
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #101318; --surface: #171B22; --surface-2: #1F242D;
+      --border: #2B313B; --border-firm: #3D4553;
+      --ink: #E3E7ED; --ink-soft: #A6B0BE; --ink-faint: #7C8697;
+      --build: #D7A64A; --build-bg: #2A2314;
+      --run: #46BFC7; --run-bg: #102A2C;
+      --danger: #EC8A80; --danger-bg: #2E1917;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #101318; --surface: #171B22; --surface-2: #1F242D;
+    --border: #2B313B; --border-firm: #3D4553;
+    --ink: #E3E7ED; --ink-soft: #A6B0BE; --ink-faint: #7C8697;
+    --build: #D7A64A; --build-bg: #2A2314;
+    --run: #46BFC7; --run-bg: #102A2C;
+    --danger: #EC8A80; --danger-bg: #2E1917;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 24px -16px rgba(0,0,0,.8);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: var(--sans); font-size: 16.5px; line-height: 1.62;
+    margin: 0; padding: 0 20px 120px; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; }
+  .prose { max-width: 68ch; }
+
+  header.masthead {
+    padding: 68px 0 34px;
+    border-bottom: 1px solid var(--border); margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-faint); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: clamp(2.4rem, 5.5vw, 3.5rem); line-height: 1.06;
+    letter-spacing: -.015em; text-wrap: balance; margin: 0 0 20px;
+  }
+  .standfirst {
+    font-family: var(--serif); font-size: 1.2rem; line-height: 1.55;
+    color: var(--ink-soft); max-width: 62ch; margin: 0;
+  }
+  .key {
+    display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 28px 0 0;
+    padding: 0; list-style: none;
+    font-family: var(--mono); font-size: 12px; color: var(--ink-soft);
+  }
+  .key li { display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 22px; height: 3px; border-radius: 2px; flex: none; }
+  .sw-build { background: var(--build); }
+  .sw-run   { background: var(--run); }
+  .sw-fail  { background: var(--danger); }
+
+  .partbreak {
+    display: flex; align-items: baseline; gap: 16px;
+    margin: 0 0 40px; padding-top: 8px;
+  }
+  .partbreak .lab {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-faint); white-space: nowrap;
+  }
+  .partbreak .ttl {
+    font-family: var(--serif); font-size: 1.35rem; font-weight: 600;
+  }
+  .partbreak .rule { flex: 1; height: 1px; background: var(--border); }
+
+  section { margin: 0 0 68px; scroll-margin-top: 24px; }
+  h2 {
+    font-family: var(--serif); font-weight: 600; font-size: 1.85rem;
+    line-height: 1.2; letter-spacing: -.01em; margin: 0 0 6px; text-wrap: balance;
+  }
+  h2 .num {
+    font-family: var(--mono); font-size: .58em; font-weight: 500;
+    color: var(--ink-faint); letter-spacing: .06em;
+    margin-right: .7em; vertical-align: .18em;
+  }
+  h3 {
+    font-family: var(--sans); font-weight: 650; font-size: 1.02rem;
+    letter-spacing: -.005em; margin: 34px 0 10px;
+  }
+  .filepath {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint);
+    margin: 0 0 22px; word-break: break-all;
+  }
+  p { margin: 0 0 16px; }
+  a { color: var(--run); }
+
+  code {
+    font-family: var(--mono); font-size: .855em;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: .08em .34em; white-space: nowrap;
+  }
+  pre {
+    font-family: var(--mono); font-size: 12.8px; line-height: 1.62;
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--border-firm); border-radius: 6px;
+    padding: 16px 18px; overflow-x: auto; margin: 0 0 20px;
+  }
+  pre code { background: none; border: 0; padding: 0; font-size: inherit; white-space: pre; }
+  pre.build { border-left-color: var(--build); }
+  pre.run   { border-left-color: var(--run); }
+  pre.fail  { border-left-color: var(--danger); }
+
+  figure {
+    margin: 30px 0 32px; padding: 22px 22px 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: var(--shadow); overflow-x: auto;
+  }
+  figure svg { display: block; max-width: 100%; height: auto; min-width: 620px; }
+  figcaption {
+    font-size: 13.2px; line-height: 1.5; color: var(--ink-soft);
+    margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);
+    max-width: 76ch;
+  }
+
+  .mk-build { fill: var(--build); }
+  .mk-run { fill: var(--run); }
+  .mk-fail { fill: var(--danger); }
+  .mk-neutral { fill: currentColor; opacity: .5; }
+  .n-box { fill: var(--surface-2); stroke: var(--border-firm); stroke-width: 1.2; }
+  .b-box { fill: var(--build-bg); stroke: var(--build); stroke-width: 1.3; }
+  .r-box { fill: var(--run-bg);   stroke: var(--run);   stroke-width: 1.3; }
+  .f-box { fill: var(--danger-bg); stroke: var(--danger); stroke-width: 1.3; }
+  .b-line { stroke: var(--build); stroke-width: 1.6; fill: none; }
+  .r-line { stroke: var(--run);   stroke-width: 1.6; fill: none; }
+  .f-line { stroke: var(--danger); stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+  .n-line { stroke: currentColor; stroke-width: 1.3; fill: none; opacity: .5; }
+  .t     { fill: currentColor; font-family: var(--mono); font-size: 12.5px; }
+  .t-sm  { fill: currentColor; font-family: var(--mono); font-size: 10.8px; opacity: .78; }
+  .t-lane { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; }
+  .t-build { fill: var(--build); }
+  .t-run   { fill: var(--run); }
+  .t-fail  { fill: var(--danger); }
+  .t-b { font-weight: 600; }
+
+  .tblwrap {
+    overflow-x: auto; margin: 0 0 24px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--surface);
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 13.6px; min-width: 560px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 10.8px; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--ink-faint); font-weight: 500;
+    background: var(--surface-2);
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.fn { font-family: var(--mono); font-size: 12.4px; white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+
+  .note {
+    border: 1px solid var(--border); border-left: 3px solid var(--border-firm);
+    background: var(--surface); border-radius: 6px;
+    padding: 15px 18px; margin: 0 0 22px; font-size: 15px;
+  }
+  .note > :last-child { margin-bottom: 0; }
+  .note .lbl {
+    display: block; font-family: var(--mono); font-size: 10.8px;
+    letter-spacing: .09em; text-transform: uppercase; margin-bottom: 7px;
+  }
+  .note.trap { border-left-color: var(--danger); }
+  .note.trap .lbl { color: var(--danger); }
+  .note.build { border-left-color: var(--build); }
+  .note.build .lbl { color: var(--build); }
+  .note.run { border-left-color: var(--run); }
+  .note.run .lbl { color: var(--run); }
+
+  ul.tight { margin: 0 0 18px; padding-left: 20px; }
+  ul.tight li { margin-bottom: 7px; }
+
+  hr.rule { border: 0; border-top: 1px solid var(--border); margin: 0 0 44px; }
+  :focus-visible { outline: 2px solid var(--run); outline-offset: 3px; border-radius: 3px; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  @media (max-width: 620px) {
+    body { font-size: 16px; padding: 0 16px 80px; }
+    figure { padding: 16px 14px 12px; }
+    .partbreak { flex-wrap: wrap; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">redteam subnet &middot; extension-classification</p>
+  <h1>Pool to Score</h1>
+  <p class="standfirst">
+    A challenge that turns one browser question &mdash; <em>which extensions are
+    installed right now?</em> &mdash; into a number between 0 and 1. The idea
+    first, then every mechanism behind it.
+  </p>
+  <ul class="key">
+    <li><span class="swatch sw-build"></span> build time &mdash; once, inside <code>docker build</code></li>
+    <li><span class="swatch sw-run"></span> request time &mdash; per <code>POST /score</code></li>
+    <li><span class="swatch sw-fail"></span> failure &middot; open risk</li>
+  </ul>
+</header>
+
+<!-- ══════════════════════════ PART ONE ══════════════════════════ -->
+<div class="partbreak">
+  <span class="lab">Part one</span>
+  <span class="ttl">The idea</span>
+  <span class="rule"></span>
+</div>
+
+<section id="game">
+  <h2><span class="num">01</span>The game</h2>
+
+  <div class="prose">
+    <p>
+      We publish a fixed list of <strong>27 real Chrome extensions</strong> &mdash; ad
+      blockers, password managers, translators, shopping helpers. Every one is
+      downloaded from the actual Web Store and loaded under its real store ID.
+    </p>
+    <p>
+      Each round we secretly enable a random handful of them in a fresh Chrome,
+      open an ordinary-looking web page, and run the miner's JavaScript on that
+      page. The miner returns one <code>true</code>/<code>false</code> per
+      extension. We compare that against what we actually enabled.
+    </p>
+    <p>
+      That's the whole challenge. The difficulty is that a browser extension is
+      supposed to be invisible to the pages it runs on &mdash; so the miner has to
+      find the traces they leave anyway.
+    </p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 420" role="img" aria-label="Each round the challenge secretly draws a subset of the 27-extension pool, launches Chrome with those extensions on a bait page, runs the miner's JavaScript which returns one boolean per extension, and compares the guess to the hidden truth using MCC.">
+      <defs>
+        <marker id="g-run" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-run" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="g-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-fail" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+
+      <text class="t-lane t-run" x="20" y="24">ONE ROUND</text>
+
+      <rect class="n-box" x="20" y="44" width="176" height="72" rx="6"/>
+      <text class="t t-b" x="108" y="70" text-anchor="middle">the pool</text>
+      <text class="t-sm" x="108" y="89" text-anchor="middle">27 real extensions</text>
+      <text class="t-sm" x="108" y="105" text-anchor="middle">published to miners</text>
+
+      <path class="r-line" d="M196 80 L 246 80" marker-end="url(#g-run)"/>
+      <text class="t-sm t-run" x="200" y="68">draw 3&ndash;8</text>
+
+      <rect class="r-box" x="250" y="44" width="190" height="72" rx="6"/>
+      <text class="t t-b" x="345" y="70" text-anchor="middle">secret subset</text>
+      <text class="t-sm t-run t-b" x="345" y="89" text-anchor="middle">GROUND TRUTH</text>
+      <text class="t-sm" x="345" y="105" text-anchor="middle">secrets.SystemRandom()</text>
+
+      <path class="r-line" d="M440 80 L 490 80" marker-end="url(#g-run)"/>
+
+      <rect class="r-box" x="494" y="44" width="200" height="72" rx="6"/>
+      <text class="t t-b" x="594" y="70" text-anchor="middle">Chrome</text>
+      <text class="t-sm" x="594" y="89" text-anchor="middle">those extensions ON</text>
+      <text class="t-sm" x="594" y="105" text-anchor="middle">fresh profile, headless</text>
+
+      <path class="r-line" d="M594 116 L 594 156" marker-end="url(#g-run)"/>
+
+      <rect class="n-box" x="470" y="160" width="248" height="80" rx="6"/>
+      <text class="t t-b" x="594" y="186" text-anchor="middle">the bait page</text>
+      <text class="t-sm" x="594" y="205" text-anchor="middle">ads, a login form, a text area,</text>
+      <text class="t-sm" x="594" y="221" text-anchor="middle">a cookie banner &mdash; things</text>
+      <text class="t-sm" x="594" y="237" text-anchor="middle">extensions cannot resist touching</text>
+
+      <path class="r-line" d="M470 200 L 400 200" marker-end="url(#g-run)"/>
+      <text class="t-sm t-run" x="392" y="188" text-anchor="end">runs on it</text>
+
+      <rect class="r-box" x="170" y="160" width="224" height="80" rx="6"/>
+      <text class="t t-b" x="282" y="186" text-anchor="middle">the miner's JavaScript</text>
+      <text class="t-sm" x="282" y="207" text-anchor="middle">observes the page,</text>
+      <text class="t-sm" x="282" y="223" text-anchor="middle">returns 27 booleans</text>
+
+      <path class="r-line" d="M282 240 L 282 288" marker-end="url(#g-run)"/>
+      <path class="r-line" d="M345 116 C 345 140, 610 250, 610 288" marker-end="url(#g-run)"/>
+      <text class="t-sm t-run" x="470" y="272">the answer key</text>
+
+      <rect class="r-box" x="170" y="292" width="560" height="62" rx="6"/>
+      <text class="t t-b" x="450" y="318" text-anchor="middle">compare guess against truth &rarr; MCC, clamped to [0, 1]</text>
+      <text class="t-sm" x="450" y="338" text-anchor="middle">scored over all 27, not just the enabled ones &mdash; a false positive costs you</text>
+
+      <path class="r-line" d="M450 354 L 450 386" marker-end="url(#g-run)"/>
+      <text class="t t-b t-run" x="450" y="404" text-anchor="middle">one score per round &middot; averaged over the run</text>
+
+      <path class="f-line" d="M760 80 C 830 80, 830 300, 745 320" marker-end="url(#g-fail)"/>
+      <text class="t-sm t-fail t-b" x="770" y="180">the subset</text>
+      <text class="t-sm t-fail" x="770" y="196">never reaches</text>
+      <text class="t-sm t-fail" x="770" y="212">the page</text>
+    </svg>
+    <figcaption>
+      The dashed path is the invariant everything else protects: the enabled subset
+      exists only in Python memory. It is never written into the page, a global, a
+      query parameter, or the report. The miner's only route to it is what the
+      extensions themselves do.
+    </figcaption>
+  </figure>
+</section>
+
+<hr class="rule">
+
+<section id="subnet">
+  <h2><span class="num">02</span>Where it runs</h2>
+
+  <div class="prose">
+    <p>
+      We don't run this loop ourselves. A <strong>subnet validator</strong> does, on
+      its own schedule, against every miner competing on the challenge. Our
+      container answers two HTTP endpoints and nothing else.
+    </p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 340" role="img" aria-label="The validator starts both containers, fetches a task from the challenge, sends it to the miner's container to solve, then posts the miner's answer back to the challenge for scoring. A separate comparison step can zero the score if a submission is too similar to another miner's.">
+      <defs>
+        <marker id="s-run" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-run" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="s-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-fail" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+
+      <rect class="n-box" x="330" y="24" width="240" height="64" rx="6"/>
+      <text class="t t-b" x="450" y="50" text-anchor="middle">subnet validator</text>
+      <text class="t-sm" x="450" y="70" text-anchor="middle">starts both containers, drives the loop</text>
+
+      <rect class="r-box" x="20" y="150" width="250" height="86" rx="6"/>
+      <text class="t t-b" x="145" y="176" text-anchor="middle">our challenge container</text>
+      <text class="t-sm" x="145" y="196" text-anchor="middle">:10001</text>
+      <text class="t-sm" x="145" y="214" text-anchor="middle">GET /task &middot; POST /score</text>
+      <text class="t-sm" x="145" y="230" text-anchor="middle">Chrome + the 27 extensions</text>
+
+      <rect class="n-box" x="630" y="150" width="250" height="86" rx="6"/>
+      <text class="t t-b" x="755" y="176" text-anchor="middle">the miner's container</text>
+      <text class="t-sm" x="755" y="196" text-anchor="middle">:10002</text>
+      <text class="t-sm" x="755" y="214" text-anchor="middle">POST /solve</text>
+      <text class="t-sm" x="755" y="230" text-anchor="middle">returns solution.js</text>
+
+      <path class="r-line" d="M370 88 C 300 110, 200 120, 160 146" marker-end="url(#s-run)"/>
+      <text class="t-sm t-run" x="196" y="116">1. GET /task</text>
+      <text class="t-sm" x="196" y="132">&rarr; 27 ids</text>
+
+      <path class="r-line" d="M530 88 C 600 110, 700 120, 740 146" marker-end="url(#s-run)"/>
+      <text class="t-sm t-run" x="600" y="116">2. POST /solve</text>
+      <text class="t-sm" x="600" y="132">&rarr; solution.js</text>
+
+      <path class="r-line" d="M270 200 L 620 200" marker-end="url(#s-run)" stroke-dasharray="0"/>
+      <text class="t-sm t-run t-b" x="445" y="192" text-anchor="middle">3. POST /score &nbsp;{miner_input, miner_output}</text>
+      <text class="t-sm" x="445" y="218" text-anchor="middle">&larr; one float, after 20 real browser rounds</text>
+
+      <path class="f-line" d="M755 236 C 755 280, 640 292, 590 292" marker-end="url(#s-fail)"/>
+      <rect class="f-box" x="230" y="266" width="356" height="54" rx="6"/>
+      <text class="t t-b t-fail" x="408" y="290" text-anchor="middle">comparison gate</text>
+      <text class="t-sm t-fail" x="408" y="309" text-anchor="middle">too similar to another miner &rarr; score forced to 0.0</text>
+    </svg>
+    <figcaption>
+      Everything we control is the left box. The validator supplies both the task and
+      the miner's answer, so <code>/score</code> receives a <code>miner_input</code> it
+      deliberately ignores &mdash; trusting a caller-supplied pool would let a miner
+      shrink it to one extension and max the metric.
+    </figcaption>
+  </figure>
+
+  <div class="tblwrap">
+  <table>
+    <thead><tr><th>Setting</th><th class="num">Shipped</th><th>Means</th></tr></thead>
+    <tbody>
+      <tr><td class="fn">n_rounds</td><td class="num">20</td><td>browser launches per <code>/score</code></td></tr>
+      <tr><td class="fn">k_min / k_max</td><td class="num">3 / 8</td><td>extensions enabled per round, redrawn each time</td></tr>
+      <tr><td class="fn">settle_seconds</td><td class="num">4.0</td><td>pause after load before sampling</td></tr>
+      <tr><td class="fn">script_budget_sec</td><td class="num">10.0</td><td>hard cap on the miner's JavaScript</td></tr>
+      <tr><td class="fn">max_parallel_rounds</td><td class="num">4</td><td>concurrent browsers &mdash; roughly 1&nbsp;GB each</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note run">
+    <span class="lbl">Local dev differs</span>
+    <p style="margin-bottom:0">
+      <code>volumes/configs/</code> is currently tuned down for laptop testing:
+      <code>n_rounds: 5</code>, <code>k</code> fixed at <code>5</code>,
+      <code>max_parallel_rounds: 1</code>. Note that a <em>fixed</em> k removes a
+      real property &mdash; with k varying, cardinality is part of what the miner has
+      to get right; pinned, precision and recall are forced equal and false
+      positives stop costing anything.
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section id="hard">
+  <h2><span class="num">03</span>What makes it hard, and where it's fragile</h2>
+
+  <div class="prose">
+    <p>
+      An extension can be detected only through something it actually does. Four
+      classes of signal exist, and they are not equally available.
+    </p>
+  </div>
+
+  <div class="tblwrap">
+  <table>
+    <thead><tr><th>Signal</th><th>How it works</th><th class="num">Reach</th></tr></thead>
+    <tbody>
+      <tr>
+        <td class="fn">web-accessible<br>resources</td>
+        <td>Fetch <code>chrome-extension://&lt;id&gt;/some/file.css</code>. Resolves if installed, rejects if not. Deterministic.</td>
+        <td class="num">17 / 27</td>
+      </tr>
+      <tr>
+        <td class="fn">page footprint</td>
+        <td>Injected stylesheets, rewritten colours, stamped attributes, shadow roots.</td>
+        <td class="num">1 confirmed</td>
+      </tr>
+      <tr>
+        <td class="fn">request blocking</td>
+        <td>Blockers kill tracker requests before the network. <em>Which</em> hosts die is a fingerprint.</td>
+        <td class="num">3 of 4 blockers</td>
+      </tr>
+      <tr>
+        <td class="fn">gesture-triggered</td>
+        <td>Password managers inject only after a real click and keystroke on the field they watch.</td>
+        <td class="num">5 candidates</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note trap">
+    <span class="lbl">Open risk 1 &mdash; installed is not running</span>
+    <p>
+      A <code>chrome-extension://</code> fetch succeeds because the extension is
+      <strong>installed</strong>. It succeeds just as well when the extension's logic
+      never executes. So 17 of 27 labels are answerable with the extension completely
+      idle.
+    </p>
+    <p style="margin-bottom:0">
+      At least two are idle by construction: Ghostery ships all 33 of its blocking
+      rulesets with <code>enabled=False</code> until a human completes onboarding, and
+      Bitwarden has no page footprint without an unlocked vault. An extension that
+      never acts is a label no miner can earn.
+    </p>
+  </div>
+
+  <div class="note trap">
+    <span class="lbl">Open risk 2 &mdash; everyone writes the same file</span>
+    <p>
+      The pool is fixed, so the web-accessible-resource paths are fixed too. There is
+      one sensible way to write that lookup table, and every competent miner writes it.
+    </p>
+    <p style="margin-bottom:0">
+      The validator similarity-checks submissions against each other and
+      <strong>zeroes</strong> anything above the threshold. Two honest miners doing the
+      correct thing independently produce near-identical files and both score nothing.
+      Rotating the pool, or removing the shortcut entirely, is what fixes this.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════ PART TWO ══════════════════════════ -->
+<div class="partbreak">
+  <span class="lab">Part two</span>
+  <span class="ttl">The mechanism</span>
+  <span class="rule"></span>
+</div>
+
+<section id="lifetimes">
+  <h2><span class="num">04</span>Two lifetimes of one YAML file</h2>
+  <p class="filepath">extensions.yml</p>
+
+  <div class="prose">
+    <p>
+      <code>extensions.yml</code> is read twice, by two programs that never run at the
+      same time and share nothing but a directory on disk. At build time
+      <code>fetch_extensions.py</code> uses <code>id</code>, <code>sha256</code> and
+      <code>version</code> to fetch and verify real signed extensions. At request time
+      <code>_pool.py</code> reads <strong>only the <code>id</code></strong>.
+    </p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 470" role="img" aria-label="extensions.yml feeds two disjoint pipelines: a build-time one that downloads, verifies and unpacks extensions into /opt/extensions, and a request-time one that reads only the id list to pick a ground-truth subset and launch Chrome.">
+      <defs>
+        <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-build" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-run" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+
+      <text class="t-lane t-build" x="248" y="34">BUILD TIME &mdash; ONCE, IN THE IMAGE</text>
+      <text class="t-lane t-run"   x="248" y="446">REQUEST TIME &mdash; EVERY POST /score</text>
+
+      <rect class="n-box" x="18" y="196" width="168" height="72" rx="6"/>
+      <text class="t t-b" x="102" y="226" text-anchor="middle">extensions.yml</text>
+      <text class="t-sm"  x="102" y="245" text-anchor="middle">27 pool &middot; 2 rejected</text>
+
+      <rect class="b-box" x="248" y="52" width="182" height="62" rx="6"/>
+      <text class="t" x="339" y="78" text-anchor="middle">fetch_extensions</text>
+      <text class="t-sm" x="339" y="97" text-anchor="middle">download + sha256</text>
+
+      <rect class="b-box" x="466" y="52" width="182" height="62" rx="6"/>
+      <text class="t" x="557" y="78" text-anchor="middle">parse_crx3</text>
+      <text class="t-sm" x="557" y="97" text-anchor="middle">inject manifest key</text>
+
+      <rect class="b-box" x="684" y="52" width="198" height="62" rx="6"/>
+      <text class="t" x="783" y="78" text-anchor="middle">/opt/extensions/</text>
+      <text class="t-sm" x="783" y="97" text-anchor="middle">27 unpacked dirs</text>
+
+      <rect class="r-box" x="248" y="350" width="182" height="62" rx="6"/>
+      <text class="t" x="339" y="376" text-anchor="middle">load_pool_ids()</text>
+      <text class="t-sm" x="339" y="395" text-anchor="middle">tuple of 27 ids</text>
+
+      <rect class="r-box" x="466" y="350" width="182" height="62" rx="6"/>
+      <text class="t" x="557" y="376" text-anchor="middle">build_round_</text>
+      <text class="t" x="557" y="392" text-anchor="middle">schedule()</text>
+
+      <rect class="r-box" x="684" y="350" width="198" height="62" rx="6"/>
+      <text class="t" x="783" y="376" text-anchor="middle">ChromeSession</text>
+      <text class="t-sm" x="783" y="395" text-anchor="middle">--load-extension</text>
+
+      <path class="b-line" d="M186 214 C 214 214, 220 83, 244 83" marker-end="url(#ab)"/>
+      <text class="t-sm t-build" x="196" y="150">id &middot; sha256 &middot; version</text>
+      <path class="r-line" d="M186 250 C 214 250, 220 381, 244 381" marker-end="url(#ar)"/>
+      <text class="t-sm t-run" x="196" y="326">id only</text>
+
+      <path class="b-line" d="M430 83 L 462 83" marker-end="url(#ab)"/>
+      <path class="b-line" d="M648 83 L 680 83" marker-end="url(#ab)"/>
+      <path class="r-line" d="M430 381 L 462 381" marker-end="url(#ar)"/>
+      <text class="t-sm t-run" x="446" y="368">27</text>
+      <path class="r-line" d="M648 381 L 680 381" marker-end="url(#ar)"/>
+      <text class="t-sm t-run" x="640" y="340">3&ndash;8 ids</text>
+      <text class="t-sm t-run t-b" x="612" y="424">GROUND TRUTH</text>
+
+      <path class="n-line" d="M783 114 L 783 346" marker-end="url(#ar)"/>
+      <rect class="n-box" x="700" y="196" width="166" height="72" rx="6"/>
+      <text class="t" x="783" y="222" text-anchor="middle">copytree()</text>
+      <text class="t-sm" x="783" y="240" text-anchor="middle">/run/exc/round-N/ext/</text>
+      <text class="t-sm" x="783" y="256" text-anchor="middle">tmpfs, per round</text>
+
+      <line class="n-line" x1="18" y1="160" x2="882" y2="160" stroke-dasharray="3 6"/>
+      <line class="n-line" x1="18" y1="304" x2="882" y2="304" stroke-dasharray="3 6"/>
+    </svg>
+    <figcaption>
+      Only a directory of bytes crosses between the two. The build lane never learns
+      which extensions get enabled; the run lane never re-reads a manifest, version or
+      hash. Deleting <code>sha256</code> would break the build and change nothing at
+      runtime &mdash; which is why the file needs only five fields per entry.
+    </figcaption>
+  </figure>
+</section>
+
+<hr class="rule">
+
+<section id="crx">
+  <h2><span class="num">05</span>Loading extensions under their real IDs</h2>
+  <p class="filepath">scripts/fetch_extensions.py &mdash; build time only</p>
+
+  <div class="prose">
+    <p>
+      Store <code>.crx</code> manifests carry <strong>no <code>key</code> field</strong>
+      &mdash; the Web Store rejects uploads that have one, and Chrome injects it at
+      install time. Loading unpacked skips that step, and without it Chrome derives the
+      extension ID <strong>from the directory path</strong>.
+    </p>
+    <p>
+      The extension still loads. It still works. It just lives at
+      <code>chrome-extension://&lt;hash-of-a-path&gt;/</code> &mdash; so every probe
+      against the real store ID fails, all published prior art is useless, and the
+      challenge is quietly unsolvable. Recovering that key is most of what this script does.
+    </p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 400" role="img" aria-label="A CRX3 file splits into a 12-byte prefix, a protobuf header and a ZIP archive. The header yields one declared crx_id and several candidate public keys; only the key whose SHA-256 prefix re-encodes to the declared id is chosen, and that key is injected into manifest.json.">
+      <defs>
+        <marker id="ab2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-build" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="an2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-neutral" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="af2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-fail" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+
+      <text class="t-lane t-build" x="20" y="26">THE .CRX FILE ON THE WIRE</text>
+      <rect class="n-box" x="20" y="40" width="150" height="46" rx="4"/>
+      <text class="t-sm" x="95" y="60" text-anchor="middle">Cr24 | ver=3 | len</text>
+      <text class="t-sm" x="95" y="76" text-anchor="middle">12 bytes</text>
+
+      <rect class="b-box" x="176" y="40" width="300" height="46" rx="4"/>
+      <text class="t" x="326" y="60" text-anchor="middle">CRX3 header</text>
+      <text class="t-sm" x="326" y="77" text-anchor="middle">protobuf, scanned by _fields()</text>
+
+      <rect class="n-box" x="482" y="40" width="398" height="46" rx="4"/>
+      <text class="t" x="681" y="60" text-anchor="middle">ZIP archive</text>
+      <text class="t-sm" x="681" y="77" text-anchor="middle">the extension itself</text>
+
+      <path class="b-line" d="M250 86 L 250 128" marker-end="url(#ab2)"/>
+      <path class="b-line" d="M410 86 L 410 128" marker-end="url(#ab2)"/>
+
+      <rect class="b-box" x="20" y="132" width="222" height="58" rx="6"/>
+      <text class="t-sm" x="131" y="153" text-anchor="middle">field 10000 &rarr; signed_header</text>
+      <text class="t t-b" x="131" y="174" text-anchor="middle">declared crx_id</text>
+
+      <rect class="b-box" x="290" y="132" width="242" height="58" rx="6"/>
+      <text class="t-sm" x="411" y="153" text-anchor="middle">fields 2 / 3 &rarr; key proofs</text>
+      <text class="t t-b" x="411" y="174" text-anchor="middle">N candidate pubkeys</text>
+
+      <path class="b-line" d="M131 190 L 131 236" marker-end="url(#ab2)"/>
+      <path class="b-line" d="M411 190 L 411 236" marker-end="url(#ab2)"/>
+
+      <rect class="n-box" x="20" y="240" width="512" height="66" rx="6"/>
+      <text class="t t-b" x="276" y="264" text-anchor="middle">crx_id_from_pubkey(k) == declared_id ?</text>
+      <text class="t-sm" x="276" y="286" text-anchor="middle">sha256(k)[:16] &rarr; nibbles 0&ndash;f mapped onto a&ndash;p</text>
+
+      <path class="b-line" d="M276 306 L 276 344" marker-end="url(#ab2)"/>
+      <rect class="b-box" x="120" y="348" width="312" height="42" rx="6"/>
+      <text class="t t-b" x="276" y="374" text-anchor="middle">the one true signing key</text>
+
+      <path class="n-line" d="M681 86 L 681 236" marker-end="url(#an2)"/>
+      <rect class="n-box" x="576" y="240" width="210" height="66" rx="6"/>
+      <text class="t" x="681" y="266" text-anchor="middle">manifest.json</text>
+      <text class="t-sm" x="681" y="286" text-anchor="middle">read utf-8-sig (BOMs!)</text>
+
+      <path class="b-line" d="M432 369 C 620 369, 660 330, 676 310" marker-end="url(#ab2)"/>
+      <text class="t-sm t-build t-b" x="470" y="340">inject as "key"</text>
+
+      <path class="f-line" d="M540 165 L 700 165" marker-end="url(#af2)"/>
+      <rect class="f-box" x="706" y="130" width="176" height="72" rx="6"/>
+      <text class="t-sm t-fail" x="794" y="152" text-anchor="middle">taking pubkeys[0]</text>
+      <text class="t-sm t-fail t-b" x="794" y="170" text-anchor="middle">wrong id, silently</text>
+      <text class="t-sm t-fail" x="794" y="188" text-anchor="middle">no error anywhere</text>
+    </svg>
+    <figcaption>
+      A CRX3 header carries <em>several</em> <code>AsymmetricKeyProof</code> entries.
+      Taking the first yields a plausible-looking 32-character ID that is simply wrong,
+      and nothing downstream complains &mdash; so each candidate is hashed and only the
+      one that re-derives the header's own declared ID is kept.
+    </figcaption>
+  </figure>
+</section>
+
+<hr class="rule">
+
+<section id="round">
+  <h2><span class="num">06</span>One round, start to finish</h2>
+  <p class="filepath">api/endpoints/challenge/_browser.py &middot; service.py</p>
+
+  <div class="prose">
+    <p>
+      The miner's file is <strong>served, not injected</strong>. Before the rounds
+      start, <code>service.py</code> writes it to
+      <code>templates/static/detections/solution.js</code>, which the bait page loads
+      with its own <code>&lt;script src&gt;</code> &mdash; the same model
+      <code>ab_sniffer</code> and <code>ada_detection</code> use. The stub is restored
+      afterwards so a miner's code never outlives the run that sent it.
+    </p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 900 560" role="img" aria-label="A round proceeds through eight stages: stage the miner file, copy extensions to tmpfs, build Chrome options with the load-extension flag, start chromedriver, verify loaded ids via chrome extensions-internals, load the bait page and settle, perform a fixed gesture script, call the miner's entrypoint, then tear down.">
+      <defs>
+        <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-run" d="M0,0 L10,5 L0,10 z"/></marker>
+        <marker id="af4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-fail" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+
+      <text class="t-lane t-run" x="20" y="24">ChromeSession &mdash; scratch root: /run/exc/round-&lt;tag&gt;/</text>
+
+      <rect class="b-box" x="20" y="40" width="250" height="52" rx="6"/>
+      <text class="t-sm" x="34" y="60">before the loop</text>
+      <text class="t t-b" x="34" y="80">stage solution.js</text>
+
+      <rect class="r-box" x="20" y="104" width="250" height="52" rx="6"/>
+      <text class="t-sm" x="34" y="124">_stage_extensions()</text>
+      <text class="t t-b" x="34" y="144">copytree per id</text>
+
+      <rect class="r-box" x="20" y="168" width="250" height="52" rx="6"/>
+      <text class="t-sm" x="34" y="188">_build_options()</text>
+      <text class="t t-b" x="34" y="208">--load-extension=a,b,c</text>
+
+      <rect class="r-box" x="20" y="232" width="250" height="52" rx="6"/>
+      <text class="t-sm" x="34" y="252">_read_loaded_ids()</text>
+      <text class="t t-b" x="34" y="272">ask Chrome what loaded</text>
+
+      <rect class="r-box" x="20" y="296" width="250" height="52" rx="6"/>
+      <text class="t-sm" x="34" y="316">open_page()</text>
+      <text class="t t-b" x="34" y="336">navigate + settle 4s</text>
+
+      <rect class="r-box" x="20" y="360" width="250" height="52" rx="6"/>
+      <text class="t-sm" x="34" y="380">interact()</text>
+      <text class="t t-b" x="34" y="400">6 fixed gestures + 1.5s</text>
+
+      <rect class="r-box" x="20" y="424" width="250" height="52" rx="6"/>
+      <text class="t-sm" x="34" y="444">run_script()</text>
+      <text class="t t-b" x="34" y="464">call detect_extensions()</text>
+
+      <rect class="r-box" x="20" y="488" width="250" height="52" rx="6"/>
+      <text class="t-sm" x="34" y="508">close()</text>
+      <text class="t t-b" x="34" y="528">quit &middot; sweep &middot; rmtree</text>
+
+      <path class="r-line" d="M145 92 L 145 100"  marker-end="url(#ar4)"/>
+      <path class="r-line" d="M145 156 L 145 164" marker-end="url(#ar4)"/>
+      <path class="r-line" d="M145 220 L 145 228" marker-end="url(#ar4)"/>
+      <path class="r-line" d="M145 284 L 145 292" marker-end="url(#ar4)"/>
+      <path class="r-line" d="M145 348 L 145 356" marker-end="url(#ar4)"/>
+      <path class="r-line" d="M145 412 L 145 420" marker-end="url(#ar4)"/>
+      <path class="r-line" d="M145 476 L 145 484" marker-end="url(#ar4)"/>
+
+      <line class="n-line" x1="300" y1="40" x2="300" y2="540" stroke-dasharray="3 6"/>
+
+      <text class="t-sm" x="320" y="60">written to templates/static/detections/, loaded by</text>
+      <text class="t-sm" x="320" y="77">the page's own &lt;script src&gt;. Restored in a finally.</text>
+
+      <text class="t-sm" x="320" y="124">Chrome rewrites <tspan class="t-b">_metadata/</tspan> on every unpacked load &mdash;</text>
+      <text class="t-sm" x="320" y="141">a read-only source makes static DNR silently no-op,</text>
+      <text class="t-sm" x="320" y="158">so the bytes are copied, not referenced</text>
+
+      <text class="t-sm" x="320" y="188">absolute paths, comma-joined; also sets a fresh</text>
+      <text class="t-sm" x="320" y="205"><tspan class="t-b">--user-data-dir</tspan> and <tspan class="t-b">--headless=new</tspan></text>
+
+      <text class="t-sm" x="320" y="252">reads <tspan class="t-b">chrome://extensions-internals/</tspan> &mdash; Chrome reports</text>
+      <text class="t-sm" x="320" y="269">no error when an extension fails to load, so this is</text>
+      <text class="t-sm" x="320" y="286">the only thing that catches it</text>
+
+      <text class="t-sm" x="320" y="316">service workers spin up, DNR re-indexes and content</text>
+      <text class="t-sm" x="320" y="333">scripts inject asynchronously &mdash; sampling early turns a</text>
+      <text class="t-sm" x="320" y="350">detectable extension into a false negative</text>
+
+      <text class="t-sm" x="320" y="380">click, type, scroll &mdash; identical every round, so it</text>
+      <text class="t-sm" x="320" y="397">cannot leak which extensions are on. Without it the</text>
+      <text class="t-sm" x="320" y="414">password managers are undetectable</text>
+
+      <text class="t-sm" x="320" y="444">already defined by the page; the wrapper only calls it,</text>
+      <text class="t-sm" x="320" y="461">so hang / throw / result are all distinguishable</text>
+
+      <text class="t-sm" x="320" y="508">sweep + rmtree run even when <tspan class="t-b">driver.quit()</tspan> fails &mdash;</text>
+      <text class="t-sm" x="320" y="525">it fails exactly when cleanup matters most</text>
+
+      <path class="f-line" d="M270 258 C 700 258, 690 236, 712 236" marker-end="url(#af4)"/>
+      <rect class="f-box" x="716" y="206" width="166" height="60" rx="6"/>
+      <text class="t-sm t-fail t-b" x="799" y="230" text-anchor="middle">any id missing</text>
+      <text class="t-sm t-fail" x="799" y="249" text-anchor="middle">raise BrowserInfraError</text>
+    </svg>
+    <figcaption>
+      Up to four of these run concurrently. Each gets its own scratch root, and the
+      process sweeper matches leftovers by that path &mdash; which is what keeps one
+      round's teardown from killing another round's browser.
+    </figcaption>
+  </figure>
+
+  <pre class="run"><code>binary_location = /opt/chrome/browser/chrome
+
+--headless=new
+--user-data-dir=/run/exc/round-&lt;req-id&gt;-7/profile
+--load-extension=/run/exc/round-&lt;req-id&gt;-7/ext/cfhdojbkjhnklbpkdaibdccddilifddb,
+                 /run/exc/round-&lt;req-id&gt;-7/ext/mlomiejdfkolichcflejclcbmpeaniij,
+                 /run/exc/round-&lt;req-id&gt;-7/ext/pkehgijcmpdhfbdbbnkijodmdjhbjlgp</code></pre>
+
+  <p class="prose">
+    That comma-separated path list <em>is</em> how extensions get enabled &mdash; a
+    Chrome command-line flag, not a Selenium API. Never
+    <code>options.add_extension()</code> (a different code path, with different ID
+    derivation) and never a BiDi install.
+  </p>
+</section>
+
+<hr class="rule">
+
+<section id="scoring">
+  <h2><span class="num">07</span>Scoring</h2>
+  <p class="filepath">api/endpoints/challenge/_payload_manager.py</p>
+
+  <figure>
+    <svg viewBox="0 0 900 300" role="img" aria-label="A round scores by comparing the miner's boolean for all 27 pool extensions against the enabled subset, producing true positives, false positives, false negatives and a large true-negative count, which feed the Matthews correlation coefficient, then the mean over all rounds.">
+      <defs>
+        <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-run" d="M0,0 L10,5 L0,10 z"/></marker>
+      </defs>
+
+      <text class="t-lane t-run" x="20" y="24">ALL 27 POOL IDS &mdash; ACTUAL vs GUESSED</text>
+
+      <rect class="r-box" x="20"  y="40" width="26" height="26" rx="3"/>
+      <rect class="r-box" x="52"  y="40" width="26" height="26" rx="3"/>
+      <rect class="r-box" x="84"  y="40" width="26" height="26" rx="3"/>
+      <rect class="r-box" x="116" y="40" width="26" height="26" rx="3"/>
+      <rect class="f-box" x="148" y="40" width="26" height="26" rx="3"/>
+      <rect class="f-box" x="196" y="40" width="26" height="26" rx="3"/>
+      <rect class="f-box" x="228" y="40" width="26" height="26" rx="3"/>
+
+      <rect class="n-box" x="276" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="308" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="340" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="372" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="404" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="436" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="468" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="500" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="532" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="564" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="596" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="628" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="660" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="692" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="724" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="756" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="788" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="820" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="852" y="40" width="26" height="26" rx="3"/>
+      <rect class="n-box" x="20"  y="72" width="26" height="26" rx="3"/>
+
+      <text class="t-sm t-run"  x="20"  y="118">tp = 4</text>
+      <text class="t-sm t-fail" x="148" y="118">fn = 1</text>
+      <text class="t-sm t-fail" x="196" y="118">fp = 2</text>
+      <text class="t-sm"        x="276" y="118">tn = 20  &mdash;  the class that dominates</text>
+
+      <path class="r-line" d="M120 130 L 120 162" marker-end="url(#ar3)"/>
+      <rect class="r-box" x="20" y="166" width="420" height="58" rx="6"/>
+      <text class="t t-b" x="230" y="190" text-anchor="middle">mcc = (tp&middot;tn &minus; fp&middot;fn) / &radic;(&hellip;)</text>
+      <text class="t-sm" x="230" y="211" text-anchor="middle">0.0 when the denominator vanishes</text>
+
+      <path class="r-line" d="M440 195 L 486 195" marker-end="url(#ar3)"/>
+      <rect class="r-box" x="490" y="166" width="180" height="58" rx="6"/>
+      <text class="t t-b" x="580" y="190" text-anchor="middle">max(0.0, mcc)</text>
+      <text class="t-sm" x="580" y="211" text-anchor="middle">one round's score</text>
+
+      <path class="r-line" d="M670 195 L 716 195" marker-end="url(#ar3)"/>
+      <rect class="r-box" x="720" y="166" width="160" height="58" rx="6"/>
+      <text class="t t-b" x="800" y="190" text-anchor="middle">mean over 20</text>
+      <text class="t-sm" x="800" y="211" text-anchor="middle">the run score</text>
+
+      <text class="t-sm" x="20" y="262">Missing key in the miner's dict &rarr; counted False. Omitting an answer is never rewarded.</text>
+      <text class="t-sm" x="20" y="282">All-one-class answer &rarr; denominator is 0 &rarr; score 0. "Everything is on" carries no information.</text>
+    </svg>
+    <figcaption>
+      Scoring runs over every ID in the pool, not just the enabled ones &mdash; which is
+      why true negatives dominate, and why the metric is MCC rather than F1. MCC is the
+      one common coefficient that actually uses the <code>tn</code> cell, so a miner is
+      penalised for false positives on the ~20 extensions that were off.
+    </figcaption>
+  </figure>
+
+  <div class="note trap">
+    <span class="lbl">Known property</span>
+    <p style="margin-bottom:0">
+      <code>max(0.0, mcc)</code> clamps <em>per round</em>, before averaging. Negative
+      correlation folds up to zero, so a zero-information guesser scores about
+      <strong>0.08</strong> &mdash; and because that is bias rather than variance,
+      averaging more rounds does not remove it. Clamping the run mean instead would let
+      negative rounds cancel positive ones and drive a guesser to 0.
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section id="failure">
+  <h2><span class="num">08</span>When something breaks</h2>
+
+  <div class="prose">
+    <p>
+      A failed round scores <code>0.0</code> and stays in the denominator, so browser
+      flakiness is indistinguishable from a bad miner &mdash; except that one is our
+      fault. The code separates them.
+    </p>
+  </div>
+
+  <pre class="fail"><code>BrowserError       the miner's script threw, timed out, or returned junk
+                   -> round scores 0.0, run continues
+
+BrowserInfraError  Chrome would not start, an id did not load, tab crashed
+                   -> counted separately; if more than 20% of rounds fail
+                      this way, /score RAISES instead of returning a number
+
+RuntimeError       pool missing, k_max > pool size
+                   -> 500 before any round runs</code></pre>
+
+  <div class="note run">
+    <span class="lbl">Why the infra split matters</span>
+    <p style="margin-bottom:0">
+      Returning <code>0.31</code> because our browsers died looks exactly like a weak
+      miner and would be recorded as their score. Failing the request instead makes it
+      unmistakably our problem. One scoring run at a time is enforced by a
+      non-blocking lock &mdash; a second concurrent call gets <code>429</code> rather
+      than thrashing the box and corrupting every round's timing.
+    </p>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section id="chain">
+  <h2><span class="num">09</span>The call chain</h2>
+
+  <pre class="run"><code>POST /score
+ └─ router.post_score()                     lock, auth, 429 if busy
+     └─ service.score(request_id, miner_output)
+         ├─ load_pool_ids()                 _pool.py    → 27 ids (cached)
+         ├─ PayloadManager(pool)
+         │   └─ build_schedule(20, 3, 8)
+         │       └─ secrets.SystemRandom().sample()   ← GROUND TRUTH
+         ├─ stage_detection_files()         miner's js → templates/static/detections/
+         │
+         ├─ ThreadPoolExecutor(max_workers=4)         ← 20 rounds
+         │   └─ run_round(rec.enabled, pool=…)        _browser.py
+         │       └─ with ChromeSession(settings, tag):
+         │           ├─ _stage_extensions()   /opt/extensions → /run/exc
+         │           ├─ _build_options()      --load-extension=…
+         │           ├─ _read_loaded_ids()    chrome://extensions-internals/
+         │           ├─ open_page()           bait page + 4s settle
+         │           ├─ interact()            6 gestures + 1.5s
+         │           ├─ run_script()          window.detect_extensions()
+         │           └─ close()               quit · sweep · rmtree
+         │
+         ├─ manager.record(...)              → max(0.0, mcc(...))
+         ├─ calculate_score()                mean over 20 → float
+         └─ finally: restore_stubs()         miner's code removed from disk</code></pre>
+
+  <div class="note">
+    <span class="lbl">The invariant everything protects</span>
+    <p style="margin-bottom:0">
+      <code>rec.enabled</code> exists only in Python memory. It is never written into
+      the bait page, exposed as a global, passed as a query parameter, or included in
+      the report &mdash; which publishes <code>n_enabled</code>, never the ids. The
+      miner's only route to it is observing what the extensions actually do.
+    </p>
+  </div>
+</section>
+
+</div>

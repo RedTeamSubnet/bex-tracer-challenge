@@ -1,6 +1,7 @@
 # Extension Classification Challenge (`exc`) — Design
 
-> Design document and build plan for the `exc` challenge.
+> Design rationale for the `exc` challenge — the **why**.
+> To build it, follow [`BUILD.md`](./BUILD.md), the ordered execution checklist.
 > Diagram: [`architecture.excalidraw`](./architecture.excalidraw) (open at excalidraw.com).
 
 ## Context
@@ -25,7 +26,7 @@ pipeline dependency.
 | Threat model | Page-context JS, injected post-load via `execute_async_script` |
 | Browser driver | **Selenium, in-repo** |
 | Extension pool | ~30, IDs published to miners |
-| Enabled per trial | **Random k ∈ [3,8]**, subset never revealed |
+| Enabled per round | **Random k ∈ [3,8]**, subset never revealed |
 | Sourcing | `.crx` from the Chrome Web Store, downloaded at image build |
 | Metric | **MCC** over all N binary decisions, `max(0, mcc)` → `[0,1]` |
 | Miner output | `{extensionId: true\|false}` — plain booleans |
@@ -49,8 +50,8 @@ every trivial strategy (all-true, all-false, random).
 ```
 MCC = (TP·TN − FP·FN) / sqrt((TP+FP)(TP+FN)(TN+FP)(TN+FN))
       → 0.0 when the denominator is 0 (miner answered all-one-class)
-score_trial = max(0.0, MCC)
-score_run   = mean over trials
+score_round = max(0.0, MCC)
+score_run   = mean over rounds
 ```
 
 This matters because of what sits downstream: the validator feeds the `[0,1]` score into a
@@ -92,7 +93,7 @@ validator ──GET  /task ─────────────► challenge 
           ──POST /score ────────────►   │  {miner_input, miner_output} → bare float
                                         │
                                         ▼
-                          for trial in 1..T:
+                          for round in 1..T:
                             pick random k∈[3,8], random subset of pool
                             launch Chrome for Testing (headless)
                               --load-extension=<k unpacked dirs>
@@ -100,7 +101,7 @@ validator ──GET  /task ─────────────► challenge 
                             settle N seconds
                             execute_async_script(miner JS, budget)  → {extId: bool}
                             quit driver
-                          score = mean(max(0, MCC_trial))
+                          score = mean(max(0, MCC_round))
 ```
 
 The bait page is served by the challenge API itself and is **completely static** — no ground
@@ -136,8 +137,8 @@ extension-classification/
                 ├── router.py           EDIT add auth to /score
                 ├── schemas.py          EDIT solution.js contract + pool in MinerInput
                 ├── service.py          EDIT orchestration only, replacing random.random()
-                ├── _payload_manager.py NEW  trial schedule (ground truth) + predictions + MCC
-                └── _browser.py         NEW  launch Chrome, run one trial
+                ├── _payload_manager.py NEW  round schedule (ground truth) + predictions + MCC
+                └── _browser.py         NEW  launch Chrome, run one round
 ```
 
 **Six new files.** Note on `_payload_manager.py`: the cookiecutter template ships **no** payload
@@ -153,10 +154,10 @@ converged on, not inherited scaffolding, so we add ours too:
 | `_bot_runner.py` | `_browser.py` | How we drive a browser, kept out of the HTTP layer |
 
 `_payload_manager.py` owns, exactly as ADA3's does:
-- `build_trial_schedule(pool, T, k_range)` → per-trial enabled subsets. This **is** the ground
+- `build_round_schedule(pool, T, k_range)` → per-round enabled subsets. This **is** the ground
   truth, and keeping it separable makes it unit-testable on its own (ADA3 has a dedicated
   `tests/test_run_schedule.py` for precisely this).
-- the recorded per-trial predictions
+- the recorded per-round predictions
 - `calculate_score()` → `mean(max(0, MCC))`, plus scoring constants at module top
 
 Deliberately *not* creating:
@@ -207,7 +208,7 @@ Rules when picking, all checked in the same pass:
   it's permanent label noise that caps achievable MCC below 1.0 for reasons no miner can beat.
 - **Go easy on heavy ad blockers.** Static DNR rulesets are re-indexed on *every* launch and
   can't be cached (Chrome wipes `_metadata/` each load). A uBlock-class extension costs 1–4s per
-  trial. One or two per subset is fine; fifteen would make scoring unusably slow.
+  round. One or two per subset is fine; fifteen would make scoring unusably slow.
 
 ### `scripts/fetch_extensions.py` — build time only
 
@@ -265,15 +266,21 @@ extension pool has to live somewhere miners can read.
   `libglib2.0-0t64`. Pasting a bookworm dependency list here is the most likely way this build
   fails.
 - **`tini` as PID 1** (or `init: true`). Chrome forks a zygote plus renderers; without a reaper
-  we accumulate zombies across trials.
+  we accumulate zombies across rounds.
 - Xvfb installed but **only started behind a dev flag**. Running it in prod "just in case"
   changes Chrome's code path and invalidates headless-vs-headful equivalence.
 - Add `selenium` and `psutil` to `challenge/requirements.txt`. Pass `executable_path` explicitly
   so Selenium Manager never runs — it phones home.
 
-**Platform note:** CfT ships no `linux-arm64` before v153. On Apple Silicon, either run
-`--platform=linux/amd64` (slow under emulation) or pin a 153+ build. Worth deciding early —
-it affects local dev ergonomics.
+**Platform note (dev ergonomics only, not blocking).** CfT Stable 152 ships
+`linux64, mac-arm64, mac-x64, win32, win64` — no `linux-arm64` until v153 (Beta). Prod is x86
+Linux, so 152 `linux64` is correct there and nothing about the design depends on this.
+
+It only affects running Chrome *inside a Linux container* on an Apple Silicon Mac, which would
+need `--platform=linux/amd64` under QEMU — fine for a Python API container (ADA3 and flowprint
+both do it) but slow and flaky for Chrome. Note this does **not** affect local experimentation:
+CfT ships `mac-arm64`, so Chrome runs natively on the Mac outside Docker. Defer the container
+platform decision until the containerisation step.
 
 **Build-time gates** — fail the image, not the first `/score`: `ldd chrome` has no "not found";
 `chrome --version` matches the pin; a one-extension headless launch actually loads it (this is
@@ -282,7 +289,7 @@ store ID; no extension path contains a comma.
 
 `compose.yml` (**dev**) *and* the `challenge_container_run_kwargs` block for
 `active_challenges.yaml` (**prod**) — both need: `shm_size: 2gb` (the 64MB default crashes tabs),
-`tmpfs` for trial scratch, `mem_limit: 8g`, `pids_limit`, `cap_drop: ALL`, `no-new-privileges`,
+`tmpfs` for round scratch, `mem_limit: 8g`, `pids_limit`, `cap_drop: ALL`, `no-new-privileges`,
 seccomp profile, and an `internal: true` network (see Network policy). Prod ignores `compose.yml`
 entirely, so keep the two in sync and document the yaml block in `docs/design.md`.
 **Do not use `privileged: true`** even though sibling challenges do — we execute miner-submitted
@@ -291,17 +298,17 @@ attacker JS plus a privileged container is a renderer-RCE-to-host-escape chain.
 
 ### 3. Browser runner
 
-**`api/endpoints/challenge/_browser.py`** — one job: `run_trial(subset, miner_js) -> dict[str, bool]`.
+**`api/endpoints/challenge/_browser.py`** — one job: `run_round(subset, miner_js) -> dict[str, bool]`.
 Launch, navigate, settle, inject, collect, quit.
 
 Care points:
 
-- **Copy the k selected extension dirs into per-trial scratch before launching.** Chrome calls
+- **Copy the k selected extension dirs into per-round scratch before launching.** Chrome calls
   `MaybeCleanupMetadataFolder()` on every unpacked load, deleting and rebuilding
   `<ext>/_metadata/generated_indexed_rulesets/`. If the extension dir isn't writable, static DNR
   rules **silently fail to apply** — ad blockers become no-ops, labels are wrong, and no error is
   raised. This is the most dangerous failure mode in the design. Copying also avoids two
-  concurrent trials racing on the same `_metadata` dir. Because we injected `key`, the path
+  concurrent rounds racing on the same `_metadata` dir. Because we injected `key`, the path
   change doesn't change the ID — which is exactly why key injection is non-negotiable.
 - `--headless=new` in prod. (Old headless was removed in Chrome 132; the flag is now a synonym,
   but pass it to document intent.)
@@ -311,13 +318,13 @@ Care points:
   `--disable-component-extensions-with-background-pages` all break things too. Keep the list
   minimal.
 - **Assert the extensions actually loaded**, by ID, right after launch. A mis-keyed extension
-  otherwise becomes a permanent silent false negative in every trial it appears in.
-- Fresh `--user-data-dir` per trial. No seed-profile snapshotting — it would need warming via
+  otherwise becomes a permanent silent false negative in every round it appears in.
+- Fresh `--user-data-dir` per round. No seed-profile snapshotting — it would need warming via
   `--load-extension` specifically (profiles warmed any other way make `InstalledLoader` resurrect
   all 30 extensions on every launch, silently destroying subset selection).
 - `driver.quit()` in a `finally`, plus a process-group sweeper — `quit()` fails exactly when
-  cleanup matters most (hung renderer, script timeout). Filter the sweeper by the trial's
-  scratch path so it can't kill a concurrent trial.
+  cleanup matters most (hung renderer, script timeout). Filter the sweeper by the round's
+  scratch path so it can't kill a concurrent round.
 - `set_script_timeout` must be strictly greater than the in-script timeout, or Selenium raises
   before our own sentinel fires and we lose the diagnostic.
 
@@ -335,18 +342,18 @@ hardcoded tags silently drifting from config is a real bug in ADA3's `index.html
 
 ### 5. Scoring + API
 
-- **`_payload_manager.py`** — `build_trial_schedule()` (ground truth, `secrets`-backed),
-  per-trial prediction recording, and `calculate_score()` → `mean(max(0, MCC))`. MCC must handle
+- **`_payload_manager.py`** — `build_round_schedule()` (ground truth, `secrets`-backed),
+  per-round prediction recording, and `calculate_score()` → `mean(max(0, MCC))`. MCC must handle
   the all-one-class → 0.0 edge case.
 - **`service.py`** — replace the `random.random()` stub with **orchestration only**: build the
-  schedule, loop trials calling `_browser.run_trial()`, record each result, then return
+  schedule, loop rounds calling `_browser.run_round()`, record each result, then return
   `calculate_score()`. It should not contain the metric, matching ADA3. Keep `score` a
   **sync `def`**: FastAPI runs it on the threadpool, which is what keeps the API responsive
   during a multi-minute run. Making it `async def` deadlocks the design.
 - **`schemas.py`** — require exactly one file, `solution.js`, ≤500 lines (reuse the existing
   validator). `MinerInput` carries the published pool so miners know the closed world.
 - **`router.py`** — add `Depends(auth_api_key)` on `/score`; the template ships it unguarded.
-- **`core/configs/_challenge.py`** — new, following flowprint's: pool path, trial count, k range,
+- **`core/configs/_challenge.py`** — new, following flowprint's: pool path, round count, k range,
   settle seconds, script budget, api_key.
 - Single-flight guard on `/score` (flowprint's `ScoringStatus` pattern) so concurrent calls can't
   interleave.
@@ -382,7 +389,7 @@ For the record, what's in them and when it will matter:
 
 | Item | Status |
 |---|---|
-| `_score_miner_with_new_inputs` loops over inputs but only writes `scoring_logs[0]` | **Latent, never fires for us.** `num_tasks` defaults to `N_CHALLENGES_PER_EPOCH = 1`, so there's exactly one input. We run T trials inside a single `/score`, so we want `num_tasks: 1` regardless |
+| `_score_miner_with_new_inputs` loops over inputs but only writes `scoring_logs[0]` | **Latent, never fires for us.** `num_tasks` defaults to `N_CHALLENGES_PER_EPOCH = 1`, so there's exactly one input. We run T rounds inside a single `/score`, so we want `num_tasks: 1` regardless |
 | `_exclude_output_keys` is a no-op (`return`) | Only affects the anti-plagiarism comparison payload. ADA3 and flowprint null `commit_files`/`telemetry`/`scoring_results`. Decide at registration |
 | Class names `MyController` / `MyChallengeManager` | Cosmetic. The yaml points at whatever path we write |
 | Not exported from `src/exc_challenge/__init__.py` | Only needed to re-enable `tests/test_module.py`, which is 100% commented out |
@@ -398,11 +405,11 @@ Revisit as a single pass when registering the challenge.
 | Vector | Mitigation |
 |---|---|
 | Ground truth in the page | Bait page fully static; subset chosen server-side, never serialized anywhere the browser can reach |
-| Cross-trial state | Fresh `--user-data-dir` per trial |
+| Cross-round state | Fresh `--user-data-dir` per round |
 | Forged results | Results come back through `execute_async_script`. **Do not** copy ADA3's `/_payload` — unauthenticated and accepts an attacker-chosen `order_number` |
 | Always-guess strategies | MCC scores them ~0 by construction |
 | Copying other miners | Existing `comparison_config` / similarity pipeline in `redteam_core` |
-| Crashing the browser | Per-trial try/except → that trial scores 0, run continues |
+| Crashing the browser | Per-round try/except → that round scores 0, run continues |
 | Miner JS as an SSRF / abuse vector | Deny-by-default egress on an `internal: true` network — see below |
 
 ### Network policy — deny-by-default egress at runtime
@@ -421,7 +428,7 @@ The good news is this is now cheap, because there is no runtime reason to reach 
   our main behavioral signal — works fully offline. (My earlier reasoning that egress-blocking
   "breaks ad blockers fetching filter lists" was wrong for MV3.)
 
-So: run trials on an `internal: true` Docker network, reachable only to the locally-served bait
+So: run rounds on an `internal: true` Docker network, reachable only to the locally-served bait
 page. Flowprint already does exactly this for its sandbox container — house pattern exists.
 
 Caveat to fold into pool curation: some extensions degrade or go silent without network.
@@ -438,17 +445,22 @@ signal only appears with internet access doesn't belong in the pool.
    releases with a `key` field injected into `manifest.json` to preserve real store IDs.
 2. **Headless signal loss.** Prod is headless; some extensions inject differently or not at all
    without a visible window. Hence the verify-headless rule when picking the pool.
-3. **`use_dynamic_url` shrinking the viable pool.** Extensions setting it randomize their
-   resource URLs per session, killing WAR probing for that extension. Adoption is rising with the
-   MV3 migration, so this could take out a meaningful slice of ~30 popular extensions rather than
-   one or two. Now a hard per-extension check during curation, recorded in `extensions.yml`. If
-   the count comes back high, pool composition needs rethinking before we build the harness.
-4. **Version drift.** Pinned versions go stale and a silent update can move a fingerprint. Re-check
+3. **`use_dynamic_url` shrinking the viable pool — CONFIRMED, not hypothetical.** Step 0 measured
+   uBlock Origin Lite setting it on **all 5** of its `web_accessible_resources` entries. Chrome
+   then serves them under a per-session GUID that page JS cannot enumerate, so WAR probing — the
+   technique with the most public prior art — is simply dead for those extensions. Expect this to
+   be common in the ad-blocker class. Step 1 must report the WAR-probeable fraction; if it's low,
+   the challenge skews toward DOM/CSS/behavioural detection and the score distribution shifts.
+4. **Manifest V2 is hard-rejected by Chrome 152 — CONFIRMED.** MV2 extensions do not load at all
+   and do not appear in `chrome://extensions-internals/`; Selenium sees no error. This eliminates
+   **uBlock Origin proper** (`manifest_version: 2`), the most-cited fingerprinting target, and
+   makes `manifest_version == 3` a mandatory screening filter during curation.
+5. **Version drift.** Pinned versions go stale and a silent update can move a fingerprint. Re-check
    the pool periodically.
-5. **Throughput.** See the concurrency budget below — decided up front, not deferred.
-6. **Flaky ground truth.** Some signals appear seconds after `load` and inconsistently. Settle
-   window plus averaging over T trials is the defense — see the settle-tuning method below.
-7. **Difficulty spread.** If most of the pool is trivially detectable via WAR probing, everyone
+6. **Throughput.** See the concurrency budget below — decided up front, not deferred.
+7. **Flaky ground truth.** Some signals appear seconds after `load` and inconsistently. Settle
+   window plus averaging over T rounds is the defense — see the settle-tuning method below.
+8. **Difficulty spread.** If most of the pool is trivially detectable via WAR probing, everyone
    saturates and ranking becomes noise. Watch this once baselines exist.
 
 ---
@@ -460,9 +472,9 @@ whole time budget and we'd be re-architecting under pressure.
 
 | | |
 |---|---|
-| Per-trial wall time | 4–9s (k=5, one heavy ad blocker; DNR re-indexing dominates) |
+| Per-round wall time | 4–9s (k=5, one heavy ad blocker; DNR re-indexing dominates) |
 | Peak RAM per Chrome | ~0.7–1.2 GB (peak is the DNR flatbuffer build, not steady state) |
-| Parallel trials `P` | **4** (configurable via `EXC_MAX_PARALLEL_TRIALS`) |
+| Parallel rounds `P` | **4** (configurable via `EXC_MAX_PARALLEL_ROUNDS`) |
 | `mem_limit` | 8 GB — covers P=4 at peak with headroom |
 | `shm_size` | 2 GB — enough for 4 concurrent Chromes |
 | T=20 at P=4 | 5 waves × ≤9s ≈ **45–60s** |
@@ -473,8 +485,8 @@ So P=4 buys roughly a 4× headroom on `T` before we're anywhere near the validat
 
 Two guardrails:
 - **OOM canary.** Watch the cgroup `memory.events` for `oom_kill` and fail the score request
-  loudly. An OOM-killed trial otherwise returns garbage labels that look like a bad miner.
-- **Scratch leak.** Trial dirs live on tmpfs; a crash before cleanup leaks. Sweep `exc-trial-*`
+  loudly. An OOM-killed round otherwise returns garbage labels that look like a bad miner.
+- **Scratch leak.** Round dirs live on tmpfs; a crash before cleanup leaks. Sweep `exc-round-*`
   older than 10 minutes at `/score` entry.
 
 Emit per-phase timings in the response debug payload from day one — the numbers above are
@@ -489,12 +501,12 @@ estimates and there's no published measurement for this workload shape.
    stops changing. Store it in `extensions.yml` alongside `signal`.
 2. **Set `settle_seconds` = p99 of those measurements**, floored at 2s and capped at 8s. An
    extension needing more than 8s is too slow and too flaky — drop it from the pool rather than
-   paying its latency on every trial.
+   paying its latency on every round.
 3. **Verify against the determinism check** (verification step 5): score the same submission 5×
    and require low MCC variance. High variance means the settle is too short — raise it and
    re-run, don't compensate by bumping `T`.
 4. **Prefer a readiness predicate over a fixed sleep** where possible: wait for footprint
-   stability with `settle_seconds` as the hard cap. Cheap trials then finish early, which
+   stability with `settle_seconds` as the hard cap. Cheap rounds then finish early, which
    directly buys back throughput.
 
 ---
@@ -508,7 +520,7 @@ estimates and there's no published measurement for this workload shape.
    bait page is actually blocked. This is the check that catches the silent read-only
    `_metadata` failure; without it a broken build looks identical to a working one.
 3. **`_payload_manager.py` unit tests** — MCC against known confusion matrices plus the
-   all-one-class → 0.0 edge case, and `build_trial_schedule()` for k-range bounds and subset
+   all-one-class → 0.0 edge case, and `build_round_schedule()` for k-range bounds and subset
    distribution (the analogue of ADA3's `tests/test_run_schedule.py`). A random-guess simulation
    over the real pool should average ~0.
 4. **Baseline miner** — the reference `solution.js` scores clearly above 0 and clearly below 1.
