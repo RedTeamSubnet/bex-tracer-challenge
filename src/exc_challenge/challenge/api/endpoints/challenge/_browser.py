@@ -17,7 +17,7 @@ from typing import Any
 
 import psutil
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
@@ -84,10 +84,14 @@ class BrowserError(RuntimeError):
 class BrowserInfraError(BrowserError):
     """The browser failed us - staging, launch, navigation or a dead renderer.
 
-    Separate from `BrowserError` because the blame differs. A miner's own script
-    throwing or hanging is caught inside `wrap_miner_script` and comes back as
-    `__error`/`__timeout`, so anything that reaches us as a WebDriverException
-    is the browser dying, not the submission misbehaving.
+    Separate from `BrowserError` because the blame differs. Reserve this for the
+    session itself failing - staging, launch, navigation, a dead renderer.
+
+    A timeout is NOT one of these. The submission loads with the page and runs
+    before we get control, so it can stall `driver.get()` or outlast the script
+    budget by itself; `TimeoutException` therefore stays a plain `BrowserError`.
+    See `run_script` for why the in-page sentinel cannot be trusted to catch
+    that first.
 
     This matters because failed rounds score 0 and drag the mean down: a run
     broken by resource contention returns a low score that reads as a weak
@@ -119,6 +123,12 @@ def wrap_miner_script(budget_sec: float) -> str:
     `static/detections/<submission_file_name>` and loaded by the bait page's
     own `<script src>`, so by the time this runs `window.detect_extensions`
     is already defined. This wrapper only invokes it and normalises the outcome.
+
+    The `setTimeout` sentinel below is best-effort, not enforcement. It runs in
+    the same JS world as the submission, which loaded first and may already have
+    replaced `setTimeout` - and a busy loop blocks the thread so no timer fires
+    at all. It buys a clean `__timeout` payload from honest miners; the real
+    budget is Selenium's out-of-process one. See `ChromeSession.run_script`.
     """
     return f"""
         const done = arguments[arguments.length - 1];
@@ -257,8 +267,22 @@ class ChromeSession:
             executable_path=self.settings.chromedriver_bin,
             popen_kw={"start_new_session": True},  # own process group, for killpg
         )
-        self.driver = webdriver.Chrome(service=service, options=options)
-        self.driver.set_page_load_timeout(self.settings.page_load_timeout_sec)
+        # `service.py` decides whether a run is publishable by counting
+        # `BrowserInfraError`s, and "Chrome would not start" is the failure that
+        # guard exists for - it is what shm exhaustion at a raised
+        # `max_parallel_rounds` looks like. Selenium reports it as a bare
+        # `SessionNotCreatedException`, which is NOT a `BrowserInfraError`, so
+        # without this it lands on the miner and the guard never fires.
+        try:
+            self.driver = webdriver.Chrome(service=service, options=options)
+            self.driver.set_page_load_timeout(self.settings.page_load_timeout_sec)
+        except WebDriverException as err:
+            # Recorded even on failure: the constructor may have started
+            # chromedriver before giving up, and `close()` needs the pid to kill
+            # the process group.
+            self._driver_pid = getattr(getattr(service, "process", None), "pid", None)
+            raise BrowserInfraError(f"could not start Chrome: {err}") from err
+
         self._driver_pid = getattr(getattr(service, "process", None), "pid", None)
 
     def _read_loaded_ids(self) -> set[str]:
@@ -291,6 +315,16 @@ class ChromeSession:
         """
         try:
             self.driver.get(page_url)
+        except TimeoutException as err:
+            # index.html pulls the submission in with a render-blocking
+            # `<script src>` in `<head>`, so its top-level code runs inside this
+            # navigation. A miner that blocks there stalls the load, and that is
+            # the miner's doing - not ours. See `run_script`.
+            raise BrowserError(
+                f"the bait page did not load within "
+                f"{self.settings.page_load_timeout_sec}s; the submission runs "
+                f"during load and can block it"
+            ) from err
         except WebDriverException as err:
             raise BrowserInfraError(f"could not load the bait page: {err}") from err
         time.sleep(settle_seconds)
@@ -298,16 +332,34 @@ class ChromeSession:
     def run_script(self, pool: list[str], budget_sec: float) -> dict[str, bool]:
         """Invoke the miner's entrypoint and normalise what it returned.
 
-        The wrapper turns the miner's own failures - a throw, a hang, a missing
-        entrypoint - into a result payload, so a `WebDriverException` out of
-        here is never the submission's fault. It is the renderer dying, which
-        is what shm exhaustion under concurrency looks like ("tab crashed").
-        That has to surface as `BrowserInfraError` or `service.py` books it
-        against the miner and the setup-failure guard never fires.
+        Two clocks can end this call, and they assign blame differently.
+
+        The wrapper's in-page sentinel is the fast path but NOT authoritative -
+        it shares a JS world with the submission, which can disarm it or block
+        the thread outright (see `wrap_miner_script`). Selenium's script
+        timeout is enforced out-of-process, where page JS cannot reach it, so
+        that is what actually bounds the budget.
+
+        Hence the split below. `TimeoutException` means the script never
+        yielded, which is the submission's problem however it came about. Any
+        other `WebDriverException` is the session dying - "tab crashed",
+        "chrome not reachable" - which is what shm exhaustion under concurrency
+        looks like, and is ours.
+
+        Getting this backwards is not cosmetic. `service.py` refuses to publish
+        a score once too many rounds raise `BrowserInfraError`, so blaming
+        ourselves for a miner's hang hands any submission a way to turn its own
+        timeout into a failed run - a 500 to the validator instead of the 0.0
+        it earned.
         """
         self.driver.set_script_timeout(budget_sec + _SCRIPT_TIMEOUT_MARGIN_SEC)
         try:
             result = self.driver.execute_async_script(wrap_miner_script(budget_sec))
+        except TimeoutException as err:
+            raise BrowserError(
+                f"miner script exceeded its {budget_sec}s budget without "
+                f"yielding (the in-page timer never fired)"
+            ) from err
         except WebDriverException as err:
             raise BrowserInfraError(f"browser died running the script: {err}") from err
 
