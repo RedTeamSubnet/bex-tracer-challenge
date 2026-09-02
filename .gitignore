@@ -545,3 +545,5 @@ volumes/chrome/
 /*opencode
 opencode.json
 .claude/
+.vscode
+
