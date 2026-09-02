@@ -17,7 +17,9 @@ router = APIRouter(tags=["Challenge"])
 # instances and a fixed RAM budget, so overlapping runs would thrash the box
 # and make every round's timing - and therefore its labels - unreliable.
 # The endpoint is `def`, so FastAPI runs it in a threadpool and a threading
-# lock is the right primitive.
+# lock is the right primitive for one process. The deployment must run
+# uvicorn with a single worker (the default here; UvicornConfig does not
+# expose `workers`), otherwise the lock is not global across processes.
 _scoring_lock = threading.Lock()
 
 

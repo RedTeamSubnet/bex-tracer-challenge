@@ -192,9 +192,10 @@ class ChromeSession:
         if missing:
             # REFERENCE §3: a mis-keyed extension is otherwise a permanent silent
             # false negative, capping MCC for a reason no miner can fix.
+            # Log only the IDs that failed to load; the loaded set is the round's
+            # answer key and must not leave the Python process.
             raise BrowserInfraError(
-                f"not loaded, or ids drifted: {sorted(missing)} "
-                f"(loaded: {sorted(self.loaded)})"
+                f"extension(s) not loaded, or ids drifted: {sorted(missing)}"
             )
 
     def _stage_extensions(self, ext_ids: list[str]) -> list[Path]:

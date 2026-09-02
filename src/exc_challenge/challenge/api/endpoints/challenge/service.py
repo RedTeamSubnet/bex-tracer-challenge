@@ -119,7 +119,9 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
     _error: str | None = None
     for _index, _predicted, _err, _elapsed in sorted(_results, key=lambda r: r[0]):
         if _err is not None:
-            _error = str(_err)
+            # The full exception is logged below for failed-only debugging;
+            # RoundRecord.error and the RuntimeError get a safe summary instead.
+            _error = f"{type(_err).__name__}"
             if isinstance(_err, BrowserInfraError):
                 # Chrome could not start at all - infrastructure, not the miner.
                 _setup_failures += 1

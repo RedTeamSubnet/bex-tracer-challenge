@@ -8,6 +8,7 @@ See `docs/design.md` for why the metric is MCC rather than F1.
 """
 
 import math
+import re
 import secrets
 from dataclasses import dataclass
 from enum import Enum
@@ -104,10 +105,9 @@ class RoundRecord:
     def as_public_dict(self) -> dict[str, Any]:
         """Report shape. Contains no ground truth, so it is safe to serialise.
 
-        `error` is deliberately reduced to a flag. Browser failures name the
-        extensions they were trying to load - `not loaded, or ids drifted:
-        [...]` - which is exactly this round's answer key. The full text stays
-        on `self.error` for the server log.
+        `error` is deliberately reduced to a flag. Raw browser messages name the
+        extensions they were trying to load and can be this round's answer key;
+        any stored text is redacted before it reaches `self.error`.
         """
         return {
             "index": self.index,
@@ -131,6 +131,17 @@ class PayloadManager:
             raise ValueError(_EMPTY_POOL_ERROR)
         self.pool: list[str] = list(pool)
         self.rounds: list[RoundRecord] = []
+        # Redact any raw extension IDs that leak into error strings before
+        # they are stored on RoundRecord.error.
+        if self.pool:
+            self._pool_id_re: re.Pattern[str] | None = re.compile(
+                "|".join(
+                    re.escape(ext_id)
+                    for ext_id in sorted(self.pool, key=len, reverse=True)
+                )
+            )
+        else:
+            self._pool_id_re = None
 
     def build_schedule(self, n_rounds: int, k_min: int, k_max: int) -> None:
         schedule = build_round_schedule(self.pool, n_rounds, k_min, k_max)
@@ -154,6 +165,8 @@ class PayloadManager:
         rec = self.rounds[index]
         rec.duration_sec = duration_sec
         rec.error = error
+        if rec.error is not None and self._pool_id_re is not None:
+            rec.error = self._pool_id_re.sub("<id>", rec.error)
 
         if predicted is None:
             rec.status = RoundStatus.FAILED
