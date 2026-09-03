@@ -6,20 +6,31 @@ from potato_util.generator import gen_random_string
 
 from api.config import config
 
-# The checked-in stub, used as the OpenAPI example. Swagger pre-fills request
-# bodies from these, so a placeholder like "console.log('hi')" means anyone
-# who hits Try-it-out scores 0.0 with a confusing "no window.detect_extensions".
-_STUB_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "templates"
-    / "static"
-    / "detections"
-    / config.challenge.submission_file_name
+from ._pool import load_pool_groups
+
+_DETECTIONS_DIR = (
+    Path(__file__).resolve().parents[3] / "templates" / "static" / "detections"
 )
-try:
-    _STUB_CONTENT = _STUB_PATH.read_text(encoding="utf-8")
-except OSError:  # pragma: no cover - the app still runs without an example
-    _STUB_CONTENT = "window.detect_extensions = async () => ({});"
+
+
+def _stub_example() -> tuple[str, str]:
+    """(file_name, content) for the OpenAPI example. Swagger pre-fills request
+    bodies from these, so a placeholder like "console.log('hi')" means anyone
+    who hits Try-it-out scores 0.0 with a confusing error.
+
+    Picks whichever checked-in `<group>.js` stub sorts first - this has no
+    opinion on group names, and still runs before any stub exists.
+    """
+    _candidates = sorted(_DETECTIONS_DIR.glob("*.js")) if _DETECTIONS_DIR.is_dir() else []
+    if _candidates:
+        try:
+            return _candidates[0].name, _candidates[0].read_text(encoding="utf-8")
+        except OSError:  # pragma: no cover - the app still runs without an example
+            pass
+    return "detect.js", "window.detect_example = async () => ({});"
+
+
+_STUB_FILE_NAME, _STUB_CONTENT = _stub_example()
 
 
 class MinerInput(BaseModel):
@@ -36,6 +47,14 @@ class MinerInput(BaseModel):
         "per round; return one boolean per id.",
         examples=[["kbfnbcaeplbcioakkpcpgfkobkghlhen"]],
     )
+    groups: dict[str, list[str]] = Field(
+        default_factory=dict,
+        title="Extension Groups",
+        description="group name -> extension ids in that group. Submit one "
+        "file per group, named `<group>.js`, each defining "
+        "`window.detect_<group>`.",
+        examples=[{"writing": ["kbfnbcaeplbcioakkpcpgfkobkghlhen"]}],
+    )
 
 
 class CommitFilePM(BaseModel):
@@ -45,7 +64,7 @@ class CommitFilePM(BaseModel):
         max_length=64,
         title="File Name",
         description="Name of the file.",
-        examples=["solution.js"],
+        examples=[_STUB_FILE_NAME],
     )
     content: str = Field(
         ...,
@@ -66,13 +85,14 @@ class MinerOutput(BaseModel):
     @field_validator("commit_files", mode="after")
     @classmethod
     def _check_commit_files(cls, val: list[CommitFilePM]) -> list[CommitFilePM]:
-        _expected_name: str = config.challenge.submission_file_name
         _max_lines: int = config.challenge.submission_max_lines
+        _expected_names = {f"{_group}.js" for _group in load_pool_groups()}
 
         _file_names = [_miner_file_pm.file_name for _miner_file_pm in val]
-        if _file_names != [_expected_name]:
+        if len(_file_names) != len(_expected_names) or set(_file_names) != _expected_names:
             raise ValueError(
-                f"expected exactly one file named `{_expected_name}`, got {_file_names}!"
+                f"expected exactly one file per group ({sorted(_expected_names)}), "
+                f"got {sorted(_file_names)}!"
             )
 
         for _miner_file_pm in val:

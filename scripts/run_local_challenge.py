@@ -4,14 +4,15 @@
 Three hops, no shortcuts:
 
     1. GET  challenge/task    -> the published pool (27 extension ids)
-    2. POST miner/solve       -> the miner returns solution.js as a commit file
+    2. POST miner/solve       -> the miner returns one <group>.js commit file per group
     3. POST challenge/score   -> real Chrome rounds, one float back
 
 Nothing here reaches inside the challenge. It only speaks HTTP, so whatever
 score it prints is the score a real validator would have given.
 
     scripts/run_local_challenge.py
-    scripts/run_local_challenge.py --solution examples/miner_commit/src/commit/solution.js
+    scripts/run_local_challenge.py --solution examples/miner_commit/src/commit
+    scripts/run_local_challenge.py --solution blockers.js --solution writing.js
     scripts/run_local_challenge.py --api-key "$EXC_CHALLENGE_CHALLENGE_API_KEY"
 
 Round count is server-side config (challenge.yml: n_rounds), not a flag here.
@@ -94,10 +95,25 @@ def solve_via_miner(base: str, task: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def solve_from_file(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        raise StepFailed(f"no such solution file: {path}")
-    return {"commit_files": [{"file_name": "solution.js", "content": path.read_text()}]}
+def solve_from_files(paths: list[Path]) -> dict[str, Any]:
+    """One commit file per path. A directory expands to every `*.js` inside it
+    (one per group, e.g. `blockers.js`); a file is used as-is. Repeat
+    `--solution` for several explicit files, or pass one directory to submit
+    a whole grouped submission at once."""
+    files: list[dict[str, Any]] = []
+    for path in paths:
+        if path.is_dir():
+            js_files = sorted(path.glob("*.js"))
+            if not js_files:
+                raise StepFailed(f"no .js files in {path}")
+            files.extend(
+                {"file_name": p.name, "content": p.read_text()} for p in js_files
+            )
+        elif path.is_file():
+            files.append({"file_name": path.name, "content": path.read_text()})
+        else:
+            raise StepFailed(f"no such solution file or directory: {path}")
+    return {"commit_files": files}
 
 
 def score(base: str, task: dict[str, Any], output: dict[str, Any], key: str) -> float:
@@ -152,9 +168,11 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--solution",
         type=Path,
+        action="append",
         default=None,
-        metavar="FILE",
-        help="skip the miner service and submit this .js directly",
+        metavar="FILE_OR_DIR",
+        help="skip the miner service and submit this directly - a directory "
+        "of <group>.js files, or repeat the flag once per file",
     )
     ap.add_argument(
         "--dry-run",
@@ -181,8 +199,8 @@ def main() -> int:
         print(f"      pool of {len(task['extension_ids'])} extension(s)")
 
         if args.solution:
-            print(f"[2/3] solution {args.solution}")
-            output = solve_from_file(args.solution)
+            print(f"[2/3] solution {', '.join(str(p) for p in args.solution)}")
+            output = solve_from_files(args.solution)
         else:
             print(f"[2/3] solve    {args.miner}/solve")
             wait_for_health(args.miner, "miner")

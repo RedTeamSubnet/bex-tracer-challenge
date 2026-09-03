@@ -54,7 +54,6 @@ _BASE_ARGS = (
     "--accept-lang=en-US,en",
 )
 
-_MINER_ENTRYPOINT = "detect_extensions"
 _SCRIPT_TIMEOUT_MARGIN_SEC = 5.0  # Selenium must lose the race to our sentinel
 _KILL_GRACE_SEC = 3.0
 # Password managers inject their overlay a beat AFTER the gesture that triggers
@@ -115,14 +114,21 @@ class BrowserSettings:
     page_load_timeout_sec: float = 30.0
 
 
-def wrap_miner_script(budget_sec: float) -> str:
-    """Call the miner's entrypoint so a hang, a throw and a result are all
-    reportable.
+def wrap_miner_script(budget_sec: float, groups: list[str]) -> str:
+    """Call every group's entrypoint so a hang, a per-group throw and a result
+    are all reportable - and so ONE group throwing cannot cost the others.
 
-    The miner's code is NOT injected here. It is served as
-    `static/detections/<submission_file_name>` and loaded by the bait page's
-    own `<script src>`, so by the time this runs `window.detect_extensions`
-    is already defined. This wrapper only invokes it and normalises the outcome.
+    The miner's code is NOT injected here. Each group's file is served as
+    `static/detections/<group>.js` and loaded by the bait page's own
+    `<script src>` tags, so by the time this runs every `window.detect_<group>`
+    that the miner defined is already in place. This wrapper only invokes them
+    and normalises the outcome.
+
+    Each group's call gets its OWN try/catch, inside a `Promise.all` so groups
+    run concurrently. A throw, a missing function, or a non-object return all
+    mark that group as failed and stop there - they never reach the outer
+    catch, and never turn into a whole-round `__error`. That isolation is the
+    entire point of this change: see docs/PLAN-grouped-submissions.md.
 
     The `setTimeout` sentinel below is best-effort, not enforcement. It runs in
     the same JS world as the submission, which loaded first and may already have
@@ -130,6 +136,26 @@ def wrap_miner_script(budget_sec: float) -> str:
     at all. It buys a clean `__timeout` payload from honest miners; the real
     budget is Selenium's out-of-process one. See `ChromeSession.run_script`.
     """
+    _group_calls = ",\n".join(
+        f"""
+                (async () => {{
+                    try {{
+                        if (typeof window.detect_{group} !== "function") {{
+                            failedGroups.push({json.dumps(group)});
+                            return;
+                        }}
+                        const result = await window.detect_{group}();
+                        if (result && typeof result === "object") {{
+                            Object.assign(merged, result);
+                        }} else {{
+                            failedGroups.push({json.dumps(group)});
+                        }}
+                    }} catch (err) {{
+                        failedGroups.push({json.dumps(group)});
+                    }}
+                }})()"""
+        for group in groups
+    )
     return f"""
         const done = arguments[arguments.length - 1];
         let settled = false;
@@ -141,12 +167,11 @@ def wrap_miner_script(budget_sec: float) -> str:
         const timer = setTimeout(() => finish({{__timeout: true}}), {int(budget_sec * 1000)});
         (async () => {{
             try {{
-                if (typeof window.{_MINER_ENTRYPOINT} !== "function") {{
-                    finish({{__error: "no window.{_MINER_ENTRYPOINT}"}});
-                    return;
-                }}
-                const result = await window.{_MINER_ENTRYPOINT}();
-                finish({{ok: result}});
+                const merged = {{}};
+                const failedGroups = [];
+                await Promise.all([{_group_calls}
+                ]);
+                finish({{ok: merged, failed_groups: failedGroups}});
             }} catch (err) {{
                 finish({{__error: String((err && err.stack) || err)}});
             }} finally {{
@@ -208,9 +233,14 @@ class ChromeSession:
         if missing:
             # REFERENCE §3: a mis-keyed extension is otherwise a permanent silent
             # false negative, capping MCC for a reason no miner can fix.
+            # Names only what FAILED, never `self.loaded`. The two together
+            # reconstruct this round's enabled subset - the answer key - and
+            # this message reaches the server log, which prod bind-mounts out
+            # of the container. The failures alone are what a mis-keyed or
+            # missing extension needs for diagnosis.
             raise BrowserInfraError(
-                f"not loaded, or ids drifted: {sorted(missing)} "
-                f"(loaded: {sorted(self.loaded)})"
+                f"{len(missing)} of {len(ext_ids)} extension(s) did not load: "
+                f"{sorted(missing)}"
             )
 
     def _stage_extensions(self, ext_ids: list[str]) -> list[Path]:
@@ -267,12 +297,6 @@ class ChromeSession:
             executable_path=self.settings.chromedriver_bin,
             popen_kw={"start_new_session": True},  # own process group, for killpg
         )
-        # `service.py` decides whether a run is publishable by counting
-        # `BrowserInfraError`s, and "Chrome would not start" is the failure that
-        # guard exists for - it is what shm exhaustion at a raised
-        # `max_parallel_rounds` looks like. Selenium reports it as a bare
-        # `SessionNotCreatedException`, which is NOT a `BrowserInfraError`, so
-        # without this it lands on the miner and the guard never fires.
         try:
             self.driver = webdriver.Chrome(service=service, options=options)
             self.driver.set_page_load_timeout(self.settings.page_load_timeout_sec)
@@ -329,8 +353,10 @@ class ChromeSession:
             raise BrowserInfraError(f"could not load the bait page: {err}") from err
         time.sleep(settle_seconds)
 
-    def run_script(self, pool: list[str], budget_sec: float) -> dict[str, bool]:
-        """Invoke the miner's entrypoint and normalise what it returned.
+    def run_script(
+        self, pool: list[str], groups: list[str], budget_sec: float
+    ) -> dict[str, bool]:
+        """Invoke every group's entrypoint and normalise what came back.
 
         Two clocks can end this call, and they assign blame differently.
 
@@ -351,10 +377,17 @@ class ChromeSession:
         ourselves for a miner's hang hands any submission a way to turn its own
         timeout into a failed run - a 500 to the validator instead of the 0.0
         it earned.
+
+        A single group throwing must NOT cost the others - that isolation
+        happens inside `wrap_miner_script`, per group. This layer only refuses
+        to publish a result once EVERY group failed, which is
+        indistinguishable from the whole script being broken.
         """
         self.driver.set_script_timeout(budget_sec + _SCRIPT_TIMEOUT_MARGIN_SEC)
         try:
-            result = self.driver.execute_async_script(wrap_miner_script(budget_sec))
+            result = self.driver.execute_async_script(
+                wrap_miner_script(budget_sec, groups)
+            )
         except TimeoutException as err:
             raise BrowserError(
                 f"miner script exceeded its {budget_sec}s budget without "
@@ -369,6 +402,16 @@ class ChromeSession:
             raise BrowserError(f"miner script exceeded its {budget_sec}s budget")
         if "__error" in result:
             raise BrowserError(f"miner script threw: {result['__error']}")
+
+        failed_groups = sorted(result.get("failed_groups") or [])
+        if groups and set(failed_groups) >= set(groups):
+            raise BrowserError(
+                f"every group failed ({len(groups)}): {failed_groups}"
+            )
+        if failed_groups:
+            logger.warning(
+                f"[{self.tag}] group(s) failed, scored as false: {failed_groups}"
+            )
 
         return normalize_predictions(result.get("ok"), pool)
 
@@ -459,7 +502,7 @@ class ChromeSession:
 
 
 def _make_writable(root: Path) -> None:
-    """Grant owner-write across the whole copied tree. REFERENCE §7.
+    """Grant owner-write across the whole copied tree.
 
     `copytree` preserves the source modes, so chmod'ing only the root leaves a
     read-only source read-only underneath - and Chrome silently fails to
@@ -481,6 +524,7 @@ def run_round(
     subset: set[str],
     *,
     pool: list[str],
+    groups: list[str],
     page_url: str,
     settings: BrowserSettings,
     settle_seconds: float = 4.0,
@@ -491,6 +535,10 @@ def run_round(
 
     `subset` is ground truth and is never written anywhere the browser can
     reach it - not into the page, not into a global, not into a query param.
+
+    `groups` are the published group names (`extensions.yml`'s `group:`
+    values) - the wrapper calls `window.detect_<group>()` for each, in its own
+    try/catch, so one group throwing costs only that group's labels.
 
     The gesture script runs on every round. It is fixed and identical each time,
     so it leaks nothing, and without it the whole password-manager class of the
@@ -508,7 +556,7 @@ def run_round(
         session.open_page(page_url, settle_seconds)
         session.interact()
         time.sleep(_GESTURE_SETTLE_SEC)
-        return session.run_script(pool, script_budget_sec)
+        return session.run_script(pool, groups, script_budget_sec)
 
 
 __all__ = [

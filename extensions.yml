@@ -3,11 +3,15 @@
 # Every `id` under `pool:` is published to miners via GET /task. A random subset
 # of k in [k_min, k_max] is enabled per round; miners return a boolean per id.
 #
-# Five fields, and no more:
+# Six fields, and no more:
 #   id                 identifies the extension. Not copied from a store URL -
 #                      `fetch_extensions.py` derives it from the .crx signing key
 #                      and fails the build if it disagrees with this pin.
 #   name               a label for humans. Nothing depends on it.
+#   group              which submission file (`<group>.js`, `window.detect_<group>`)
+#                      answers for this extension. Category, not detection technique -
+#                      see docs/PLAN-grouped-submissions.md. Published to miners
+#                      via GET /task; must be a valid JS identifier.
 #   version + sha256   the pin. A drifted hash fails the build loudly, on purpose.
 #   time_to_stable_ms  measured during curation; feeds the settle window. Cannot
 #                      be derived from a manifest - it needs a real Chrome run.
@@ -26,7 +30,7 @@
 # one here makes the image unbuildable. That check reads the real manifest, which
 # is why no `manifest_version` field is kept below.
 #
-# STATUS 2026-08-27: 27 candidates. Ids, versions and hashes verified against the
+# STATUS 2026-09-02: 27 candidates. Ids, versions and hashes verified against the
 # live store. Headless signal stability and time_to_stable_ms are NOT yet
 # measured - that is the remaining Step 1 work. Entries carrying a SUSPECT note
 # are expected to fail curation.
@@ -36,30 +40,35 @@ chrome_for_testing_version: "152.0.7977.54"
 pool:
   - id: cfhdojbkjhnklbpkdaibdccddilifddb
     name: "Adblock Plus"
-    version: "4.43.3"
-    sha256: "1e1169d53a0b580d00291f9df5c7b84cfd32c08aefd6dad14dde1f8583cf10b7"
+    group: blockers
+    version: "4.43.4"
+    sha256: "0062d8196baa1a59719f7f50e6c1d16f616e8a61462e06b08f3fcda55412c311"
     time_to_stable_ms: null
 
   - id: mlomiejdfkolichcflejclcbmpeaniij
     name: "Ghostery"
+    group: blockers
     version: "10.5.58"
     sha256: "24f365bf0cd09f73aace740365603b6c7fba20cd384453c65ceba87d622139a0"
     time_to_stable_ms: null
 
   - id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
     name: "Privacy Badger"
+    group: blockers
     version: "2026.8.7"
     sha256: "b3ef5ba7a11175425f9b8defa0c4d3c7226bc1392d3cf53e7604d82a112fdf27"
     time_to_stable_ms: null
 
   - id: bkdgflcldnnnapblkhphbgpggdiikppg
     name: "DuckDuckGo"
+    group: blockers
     version: "2026.8.6"
     sha256: "cf6787797685f5264cf089ad38c597e29ceb56a3616af07bb6d1d2080b5fefd3"
     time_to_stable_ms: null
 
   - id: nngceckbapebfimnlniiiahkandclblb
     name: "Bitwarden"
+    group: password_managers
     version: "2026.8.0"
     sha256: "d1a5942d9c234d03382da99279932055064caae7a32cc9b157940c863165d59f"
     time_to_stable_ms: null
@@ -70,96 +79,112 @@ pool:
 
   - id: hdokiejnpimakedhajhdlcegeplioahd
     name: "LastPass"
+    group: password_managers
     version: "4.155.1"
     sha256: "34fc2120a895e093e4f7aa8cfaf1c1b65b51cf59ab34de27c0ee2c3ba4f9cdf3"
     time_to_stable_ms: null
 
   - id: aeblfdkhhhdcdjpifhhbdiojplfjncoa
     name: "1Password"
+    group: password_managers
     version: "8.12.34.34"
     sha256: "7f0b3a8f66469091c74dc6943d77d01fda657a0eb3ff3247afc3be8b841edb75"
     time_to_stable_ms: null
 
   - id: fdjamakpfbbddfjaooikfcpapjohcfmg
     name: "Dashlane"
-    version: "6.2635.2"
-    sha256: "d65a3a7216a7d2b94529f20418b8592c12db233fc982f5dbb4a76ad35680eb07"
+    group: password_managers
+    version: "6.2636.1"
+    sha256: "854695e97971bec9a5f64da482f96e8fa28a51444c7b12d94803e5fc60848f4b"
     time_to_stable_ms: null
 
   - id: fooolghllnmhmmndgjiamiiodkpenpbb
     name: "NordPass"
+    group: password_managers
     version: "7.10.10"
     sha256: "411b93038f90e512c6832d3ae0d63f15306dea6830751b56a8a9816b2969df76"
     time_to_stable_ms: null
 
   - id: bmnlcjabgnpnenekpadlanbbkooimhnj
     name: "Honey"
+    group: shopping
     version: "19.5.0"
     sha256: "976de2fcdb4a030d7a25f403c700af7fea905bcc4b11a34c8e51b81766258ae8"
     time_to_stable_ms: null
 
   - id: nenlahapcbofgnanklpelkaejcehkggg
     name: "Capital One Shopping"
-    version: "0.1.1389"
-    sha256: "06ceef506bd506f1a68eb67d23250ad13e5c6a27bd269c87f52d5595261c6af1"
+    group: shopping
+    version: "0.1.1390"
+    sha256: "7b43e7fdb245b1e9b3b368071a3dd7df006cac4fbebd134800020856b570e572"
     time_to_stable_ms: null
 
   - id: chhjbpecpncaggjpdakmflnfcopglcmi
     name: "Rakuten"
-    version: "26.16.0"
-    sha256: "c999d3ed3cab93cdc97992379f260dd895858754cf63122248cf3438ef0354d0"
+    group: shopping
+    version: "26.17.0"
+    sha256: "f139480ff9541c2cf6a163cf50bbccbea6402efb0d3939e4eb019d577bd626f1"
     time_to_stable_ms: null
 
   - id: kbfnbcaeplbcioakkpcpgfkobkghlhen
     name: "Grammarly"
-    version: "14.1324.0"
-    sha256: "0a70b4f2f955837bd6d673d43fbb7616c8c9e2a5d9509e556899685e2c88a1d6"
+    group: writing
+    version: "14.1325.0"
+    sha256: "8fe2546308270d3a58bbf7ef5c7599d12610971e0de32e257772108b17f49529"
     time_to_stable_ms: null
 
   - id: npnbdojkgkbcdfdjlfdmplppdphlhhcf
     name: "ProWritingAid"
+    group: writing
     version: "2.8.48222"
     sha256: "8960eeec980fc35f2380b982349a123a6a1c0169c54a7855b21fdf7a848e5a81"
     time_to_stable_ms: null
 
   - id: oldceeleldhonbafppcapldpdifcinji
     name: "LanguageTool"
+    group: writing
     version: "11.2.3"
     sha256: "3eb8741cc5f83ccd5ad5828a8bf133995c377bbc63f01030f54090ad7e33cd21"
     time_to_stable_ms: null
 
   - id: eimadpbcbfnmbkopoojfekhnkhdbieeh
     name: "Dark Reader"
+    group: appearance_media
     version: "4.9.129"
     sha256: "9dcb1bd6dcad43892ddc028ff65f982df3edba135a9a6445e4fa71671e37aa13"
     time_to_stable_ms: null
 
   - id: bfbmjmiodbnnpllbbbfblcplfjjepjdn
     name: "Turn Off the Lights"
+    group: appearance_media
     version: "4.6.9"
     sha256: "e914122cba3b209c18c34a28fbd1c0a8aefd78fa43576e3be8867cf26ca8b203"
     time_to_stable_ms: null
 
   - id: aapbdbdomjkkjkaonfhkkikfgjllcleb
     name: "Google Translate"
+    group: translate
     version: "2.0.17"
     sha256: "3f752c27ae39de4bfc881ecacea4a3b4c50c676daecfd9f2fc8c50f5688c8dd1"
     time_to_stable_ms: null
 
   - id: bpoadfkcbjbfhfodiogcnhhhpibjhbnh
     name: "Immersive Translate"
+    group: translate
     version: "1.32.7"
     sha256: "8e8d74ecbec062e78babb7ebbbcfb6e9a2c0e6982e717ef0a7207e72a3b00e27"
     time_to_stable_ms: null
 
   - id: pioclpoplcdbaefihamjohnefbikjilc
     name: "Evernote Web Clipper"
+    group: productivity
     version: "7.41.1"
     sha256: "5fc9205b34a282b34b2fd2b37b328592fe11815be2ab6584d5f357ab3b2f9642"
     time_to_stable_ms: null
 
   - id: knheggckgoiihginacbkhaalnibhilkk
     name: "Notion Web Clipper"
+    group: productivity
     version: "0.2.13"
     sha256: "a38b4be0f9260a660b17318e6c34f1e37d1c419493fbda5cdfd7e9b940b24a9e"
     time_to_stable_ms: null
@@ -169,6 +194,7 @@ pool:
 
   - id: bcjindcccaagfpapjjmafapmmgkkhgoa
     name: "JSON Formatter"
+    group: productivity
     version: "0.10.2"
     sha256: "5e0ebde71ee60f997a9f5fc0850e6ae4a9f67006dbf662f00507f99e957c2b21"
     time_to_stable_ms: null
@@ -178,18 +204,21 @@ pool:
 
   - id: bhlhnicpbhignbdhedgjhgdocnmhomnp
     name: "ColorZilla"
+    group: appearance_media
     version: "4.1"
     sha256: "ce8e2eb1c7720d1acc01bb245011194fa555d6d8a006222fad867d35e6b4d8b0"
     time_to_stable_ms: null
 
   - id: gppongmhjkpfnbhagpmjfkannfbllamg
     name: "Wappalyzer"
+    group: productivity
     version: "6.12.6"
     sha256: "1d1de5459a90e9e784fece758e63c790d47ec60ee80f8e19674da90f3432c307"
     time_to_stable_ms: null
 
   - id: lmjnegcaeklhafolokijcfjliaokphfk
     name: "Video DownloadHelper"
+    group: appearance_media
     version: "10.5.24.2"
     sha256: "b388f6ec2dece7b5ae0d0f89b07360374d555bf99c91e729db5cddd3a0575d01"
     time_to_stable_ms: null
@@ -199,12 +228,14 @@ pool:
 
   - id: liecbddmkiiihnedobmlmillhodjkdmb
     name: "Loom"
-    version: "5.5.206"
-    sha256: "6b3a08e400e2fd42aeecb85449f7961ff694b911f40da6b14899e5dc813c0129"
+    group: appearance_media
+    version: "5.5.207"
+    sha256: "e8ee91fdbfa1cea74a06e22e923206e6a952493221f517c740c37e829351f898"
     time_to_stable_ms: null
 
   - id: oeopbcgkkoapgobdbedcemjljbihmemj
     name: "Checker Plus for Gmail"
+    group: productivity
     version: "36.4"
     sha256: "695935ba2e05f010c7d816843ec7157f760b9db1b14bf2a0ef1e9c33703f2db0"
     time_to_stable_ms: null

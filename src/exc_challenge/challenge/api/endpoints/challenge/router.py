@@ -18,6 +18,12 @@ router = APIRouter(tags=["Challenge"])
 # and make every round's timing - and therefore its labels - unreliable.
 # The endpoint is `def`, so FastAPI runs it in a threadpool and a threading
 # lock is the right primitive.
+#
+# THIS ONLY HOLDS FOR ONE UVICORN WORKER. `UvicornConfig` has no `workers`
+# field, so uvicorn runs its default of 1 and the lock is process-wide by
+# accident rather than design. Adding workers would let two /score calls run
+# at once, thrashing the box and corrupting every round's timing. If workers
+# are ever added, this must become a cross-process lock.
 _scoring_lock = threading.Lock()
 
 

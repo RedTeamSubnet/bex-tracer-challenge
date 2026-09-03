@@ -5,10 +5,11 @@ Same shape as `ab_sniffer` and `ada_detection`: the miner's file is written into
 The checked-in stub is restored afterwards so a miner's code never outlives the
 run that submitted it.
 
-The file name is NOT taken on trust - `MinerOutput` already pins it to exactly
-`config.challenge.submission_file_name`, and `stage_detection_files()` re-checks
-that the resolved path stays inside the detections directory. A `file_name` of
-`../../api/config.py` would otherwise be an arbitrary file write.
+The file name is NOT taken on trust - `MinerOutput` already pins the submitted
+file names to exactly `{group}.js` for each published group, and
+`stage_detection_files()` re-checks that the resolved path stays inside the
+detections directory. A `file_name` of `../../api/config.py` would otherwise be
+an arbitrary file write.
 """
 
 import shutil

@@ -17,7 +17,7 @@ from api.logger import logger
 from . import utils as ch_utils
 from ._browser import BrowserSettings, BrowserInfraError, run_round
 from ._payload_manager import PayloadManager, RoundRecord
-from ._pool import load_pool_ids
+from ._pool import load_pool_groups, load_pool_ids
 from .schemas import MinerInput, MinerOutput
 
 # Failed rounds score 0 and drag the mean down, so a run with many broken
@@ -27,7 +27,10 @@ _MAX_SETUP_FAILURE_RATIO = 0.2
 
 
 def get_task() -> MinerInput:
-    return MinerInput(extension_ids=list(load_pool_ids()))
+    return MinerInput(
+        extension_ids=list(load_pool_ids()),
+        groups={_g: list(_ids) for _g, _ids in load_pool_groups().items()},
+    )
 
 
 def _bait_page_url() -> str:
@@ -52,6 +55,7 @@ def _run_one_round(
     round_record: RoundRecord,
     *,
     pool: list[str],
+    groups: list[str],
     page_url: str,
     settings: BrowserSettings,
     request_id: str,
@@ -63,6 +67,7 @@ def _run_one_round(
         _predicted = run_round(
             round_record.enabled,
             pool=pool,
+            groups=groups,
             page_url=page_url,
             settings=settings,
             settle_seconds=config.challenge.settle_seconds,
@@ -78,6 +83,7 @@ def _run_all_rounds(
     rounds: list[RoundRecord],
     *,
     pool: list[str],
+    groups: list[str],
     page_url: str,
     settings: BrowserSettings,
     request_id: str,
@@ -97,6 +103,7 @@ def _run_all_rounds(
                 lambda rec: _run_one_round(
                     rec,
                     pool=pool,
+                    groups=groups,
                     page_url=page_url,
                     settings=settings,
                     request_id=request_id,
@@ -111,18 +118,23 @@ def _record_all(
     results: list[RoundResult],
     request_id: str,
 ) -> tuple[int, str | None]:
-    """Score every round on this thread. Returns (setup failures, last error).
+    """Score every round on this thread. Returns (setup failures, last error kind).
 
     `executor.map` yields in the order of the input rather than completion, so
     recording here is already index-ordered and the report is deterministic.
+
+    The full exception text can name extensions, which is this round's answer
+    key, so it goes to the log and nowhere else. `RoundRecord` and the returned
+    "last error" keep only the exception class name.
     """
     _setup_failures = 0
     _last_error: str | None = None
 
     for _result in results:
-        _message = str(_result.error) if _result.error is not None else None
-        if _message is not None:
-            _last_error = _message
+        _kind: str | None = None
+        if _result.error is not None:
+            _kind = type(_result.error).__name__
+            _last_error = _kind
             if isinstance(_result.error, BrowserInfraError):
                 # Chrome could not start at all - infrastructure, not the miner.
                 _setup_failures += 1
@@ -130,13 +142,13 @@ def _record_all(
             else:
                 _reason = "failed"
             logger.warning(
-                f"[{request_id}] - Round {_result.index} {_reason}: {_message}"
+                f"[{request_id}] - Round {_result.index} {_reason}: {_result.error}"
             )
 
         payload_manager.record(
             _result.index,
             _result.predicted,
-            error=_message,
+            error=_kind,
             duration_sec=round(_result.elapsed_sec, 2),
         )
 
@@ -165,15 +177,17 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
         f"over a pool of {len(_pool)}..."
     )
 
-    # The miner's file is served as static/detections/<name> and loaded by the
-    # bait page itself, matching ab_sniffer and ada_detection. Every round in
-    # this run uses the same submission, so it is staged once, and restored in
-    # the `finally` so a miner's code never outlives the run that sent it.
+    # The miner's files are served as static/detections/<group>.js and loaded
+    # by the bait page itself, matching ab_sniffer and ada_detection. Every
+    # round in this run uses the same submission, so it is staged once, and
+    # restored in the `finally` so a miner's code never outlives the run that
+    # sent it.
     _staged = ch_utils.stage_detection_files(miner_output)
     try:
         _results = _run_all_rounds(
             _payload_manager.rounds,
             pool=_pool,
+            groups=list(load_pool_groups()),
             page_url=_bait_page_url(),
             settings=_browser_settings,
             request_id=request_id,
@@ -192,7 +206,9 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
                 f"so the score would not be about the miner. If max_parallel_rounds "
                 f"({_challenge_config.max_parallel_rounds}) was raised, lower it: "
                 f"shm_size and mem_limit are shared across concurrent browsers. "
-                f"Last error: {_last_error}"
+                # The class name only. The full text names extensions, and this
+                # exception is logged with a traceback by router.py.
+                f"Last failure was {_last_error}; see the log for details."
             )
 
         _score: float = _payload_manager.calculate_score()

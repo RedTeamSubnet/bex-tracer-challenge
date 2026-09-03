@@ -1,4 +1,4 @@
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import SettingsConfigDict
 
 from api.core.constants import ENV_PREFIX_CHALLENGE
@@ -65,15 +65,7 @@ class ChallengeConfig(BaseConfig):
         default=10.0, gt=0, description="Hard cap on the miner script"
     )
     submission_max_lines: int = Field(default=500, ge=1)
-    submission_file_name: str = Field(default="solution.js")
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
-
-    @field_validator("submission_file_name", mode="after")
-    @classmethod
-    def _check_file_name(cls, val: str) -> str:
-        if not val.endswith(".js"):
-            raise ValueError("submission_file_name must end with '.js'")
-        return val
 
     @model_validator(mode="after")
     def _check_k_range(self) -> "ChallengeConfig":
