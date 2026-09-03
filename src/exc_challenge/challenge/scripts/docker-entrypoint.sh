@@ -38,7 +38,7 @@ main()
 			-type d -name "volumes" -o \
 			-type l -name ".env" \
 		\) -prune -o -print0 | \
-			xargs -0 chown -c "${USER}:${GROUP}" || exit 2
+			xargs -0 chown "${USER}:${GROUP}" || exit 2
 
 	find "${EXC_CHALLENGE_API_DIR}" "${EXC_CHALLENGE_API_CONFIGS_DIR}" "${EXC_CHALLENGE_API_DATA_DIR}" \
 		\( \

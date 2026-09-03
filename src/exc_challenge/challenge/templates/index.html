@@ -57,11 +57,20 @@
   #cookie-consent button { margin: 0; background: #10b981; }
   .muted { color: #6b7280; font-size: 13px; }
 </style>
-<!-- The miner's submitted detector. Overwritten by copy_detection_files()
-     at score time; the checked-in stub keeps this page working when no
-     miner has submitted. It only DEFINES window.detect_extensions - the
-     challenge calls it after the settle window, never at load. -->
-<script src="static/detections/solution.js"></script>
+<!-- The miner's submitted detectors, one file per published group (see
+     GET /task's `groups` field and extensions.yml's `group:` column).
+     Overwritten by stage_detection_files() at score time; the checked-in
+     stubs keep this page working when no miner has submitted. Each only
+     DEFINES its own window.detect_<group> - the challenge calls all 7 after
+     the settle window, never at load, and a throw in one costs only that
+     group's labels (see docs/PLAN-grouped-submissions.md). -->
+<script src="static/detections/blockers.js"></script>
+<script src="static/detections/password_managers.js"></script>
+<script src="static/detections/shopping.js"></script>
+<script src="static/detections/writing.js"></script>
+<script src="static/detections/appearance_media.js"></script>
+<script src="static/detections/translate.js"></script>
+<script src="static/detections/productivity.js"></script>
 </head>
 <body>
 

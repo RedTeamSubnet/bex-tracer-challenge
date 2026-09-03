@@ -241,3 +241,4 @@ def test_a_perfect_prediction_with_everything_enabled_would_have_scored_zero():
     everything = set(POOL)
     perfect = {e: True for e in POOL}
     assert score_round(POOL, everything, perfect) == 0.0
+

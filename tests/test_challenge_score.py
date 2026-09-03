@@ -19,7 +19,7 @@ sys.path.insert(0, str(REPO / "src/exc_challenge/challenge"))
 from api.config import config  # noqa: E402
 from api.main import app  # noqa: E402
 from api.endpoints.challenge import service  # noqa: E402
-from api.endpoints.challenge._pool import load_pool_ids  # noqa: E402
+from api.endpoints.challenge._pool import load_pool_groups, load_pool_ids  # noqa: E402
 
 POOL_PATH = REPO / "extensions.yml"
 API_KEY = config.challenge.api_key.get_secret_value()
@@ -34,6 +34,7 @@ def challenge_config(monkeypatch):
     """
     monkeypatch.setattr(config.challenge, "pool_path", str(POOL_PATH))
     load_pool_ids.cache_clear()
+    load_pool_groups.cache_clear()
 
     pool_size = len(load_pool_ids())
     monkeypatch.setattr(config.challenge, "n_rounds", 12)
@@ -42,6 +43,7 @@ def challenge_config(monkeypatch):
 
     yield
     load_pool_ids.cache_clear()
+    load_pool_groups.cache_clear()
 
 
 def fake_browser(answer):
@@ -59,10 +61,16 @@ def score_with(monkeypatch, answer) -> float:
 
 
 def solution(content: str):
+    """One file per published group, all sharing `content`. The browser layer
+    is stubbed by `fake_browser` in every caller, so the JS text itself is
+    never executed - only the file names have to satisfy `MinerOutput`."""
     from api.endpoints.challenge.schemas import CommitFilePM, MinerOutput
 
     return MinerOutput(
-        commit_files=[CommitFilePM(file_name="solution.js", content=content)]
+        commit_files=[
+            CommitFilePM(file_name=f"{name}.js", content=content)
+            for name in load_pool_groups()
+        ]
     )
 
 
@@ -187,11 +195,18 @@ def client(monkeypatch):
     return TestClient(app)
 
 
-def payload(file_name: str = "solution.js", content: str = "// stub") -> dict:
+def payload() -> dict:
+    """A complete, valid submission: one stub file per published group."""
     return {
         "miner_input": {"random_val": "abc123"},
         "miner_output": {
-            "commit_files": [{"file_name": file_name, "content": content}]
+            "commit_files": [
+                {
+                    "file_name": f"{name}.js",
+                    "content": f"window.detect_{name} = async () => ({{}});",
+                }
+                for name in load_pool_groups()
+            ]
         },
     }
 
@@ -233,17 +248,24 @@ def test_score_rejects_a_well_formed_but_wrong_key(client):
 
 
 def test_score_rejects_a_wrongly_named_file(client):
-    response = client.post(
-        "/score", json=payload(file_name="detect.js"), headers={"X-API-Key": API_KEY}
-    )
+    body = payload()
+    body["miner_output"]["commit_files"][0]["file_name"] = "detect.js"
+    response = client.post("/score", json=body, headers={"X-API-Key": API_KEY})
     assert response.status_code == 422
 
 
-def test_score_rejects_more_than_one_file(client):
+def test_score_rejects_more_than_one_file_for_the_same_group(client):
     body = payload()
     body["miner_output"]["commit_files"].append(
-        {"file_name": "solution.js", "content": "// second"}
+        dict(body["miner_output"]["commit_files"][0])
     )
+    response = client.post("/score", json=body, headers={"X-API-Key": API_KEY})
+    assert response.status_code == 422
+
+
+def test_score_rejects_a_missing_group_file(client):
+    body = payload()
+    body["miner_output"]["commit_files"].pop()
     response = client.post("/score", json=body, headers={"X-API-Key": API_KEY})
     assert response.status_code == 422
 
@@ -252,9 +274,9 @@ def test_score_rejects_a_too_long_submission(client):
     long_js = "\n".join(
         f"// line {i}" for i in range(config.challenge.submission_max_lines + 1)
     )
-    response = client.post(
-        "/score", json=payload(content=long_js), headers={"X-API-Key": API_KEY}
-    )
+    body = payload()
+    body["miner_output"]["commit_files"][0]["content"] = long_js
+    response = client.post("/score", json=body, headers={"X-API-Key": API_KEY})
     assert response.status_code == 422
 
 
@@ -376,3 +398,31 @@ def test_one_flaky_launch_is_tolerated(monkeypatch):
         return {e: e in enabled for e in pool}
 
     assert score_with(monkeypatch, one_bad) == pytest.approx(19 / 20)
+
+
+def test_record_all_stores_the_error_class_not_its_text():
+    """A browser failure names the extensions it tried to load - that set is the
+    round's answer key. `_record_all` must keep only the exception class name on
+    the record; the full text goes to the log and nowhere else.
+
+    This exercises `service._record_all` directly, because that is where the
+    sanitisation lives. Asserting on a hand-written `record(error=...)` call
+    would prove nothing.
+    """
+    from api.endpoints.challenge._browser import BrowserInfraError
+    from api.endpoints.challenge._payload_manager import PayloadManager
+
+    pool = list(load_pool_ids())
+    manager = PayloadManager(pool=pool)
+    manager.build_schedule(n_rounds=1, k_min=2, k_max=2)
+    enabled = sorted(manager.rounds[0].enabled)
+
+    failure = BrowserInfraError(f"2 of 2 extension(s) did not load: {enabled}")
+    results = [service.RoundResult(0, None, failure, 1.0)]
+
+    service._record_all(manager, results, "test")
+
+    assert manager.rounds[0].error == "BrowserInfraError"
+    blob = repr(manager.report())
+    for ext_id in enabled:
+        assert ext_id not in blob

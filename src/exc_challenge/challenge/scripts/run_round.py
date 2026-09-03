@@ -125,13 +125,22 @@ def detect_layout() -> Layout:
 class Extension:
     id: str
     name: str
+    group: str
 
 
 def load_pool(pool_file: Path) -> list[Extension]:
     entries = (yaml.safe_load(pool_file.read_text(encoding="utf-8")) or {}).get("pool")
     if not entries:
         sys.exit(f"{pool_file} has an empty pool")
-    return [Extension(e["id"], e.get("name") or e["id"]) for e in entries]
+    missing_group = [e["id"] for e in entries if not e.get("group")]
+    if missing_group:
+        sys.exit(f"{pool_file}: pool entries with no group: {missing_group}")
+    return [Extension(e["id"], e.get("name") or e["id"], e["group"]) for e in entries]
+
+
+def groups_of(pool: list[Extension]) -> list[str]:
+    """Group names present in `pool`, in first-seen order."""
+    return list(dict.fromkeys(e.group for e in pool))
 
 
 def select(pool: list[Extension], tokens: list[str] | None) -> list[Extension]:
@@ -204,12 +213,24 @@ def war_probe_path(ext_id: str, ext_root: Path) -> str | None:
     return None
 
 
-def war_probe_miner(probes: dict[str, str]) -> str:
-    """The baseline technique, not a clever one - it proves the mechanism."""
-    return f"""
-        const PROBES = {json.dumps(probes)};
-        window.detect_extensions = async function () {{
+def war_probe_miner(pool: list[Extension], probes: dict[str, str]) -> str:
+    """The baseline technique, not a clever one - it proves the mechanism.
+
+    One `window.detect_<group>` per group, matching the grouped-submission
+    contract in `_browser.wrap_miner_script`. All of them land in the same
+    staged file, which is fine: the wrapper looks them up on `window` and does
+    not care which `<script src>` defined them - so this exercises the real
+    per-group fan-out without needing `index.html` to grow 7 script tags.
+    """
+    functions = []
+    for group in groups_of(pool):
+        group_probes = {
+            ext.id: probes[ext.id] for ext in pool if ext.group == group and ext.id in probes
+        }
+        functions.append(f"""
+        window.detect_{group} = async function () {{
             const found = {{}};
+            const PROBES = {json.dumps(group_probes)};
             await Promise.all(Object.entries(PROBES).map(async ([id, path]) => {{
                 try {{
                     const res = await fetch(`chrome-extension://${{id}}/${{path}}`);
@@ -220,7 +241,8 @@ def war_probe_miner(probes: dict[str, str]) -> str:
             }}));
             return found;
         }};
-    """
+        """)
+    return "\n".join(functions)
 
 
 # ------------------------------------------------------------ bait page ----
@@ -309,7 +331,11 @@ def parse_args() -> argparse.Namespace:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--rounds", type=int, default=1, help="0 = launch only, no miner")
-    ap.add_argument("--miner", default="war-probe", help="'war-probe' or a path to .js")
+    ap.add_argument(
+        "--miner",
+        default="war-probe",
+        help="'war-probe' or a path to .js defining one or more window.detect_<group>",
+    )
     ap.add_argument(
         "--ext", nargs="+", metavar="NAME_OR_ID", help="default: whole pool"
     )
@@ -395,30 +421,44 @@ def _prove_they_load(
     return 0
 
 
-def _stage_miner_js(miner_js: str, bait_dir: Path) -> Path:
-    """Write the miner's code where the bait page's <script src> will find it.
+def _stage_miner_js(miner_js: str, bait_dir: Path, groups: list[str]) -> list[Path]:
+    """Write the miner's code where every group's <script src> tag will find
+    it - one copy per group file.
+
+    `war_probe_miner()` (and a custom --miner file) already defines every
+    `window.detect_<group>` it can in ONE string, and `index.html` loads all
+    7 group files as separate <script> tags. Staging into only one would make
+    load order decide which of two definitions for the same function wins -
+    whichever tag runs last would stamp its (stub) definition over an earlier
+    one. Writing the identical content into all 7 sidesteps that: by the time
+    the last tag runs, every group is defined the same way regardless of order.
 
     The API does the same thing in `endpoints/challenge/utils.py`; this is the
-    dev-tool copy so `run_round.py` keeps working from a checkout, where the app
-    config (and therefore that module) may not import.
+    dev-tool copy so `run_round.py` keeps working from a checkout, where the
+    app config (and therefore that module) may not import.
     """
-    target = bait_dir / "static" / "detections" / "solution.js"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    backup = target.with_suffix(".js.stub")
-    if target.is_file() and not backup.exists():
-        shutil.copy2(target, backup)
-    target.write_text(miner_js, encoding="utf-8")
-    return target
+    detections_dir = bait_dir / "static" / "detections"
+    detections_dir.mkdir(parents=True, exist_ok=True)
+    staged = []
+    for group in groups:
+        target = detections_dir / f"{group}.js"
+        backup = target.with_suffix(".js.stub")
+        if target.is_file() and not backup.exists():
+            shutil.copy2(target, backup)
+        target.write_text(miner_js, encoding="utf-8")
+        staged.append(target)
+    return staged
 
 
-def _restore_stub(target: Path) -> None:
-    """Put the checked-in stub back. Never raises - it runs in a `finally`."""
-    backup = target.with_suffix(".js.stub")
-    try:
-        if backup.is_file():
-            shutil.copy2(backup, target)
-    except OSError as err:
-        print(f"warning: could not restore {target.name}: {err}", file=sys.stderr)
+def _restore_stub(staged: list[Path]) -> None:
+    """Put the checked-in stubs back. Never raises - it runs in a `finally`."""
+    for target in staged:
+        backup = target.with_suffix(".js.stub")
+        try:
+            if backup.is_file():
+                shutil.copy2(backup, target)
+        except OSError as err:
+            print(f"warning: could not restore {target.name}: {err}", file=sys.stderr)
 
 
 def _score_rounds(
@@ -431,14 +471,15 @@ def _score_rounds(
     bait_dir: Path,
 ) -> int:
     miner_js = (
-        war_probe_miner(probes)
+        war_probe_miner(pool, probes)
         if args.miner == "war-probe"
         else Path(args.miner).read_text(encoding="utf-8")
     )
+    groups = groups_of(pool)
     # The miner's code is no longer injected at sample time - the bait page
     # loads it with a <script src>, so it has to be on disk before Chrome
     # navigates. Same staging the API does, restored on the way out.
-    staged = _stage_miner_js(miner_js, bait_dir)
+    staged = _stage_miner_js(miner_js, bait_dir, groups)
     k = min(args.k, len(ids))
     manager = PayloadManager(ids)
     manager.build_schedule(args.rounds, k, k)
@@ -454,7 +495,7 @@ def _score_rounds(
                 with chrome_on_bait_page(
                     settings, f"run-{rec.index}", sorted(rec.enabled), page_url, args
                 ) as session:
-                    predicted = session.run_script(ids, args.budget)
+                    predicted = session.run_script(ids, groups, args.budget)
             except BrowserError as err:
                 manager.record(rec.index, None, error=str(err))
                 print(f"    -> FAILED after {time.monotonic() - started:.1f}s: {err}\n")

@@ -27,6 +27,7 @@ from api.endpoints.challenge._browser import (  # noqa: E402
 )
 
 POOL = ["aaaa", "bbbb", "cccc"]
+GROUPS = ["group_one", "group_two"]
 
 
 @pytest.fixture
@@ -75,20 +76,34 @@ def test_normalize_rejects_non_objects(raw):
 
 
 def test_wrapper_converts_budget_to_milliseconds():
-    assert "10000" in wrap_miner_script(10.0)
+    assert "10000" in wrap_miner_script(10.0, GROUPS)
 
 
-def test_wrapper_calls_the_entrypoint_without_embedding_source():
-    """The miner's code is served as static/detections/<name> and loaded by
-    the bait page, so the wrapper must only CALL it. Embedding source here
-    again would mean the submission runs twice, from two different places."""
-    wrapped = wrap_miner_script(5.0)
-    assert "window.detect_extensions" in wrapped
+def test_wrapper_calls_one_entrypoint_per_group_without_embedding_source():
+    """Each group's code is served as static/detections/<group>.js and loaded
+    by the bait page, so the wrapper must only CALL window.detect_<group> for
+    every published group. Embedding source here again would mean the
+    submission runs twice, from two different places."""
+    wrapped = wrap_miner_script(5.0, GROUPS)
+    for group in GROUPS:
+        assert f"window.detect_{group}" in wrapped
     assert "arguments[arguments.length - 1]" in wrapped
 
 
+def test_wrapper_isolates_one_groups_failure_from_the_others():
+    """A throw, a missing function, or a bad return in one group must be
+    recorded against that group alone - never turn into a whole-round
+    `__error`, which would cost every group its labels."""
+    wrapped = wrap_miner_script(5.0, GROUPS)
+    assert "failedGroups" in wrapped
+    assert "failed_groups: failedGroups" in wrapped
+    # Each group's call is wrapped in its own try/catch, not a shared one.
+    assert wrapped.count("try {") == wrapped.count("catch (err) {")
+    assert wrapped.count("try {") >= len(GROUPS) + 1  # +1 for the outer catch
+
+
 def test_wrapper_handles_timeout_error_and_success():
-    wrapped = wrap_miner_script(5.0)
+    wrapped = wrap_miner_script(5.0, GROUPS)
     assert "__timeout" in wrapped
     assert "__error" in wrapped
     assert "ok:" in wrapped
@@ -247,7 +262,7 @@ def test_a_dead_renderer_is_our_fault_not_the_miners(settings):
     session.driver = _ScriptDriver(WebDriverException("tab crashed"))
 
     with pytest.raises(BrowserInfraError, match="browser died"):
-        session.run_script(POOL, budget_sec=1.0)
+        session.run_script(POOL, GROUPS, budget_sec=1.0)
 
 
 @pytest.mark.parametrize(
@@ -266,13 +281,45 @@ def test_a_broken_submission_stays_the_miners_fault(settings, payload, expected)
     session.driver = _ScriptDriver(payload)
 
     with pytest.raises(BrowserError, match=expected) as caught:
-        session.run_script(POOL, budget_sec=1.0)
+        session.run_script(POOL, GROUPS, budget_sec=1.0)
     assert not isinstance(caught.value, BrowserInfraError)
+
+
+# -- run_script: per-group failure isolation --------------------------------
+#
+# `wrap_miner_script` already isolates one group's throw from the rest (see
+# tests/test_grouped_submissions.py, which runs the real emitted JS under
+# node). These two pin the OTHER half of the contract: what `run_script` does
+# with the `failed_groups` list the wrapper hands back.
+
+
+def test_run_script_tolerates_some_groups_failing(settings):
+    """One failed group must not cost the round - the other groups' labels
+    still get recorded, and the failed group's ids fall back to False via
+    `normalize_predictions`."""
+    session = ChromeSession(settings, "test")
+    session.driver = _ScriptDriver(
+        {"ok": {"aaaa": True}, "failed_groups": ["group_two"]}
+    )
+
+    result = session.run_script(POOL, GROUPS, budget_sec=1.0)
+
+    assert result == {"aaaa": True, "bbbb": False, "cccc": False}
+
+
+def test_run_script_raises_only_when_every_group_failed(settings):
+    """Indistinguishable from the whole script being broken - this is the one
+    case `run_script` still refuses to publish a result for."""
+    session = ChromeSession(settings, "test")
+    session.driver = _ScriptDriver({"ok": {}, "failed_groups": list(GROUPS)})
+
+    with pytest.raises(BrowserError, match="every group failed"):
+        session.run_script(POOL, GROUPS, budget_sec=1.0)
 
 
 def test_run_round_rejects_an_empty_subset(settings):
     with pytest.raises(BrowserError, match="empty"):
-        run_round(set(), pool=POOL, page_url="http://x", settings=settings)
+        run_round(set(), pool=POOL, groups=GROUPS, page_url="http://x", settings=settings)
 
 
 def test_run_round_drives_the_page_before_sampling(settings, monkeypatch):
@@ -302,14 +349,16 @@ def test_run_round_drives_the_page_before_sampling(settings, monkeypatch):
             calls.append("interact")
             return []
 
-        def run_script(self, pool, budget):
+        def run_script(self, pool, groups, budget):
             calls.append("run_script")
             return {e: False for e in pool}
 
     monkeypatch.setattr(browser, "ChromeSession", FakeSession)
     monkeypatch.setattr(browser.time, "sleep", lambda _s: None)
 
-    browser.run_round({"aaaa"}, pool=POOL, page_url="http://x", settings=settings)
+    browser.run_round(
+        {"aaaa"}, pool=POOL, groups=GROUPS, page_url="http://x", settings=settings
+    )
 
     assert calls == ["launch", "open_page", "interact", "run_script"]
 
@@ -340,3 +389,27 @@ def test_sweep_does_not_match_a_sibling_round_by_prefix(settings, monkeypatch):
         monkeypatch.undo()
 
     assert matched == {1}, f"swept a concurrent round's browser: {matched}"
+
+
+def test_infra_error_does_not_name_the_loaded_extensions(settings, monkeypatch):
+    """`missing` and `loaded` together reconstruct the round's enabled subset.
+
+    This message reaches the server log, which production bind-mounts out of
+    the container, so it names only what FAILED - enough to diagnose a mis-keyed
+    extension, without handing over the answer key.
+    """
+    import api.endpoints.challenge._browser as browser
+
+    enabled = ["aaaa", "bbbb", "cccc"]
+    with ChromeSession(settings, "leak") as session:
+        monkeypatch.setattr(session, "_stage_extensions", lambda ids: [])
+        monkeypatch.setattr(session, "_start_driver", lambda opts: None)
+        monkeypatch.setattr(session, "_read_loaded_ids", lambda: {"bbbb", "cccc"})
+
+        with pytest.raises(browser.BrowserInfraError) as err:
+            session.launch(enabled)
+
+    message = str(err.value)
+    assert "aaaa" in message, "the failure must be diagnosable"
+    assert "bbbb" not in message, "loaded ids are the answer key"
+    assert "cccc" not in message
