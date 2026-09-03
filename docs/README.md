@@ -26,7 +26,7 @@ accurately it identified what was installed.
 | Browser | Chrome for Testing — headless in prod, headful under Xvfb for dev |
 | Extension pool | ~30 Chrome Web Store extensions, IDs published to miners |
 | Enabled per round | Random `k ∈ [3,8]`, subset never revealed |
-| Miner output | `{extensionId: true\|false}` for every ID in the pool |
+| Miner output | 7 files, one per group, each `{extensionId: true\|false}` for that group's IDs |
 | Metric | MCC over all N binary decisions, `max(0, mcc)` → `[0,1]` |
 
 ## Running it locally
@@ -98,18 +98,23 @@ committed.
 
 ## Miner contract
 
-`solution.js` defines:
+The pool is published in **groups** (by extension category, e.g. `blockers`,
+`password_managers`) - `GET /task`'s `groups` field maps each group name to the extension ids it
+owns. A submission is **one file per group**, named `<group>.js`, each defining its own
+entrypoint:
 
 ```js
-window.detect_extensions = async function () {
+// blockers.js
+window.detect_blockers = async function () {
   // ... probe the page ...
   return { "cjpalhdlnbpafiamejdnhcphjbkeiagm": true, /* ... */ };
 };
 ```
 
-Return a boolean for each extension ID in the published pool. Missing keys are treated as
-`false`. See [`design.md`](./design.md) for the full contract and the reference baseline in
-`examples/miner_commit/`.
+Return a boolean for each extension ID in *that group only* - the challenge merges all 7 files'
+answers before scoring. Missing keys are treated as `false`. A throw in one group's file costs
+only that group's labels; the others still score normally. See [`design.md`](./design.md) for the
+full contract and the reference baseline in `examples/miner_commit/`.
 
 ## Scope note
 

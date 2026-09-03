@@ -19,7 +19,7 @@ class CommitFilePM(BaseModel):
         max_length=64,
         title="File Name",
         description="Name of the file.",
-        examples=["solution.js"],
+        examples=["blockers.js"],
     )
     content: str = Field(
         ...,
