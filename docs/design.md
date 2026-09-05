@@ -1,7 +1,6 @@
 # Extension Classification Challenge (`exc`) — Design
 
 > Design rationale for the `exc` challenge — the **why**.
-> To build it, follow [`BUILD.md`](./BUILD.md), the ordered execution checklist.
 > Diagram: [`architecture.excalidraw`](./architecture.excalidraw) (open at excalidraw.com).
 
 ## Context
@@ -355,7 +354,7 @@ hardcoded tags silently drifting from config is a real bug in ADA3's `index.html
 - **`schemas.py`** — require exactly one file per published group, named `<group>.js`, each
   ≤500 lines. `MinerInput` carries the published pool AND the group -> ids mapping, so miners
   know the closed world and how to name their files. See
-  `docs/PLAN-grouped-submissions.md` for why: one JS exception used to zero the whole round,
+  the grouped-submission contract for why: one JS exception used to zero the whole round,
   including every extension correctly identified as absent - splitting by group means a throw
   in one file costs only that group's labels.
 - **`router.py`** — add `Depends(auth_api_key)` on `/score`; the template ships it unguarded.

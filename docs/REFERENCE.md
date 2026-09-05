@@ -2,7 +2,7 @@
 
 **Purpose.** Everything needed to build this challenge, verbatim, so an executing model needs
 **no web search and no exploration of sibling repos**. Every fact here was verified against live
-endpoints or Chromium source on 2026-08-24. Load this alongside [`BUILD.md`](./BUILD.md).
+endpoints or Chromium source on 2026-08-24.
 
 If something you need is not here, that is a gap in this document — prefer asking over guessing,
 because most wrong answers in this problem space fail *silently*.
@@ -509,7 +509,7 @@ temperature softmax, so the metric must **spread** miners, not saturate.
 
 > **Stale as of 2026-08-29.** The code blocks below are the *pre-implementation* scaffold, kept
 > only to show what was replaced. `service.py`, `schemas.py` and `router.py` have all since been
-> rewritten — read the files, not this section. See `BUILD.md` → "What is left" for live status.
+> rewritten — read the files, not this section.
 
 ### `api/endpoints/challenge/service.py` — the stub that was replaced
 
@@ -613,7 +613,7 @@ with the same `k∈[3,8]` will not be much worse, since cost tracks `k`, not poo
 | Grammarly | `war`, `content_script` | ✅ **both** — `src/inkwell/index.html` fetches, and it opens a `<grammarly-desktop-integration>` shadow host | 4/4 correct |
 | Dark Reader | `css`, `content_script` | ✅ body background measurably changes | 4/4 correct |
 | uBlock Origin Lite | `dnr` | ⚠️ **unmeasured** — needs the Step 4 blocked-ad assertion | always false (by design) |
-| Bitwarden | `content_script` | ❌ **zero footprint** — see BUILD.md Step 1 blockers | always false |
+| Bitwarden | `content_script` | ❌ **zero footprint** | always false |
 
 ### WAR probing — two traps
 

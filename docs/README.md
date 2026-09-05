@@ -11,8 +11,7 @@ accurately it identified what was installed.
 
 | Document | What's in it |
 |---|---|
-| [`BUILD.md`](./BUILD.md) | **Execution checklist** — ordered steps, traps, acceptance gates. Start here to build. |
-| [`REFERENCE.md`](./REFERENCE.md) | **Self-contained technical reference** — verified facts, working CRX3 parser, Chrome flags, Selenium API, current repo state. Load this with `BUILD.md`; no web search needed. |
+| [`REFERENCE.md`](./REFERENCE.md) | **Self-contained technical reference** — verified facts, working CRX3 parser, Chrome flags, Selenium API, current repo state. No web search needed. |
 | [`design.md`](./design.md) | The reasoning: architecture, scoring rationale, extension pool, container spec, anti-cheat, risks |
 | [`pipeline.html`](./pipeline.html) | Pool-to-score pipeline diagram — open in a browser |
 | [`architecture.excalidraw`](./architecture.excalidraw) | Flow diagram — open at [excalidraw.com](https://excalidraw.com) |
@@ -24,8 +23,8 @@ accurately it identified what was installed.
 |---|---|
 | Threat model | Page-context JS, injected post-load via `execute_async_script` |
 | Browser | Chrome for Testing — headless in prod, headful under Xvfb for dev |
-| Extension pool | ~30 Chrome Web Store extensions, IDs published to miners |
-| Enabled per round | Random `k ∈ [3,8]`, subset never revealed |
+| Extension pool | 27 Chrome Web Store extensions, IDs published to miners (2 more sit in `rejected:`) |
+| Enabled per round | Fixed `k = 5` (`k` in config), random subset, never revealed |
 | Miner output | 7 files, one per group, each `{extensionId: true\|false}` for that group's IDs |
 | Metric | MCC over all N binary decisions, `max(0, mcc)` → `[0,1]` |
 
@@ -98,23 +97,46 @@ committed.
 
 ## Miner contract
 
-The pool is published in **groups** (by extension category, e.g. `blockers`,
-`password_managers`) - `GET /task`'s `groups` field maps each group name to the extension ids it
-owns. A submission is **one file per group**, named `<group>.js`, each defining its own
-entrypoint:
+The pool is published in **groups** (by extension category) - `GET /task`'s `groups` field maps
+each group name to the extension ids it owns. A submission is **one file per group**, named
+`<group>.js`, each defining its own entrypoint. All seven are sent in a single `POST /score`:
+
+| group | n | file | entrypoint |
+|---|---|---|---|
+| `blockers` | 4 | `blockers.js` | `window.detect_blockers` |
+| `password_managers` | 5 | `password_managers.js` | `window.detect_password_managers` |
+| `shopping` | 3 | `shopping.js` | `window.detect_shopping` |
+| `writing` | 3 | `writing.js` | `window.detect_writing` |
+| `appearance_media` | 5 | `appearance_media.js` | `window.detect_appearance_media` |
+| `translate` | 2 | `translate.js` | `window.detect_translate` |
+| `productivity` | 5 | `productivity.js` | `window.detect_productivity` |
 
 ```js
-// blockers.js
+// blockers.js - returns the four blocker ids and nothing else
 window.detect_blockers = async function () {
   // ... probe the page ...
-  return { "cjpalhdlnbpafiamejdnhcphjbkeiagm": true, /* ... */ };
+  return {
+    "cfhdojbkjhnklbpkdaibdccddilifddb": true,   // Adblock Plus
+    "mlomiejdfkolichcflejclcbmpeaniij": false,  // Ghostery
+    "pkehgijcmpdhfbdbbnkijodmdjhbjlgp": false,  // Privacy Badger
+    "bkdgflcldnnnapblkhphbgpggdiikppg": false,  // DuckDuckGo
+  };
 };
 ```
 
-Return a boolean for each extension ID in *that group only* - the challenge merges all 7 files'
-answers before scoring. Missing keys are treated as `false`. A throw in one group's file costs
-only that group's labels; the others still score normally. See [`design.md`](./design.md) for the
-full contract and the reference baseline in `examples/miner_commit/`.
+Take the ids from `GET /task`, never from a doc - **the grouping is generated from
+`extensions.yml` at runtime and changes when the pool changes.** Ids in `extensions.yml`'s
+`rejected:` block are never enabled in any round, so claiming one is a guaranteed false positive.
+
+Return a boolean for each extension ID in *that group only* - the challenge merges all seven
+files' answers before scoring, so an id from another group does not belong here. Missing keys are
+treated as `false`. All seven run every round, in parallel, each in its own try/catch: a throw in
+one group's file costs only that group's labels and the others still score normally. Scoring is
+MCC over the whole pool, so a false positive costs real score and an honest `false` beats a
+hopeful `true`.
+
+See [`design.md`](./design.md) for the full contract and the reference baseline in
+[`examples/miner_commit/`](../examples/miner_commit/).
 
 ## Scope note
 
