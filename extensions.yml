@@ -48,8 +48,8 @@ pool:
   - id: mlomiejdfkolichcflejclcbmpeaniij
     name: "Ghostery"
     group: blockers
-    version: "10.5.58"
-    sha256: "24f365bf0cd09f73aace740365603b6c7fba20cd384453c65ceba87d622139a0"
+    version: "10.6.0"
+    sha256: "02544d8bed72ead07d63e9bbe8b58c7ef2caacc763bb7e1d58031ff66f05ab25"
     time_to_stable_ms: null
 
   - id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
@@ -62,8 +62,8 @@ pool:
   - id: bkdgflcldnnnapblkhphbgpggdiikppg
     name: "DuckDuckGo"
     group: blockers
-    version: "2026.8.6"
-    sha256: "cf6787797685f5264cf089ad38c597e29ceb56a3616af07bb6d1d2080b5fefd3"
+    version: "2026.8.24"
+    sha256: "80412dd30db53fee4ae151407a9d26e8b5663fb612ab679d6eeca06a55f5c719"
     time_to_stable_ms: null
 
   - id: nngceckbapebfimnlniiiahkandclblb
@@ -129,15 +129,15 @@ pool:
   - id: kbfnbcaeplbcioakkpcpgfkobkghlhen
     name: "Grammarly"
     group: writing
-    version: "14.1325.0"
-    sha256: "8fe2546308270d3a58bbf7ef5c7599d12610971e0de32e257772108b17f49529"
+    version: "14.1326.0"
+    sha256: "4e203ad78de33a9ed2913b2a8d02d54fe56cdc7d2e6317ec90c41784f4333735"
     time_to_stable_ms: null
 
   - id: npnbdojkgkbcdfdjlfdmplppdphlhhcf
     name: "ProWritingAid"
     group: writing
-    version: "2.8.48222"
-    sha256: "8960eeec980fc35f2380b982349a123a6a1c0169c54a7855b21fdf7a848e5a81"
+    version: "2.8.54876"
+    sha256: "aa1246f92ef1f84be607a5d7e5682ba6df7c04e6fee339910b0d423cc2723dc8"
     time_to_stable_ms: null
 
   - id: oldceeleldhonbafppcapldpdifcinji
@@ -150,8 +150,8 @@ pool:
   - id: eimadpbcbfnmbkopoojfekhnkhdbieeh
     name: "Dark Reader"
     group: appearance_media
-    version: "4.9.129"
-    sha256: "9dcb1bd6dcad43892ddc028ff65f982df3edba135a9a6445e4fa71671e37aa13"
+    version: "4.9.130"
+    sha256: "84fca8291919f687fce72ed72c71697a5f203af6ec401e7678e8eb44540046bd"
     time_to_stable_ms: null
 
   - id: bfbmjmiodbnnpllbbbfblcplfjjepjdn
