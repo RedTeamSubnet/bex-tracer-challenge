@@ -25,8 +25,8 @@ pipeline dependency.
 |---|---|
 | Threat model | Page-context JS, injected post-load via `execute_async_script` |
 | Browser driver | **Selenium, in-repo** |
-| Extension pool | ~30, IDs published to miners |
-| Enabled per round | **Random k ∈ [3,8]**, subset never revealed |
+| Extension pool | 27, IDs published to miners (2 more sit in `rejected:`) |
+| Enabled per round | **Fixed k = 5**, random subset, never revealed |
 | Sourcing | `.crx` from the Chrome Web Store, downloaded at image build |
 | Metric | **MCC** over all N binary decisions, `max(0, mcc)` → `[0,1]` |
 | Miner output | `{extensionId: true\|false}` — plain booleans |
@@ -44,8 +44,10 @@ extensions.
 With **fixed** k=5 and a published pool, precision ≡ recall ≡ F1 mechanically — every false
 positive is matched by a false negative. Random guessing floors at `5·(5/N)` ≈ 25% for N=20.
 
-Randomizing `k` makes cardinality part of the prediction. MCC over all N decisions scores ~0 for
-every trivial strategy (all-true, all-false, random).
+`k` is FIXED at 5 (the `k` config field). The miner therefore knows `|enabled|`, so the strongest
+play is to rank the pool by confidence and take the top 5, and a miner predicting exactly 5
+positives has `FP == FN` by construction. MCC over all N decisions still scores ~0 for every
+trivial strategy (all-true, all-false, random).
 
 ```
 MCC = (TP·TN − FP·FN) / sqrt((TP+FP)(TP+FN)(TN+FP)(TN+FN))
@@ -74,7 +76,7 @@ called "scoring":
 
 `scoring-api` cannot do the first. It has no concept of a browser extension, and critically **it
 does not know the ground truth** — our container picks the random subset and drives the browser,
-so only we know which 3–8 were enabled. The validator receives a single number.
+so only we know which 5 were enabled. The validator receives a single number.
 
 This is also why `controller.py` / `challenge_manager.py` are out of scope: they are the plugins
 `scoring-api` loads for the *second* layer.
@@ -94,7 +96,7 @@ validator ──GET  /task ─────────────► challenge 
                                         │
                                         ▼
                           for round in 1..T:
-                            pick random k∈[3,8], random subset of pool
+                            pick a random 5-extension subset of the pool
                             launch Chrome for Testing (headless)
                               --load-extension=<k unpacked dirs>
                             navigate to bait page (served locally)
@@ -124,7 +126,7 @@ extension-classification/
 ├── scripts/
 │   └── fetch_extensions.py             NEW  build-time: download CRX, unpack, inject key
 ├── examples/miner_commit/
-│   └── src/commit/solution.js          EDIT reference baseline detector
+│   └── src/commit/<group>.js           EDIT reference baseline detector, one file per group
 └── src/exc_challenge/
     │   # controller.py / challenge_manager.py deliberately untouched — see below
     └── challenge/
@@ -135,7 +137,7 @@ extension-classification/
             ├── core/configs/_challenge.py   NEW  pool path, T, k range, P, timeouts, api_key
             └── endpoints/challenge/
                 ├── router.py           EDIT add auth to /score
-                ├── schemas.py          EDIT solution.js contract + pool in MinerInput
+                ├── schemas.py          EDIT grouped-file contract + pool/groups in MinerInput
                 ├── service.py          EDIT orchestration only, replacing random.random()
                 ├── _payload_manager.py NEW  round schedule (ground truth) + predictions + MCC
                 └── _browser.py         NEW  launch Chrome, run one round
@@ -350,8 +352,12 @@ hardcoded tags silently drifting from config is a real bug in ADA3's `index.html
   `calculate_score()`. It should not contain the metric, matching ADA3. Keep `score` a
   **sync `def`**: FastAPI runs it on the threadpool, which is what keeps the API responsive
   during a multi-minute run. Making it `async def` deadlocks the design.
-- **`schemas.py`** — require exactly one file, `solution.js`, ≤500 lines (reuse the existing
-  validator). `MinerInput` carries the published pool so miners know the closed world.
+- **`schemas.py`** — require exactly one file per published group, named `<group>.js`, each
+  ≤500 lines. `MinerInput` carries the published pool AND the group -> ids mapping, so miners
+  know the closed world and how to name their files. See
+  `docs/PLAN-grouped-submissions.md` for why: one JS exception used to zero the whole round,
+  including every extension correctly identified as absent - splitting by group means a throw
+  in one file costs only that group's labels.
 - **`router.py`** — add `Depends(auth_api_key)` on `/score`; the template ships it unguarded.
 - **`core/configs/_challenge.py`** — new, following flowprint's: pool path, round count, k range,
   settle seconds, script budget, api_key.
@@ -360,10 +366,12 @@ hardcoded tags silently drifting from config is a real bug in ADA3's `index.html
 
 ### 6. Miner-facing
 
-- Contract: `solution.js` defines `window.detect_extensions = async function() { ... }` returning
-  `{extensionId: boolean}`. Missing keys → `false`.
-- **`examples/miner_commit/src/commit/solution.js`** — reference baseline that really detects 2–3
-  easy extensions via WAR probing, so miners have a working start.
+- Contract: one file per group, named `<group>.js`, each defining
+  `window.detect_<group> = async function() { ... }` and returning `{extensionId: boolean}` for
+  that group's ids only. Missing keys → `false`. The challenge merges all 7 groups' answers before
+  scoring; a throw in one group's file costs only that group's labels.
+- **`examples/miner_commit/src/commit/`** — 7 reference baseline files, one per group, each a
+  minimal starting point (not a worked solution).
 
 ### 7. Scaffold bugs (small, real)
 
@@ -523,8 +531,9 @@ estimates and there's no published measurement for this workload shape.
    all-one-class → 0.0 edge case, and `build_round_schedule()` for k-range bounds and subset
    distribution (the analogue of ADA3's `tests/test_run_schedule.py`). A random-guess simulation
    over the real pool should average ~0.
-4. **Baseline miner** — the reference `solution.js` scores clearly above 0 and clearly below 1.
-   Stubs returning all-`false`, all-`true`, and random must each score ≈0.
+4. **Baseline miner** — the reference `examples/miner_commit/src/commit/*.js` (one file per group)
+   scores clearly above 0 and clearly below 1. Stubs returning all-`false`, all-`true`, and random
+   must each score ≈0.
 5. **Determinism** — score the same submission 5×; MCC variance should be small. High variance
    means the settle window needs work.
 6. **End-to-end** — `./compose.sh start -l`, then `curl localhost:10001/health`,

@@ -7,6 +7,13 @@ endpoints or Chromium source on 2026-08-24. Load this alongside [`BUILD.md`](./B
 If something you need is not here, that is a gap in this document — prefer asking over guessing,
 because most wrong answers in this problem space fail *silently*.
 
+> **Historical snapshot — do not trust the "current repo state" sections.**
+> Written 2026-08-24 to drive the initial build. The Chrome, CRX3 and Selenium facts in
+> sections 1–4 still hold. Everything describing *this repo* has drifted: `/score` now has an
+> auth dependency, `MinerInput` carries the pool and its groups, `submission_file_name` no
+> longer exists, and the single `solution.js` has been replaced by one file per group.
+> For today's contract read [`README.md`](./README.md); for the code, read the code.
+
 ---
 
 ## 1. Verified environment facts

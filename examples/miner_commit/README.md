@@ -11,6 +11,63 @@ This is a miner commit API example for Extension Classification.
 
 ---
 
+## 📋 What you submit
+
+The challenge enables a random subset of Chrome extensions, loads a bait page, and runs your
+JavaScript in that page. You return one boolean per extension: was it enabled?
+
+The pool is split into **groups** by category. You submit **one file per group** - all of them,
+in a single response - named `<group>.js`, each defining `window.detect_<group>`:
+
+| file | entrypoint | owns |
+|---|---|---|
+| `blockers.js` | `window.detect_blockers` | 4 ids |
+| `password_managers.js` | `window.detect_password_managers` | 5 ids |
+| `shopping.js` | `window.detect_shopping` | 3 ids |
+| `writing.js` | `window.detect_writing` | 3 ids |
+| `appearance_media.js` | `window.detect_appearance_media` | 5 ids |
+| `translate.js` | `window.detect_translate` | 2 ids |
+| `productivity.js` | `window.detect_productivity` | 5 ids |
+
+`src/commit/` holds a runnable stub for each. They return all-`false` - a valid submission that
+scores 0. Finding the signals is the challenge.
+
+**Get the group names and ids from `GET /task`**, not from this table. The grouping is generated
+from the challenge's pool file at runtime and changes when the pool rotates:
+
+```json
+{
+  "extension_ids": ["cfhdojbkjhnklbpkdaibdccddilifddb", "..."],
+  "groups": { "blockers": ["cfhdojbkjhnklbpkdaibdccddilifddb", "..."], "...": [] }
+}
+```
+
+Each entrypoint may be `async`, and returns ids for **its own group only**:
+
+```js
+window.detect_blockers = async function () {
+  return { "cfhdojbkjhnklbpkdaibdccddilifddb": true, /* ... */ };
+};
+```
+
+### Rules that decide your score
+
+- **All seven files are required.** A missing or unexpected filename is rejected outright.
+- **≤ 500 lines per file.**
+- **All seven run every round**, in parallel, each in its own `try`/`catch`. A throw costs only
+  that group's ids; the rest still score. The round is only lost if all seven fail.
+- **A missing key counts as `false`**, as does a throw.
+- **Scoring is MCC over the whole pool.** A false positive costs real score, so an honest `false`
+  beats a hopeful `true`. Answering all-`true` or all-`false` scores 0.
+- **You are not told how many are enabled**, or which.
+- Your script runs under a fixed per-round time budget; overrunning it loses the round.
+
+Where to look: `web_accessible_resources` probes (`fetch("chrome-extension://<id>/<path>")`),
+injected stylesheets and DOM footprint, blocked network requests, and behaviour that only appears
+after a user gesture. The stubs in `src/commit/` carry more detail per group.
+
+---
+
 ## 🛠 Installation
 
 ### 1. 🚧 Prerequisites
