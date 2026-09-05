@@ -5,10 +5,9 @@ challenge:
   # T - rounds per /score call. Each round is one browser launch.
   n_rounds: 5
   # Extensions enabled per round, drawn with `secrets`, never revealed.
-  # INVARIANT: k_max must be < the number of entries in pool_path, or
+  # INVARIANT: k must be < the number of entries in pool_path, or
   # build_round_schedule() raises. Today's pool has 27 entries.
-  k_min: 5
-  k_max: 5
+  k: 5
 
   # P - concurrent rounds. RAM-bound, roughly 1GB peak per Chrome instance.
   ## Raise only with measurement - see the field description in _challenge.py
@@ -23,7 +22,6 @@ challenge:
   # Hard cap on the miner script.
   script_budget_sec: 10.0
 
-  submission_file_name: "solution.js"
   submission_max_lines: 500
 
   # api_key is deliberately NOT set here - this file is committed. Supply it via

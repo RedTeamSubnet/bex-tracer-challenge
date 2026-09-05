@@ -1,4 +1,4 @@
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr
 from pydantic_settings import SettingsConfigDict
 
 from api.core.constants import ENV_PREFIX_CHALLENGE
@@ -35,13 +35,15 @@ class ChallengeConfig(BaseConfig):
     n_rounds: int = Field(
         default=20, ge=1, le=200, description="T - rounds per /score call"
     )
-    # Fixed k: equal bounds. Randomising k made cardinality part of the
-    # prediction; with a fixed k the miner knows |enabled| and can just rank the
-    # pool and take the top k. MCC still floors random guessing at ~0 either way
-    # (the 25% figure in design.md is about F1, which we do not use). Set these
-    # to different values to go back to a random k - nothing else changes.
-    k_min: int = Field(default=5, ge=1, description="min extensions enabled per round")
-    k_max: int = Field(default=5, ge=1, description="max extensions enabled per round")
+    # Fixed across the run: every round enables exactly this many extensions,
+    # drawn at random. The miner therefore knows |enabled| and can rank the pool
+    # and take the top k, and a miner predicting exactly k positives has
+    # FP == FN by construction. MCC still floors random guessing at ~0 (the 25%
+    # figure in design.md is about F1, which we do not use).
+    # INVARIANT: must be < the pool size, or build_round_schedule() raises -
+    # with everything enabled there is no negative class and even a perfect
+    # prediction scores 0.0.
+    k: int = Field(default=5, ge=1, description="extensions enabled per round")
     max_parallel_rounds: int = Field(
         default=1,
         ge=1,
@@ -66,12 +68,6 @@ class ChallengeConfig(BaseConfig):
     )
     submission_max_lines: int = Field(default=500, ge=1)
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
-
-    @model_validator(mode="after")
-    def _check_k_range(self) -> "ChallengeConfig":
-        if self.k_min > self.k_max:
-            raise ValueError(f"k_min ({self.k_min}) > k_max ({self.k_max})")
-        return self
 
     model_config = SettingsConfigDict(env_prefix=ENV_PREFIX_CHALLENGE)
 

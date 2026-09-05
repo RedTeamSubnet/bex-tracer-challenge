@@ -107,40 +107,45 @@ def test_random_guessing_averages_near_zero():
     assert mean < 0.10, f"random guessing scored {mean:.3f}, floor is too high"
 
 
-def test_schedule_length_and_k_bounds():
-    sched = build_round_schedule(POOL, n_rounds=50, k_min=3, k_max=8)
+def test_schedule_length_and_k():
+    sched = build_round_schedule(POOL, n_rounds=50, k=5)
     assert len(sched) == 50
-    assert all(3 <= len(s) <= 8 for s in sched)
+    assert all(len(s) == 5 for s in sched)
 
 
 def test_schedule_subsets_are_drawn_from_pool():
-    for subset in build_round_schedule(POOL, n_rounds=20, k_min=3, k_max=8):
+    for subset in build_round_schedule(POOL, n_rounds=20, k=5):
         assert subset <= set(POOL)
 
 
-def test_schedule_k_varies():
-    """If k were constant, precision == recall and false positives stop costing."""
-    sizes = {len(s) for s in build_round_schedule(POOL, 100, 3, 8)}
-    assert len(sizes) > 1
+def test_schedule_k_is_exact_every_round():
+    """`k` is fixed by design - every round enables exactly k, never a range.
+
+    The miner therefore knows |enabled|. That is a deliberate property of the
+    scoring model, not an accident, so it is pinned here.
+    """
+    sizes = {len(s) for s in build_round_schedule(POOL, 100, 5)}
+    assert sizes == {5}
 
 
-def test_schedule_is_not_constant_across_runs():
-    a = build_round_schedule(POOL, n_rounds=20, k_min=3, k_max=8)
-    b = build_round_schedule(POOL, n_rounds=20, k_min=3, k_max=8)
+def test_schedule_subsets_vary_across_runs():
+    """`k` is constant, but WHICH k extensions must not be."""
+    a = build_round_schedule(POOL, n_rounds=20, k=5)
+    b = build_round_schedule(POOL, n_rounds=20, k=5)
     assert a != b
 
 
-def test_schedule_fixed_k_allowed():
-    assert all(len(s) == 5 for s in build_round_schedule(POOL, 10, 5, 5))
+def test_schedule_subsets_vary_within_a_run():
+    sched = build_round_schedule(POOL, n_rounds=40, k=5)
+    assert len({frozenset(s) for s in sched}) > 1
 
 
 @pytest.mark.parametrize(
     "kwargs, match",
     [
-        ({"n_rounds": 0, "k_min": 3, "k_max": 8}, "n_rounds"),
-        ({"n_rounds": 5, "k_min": 0, "k_max": 8}, "k_min"),
-        ({"n_rounds": 5, "k_min": 9, "k_max": 3}, "k_min"),
-        ({"n_rounds": 5, "k_min": 3, "k_max": 999}, "must be < pool size"),
+        ({"n_rounds": 0, "k": 5}, "n_rounds"),
+        ({"n_rounds": 5, "k": 0}, "k must be >= 1"),
+        ({"n_rounds": 5, "k": 999}, "must be < pool size"),
     ],
 )
 def test_schedule_rejects_bad_params(kwargs, match):
@@ -150,12 +155,12 @@ def test_schedule_rejects_bad_params(kwargs, match):
 
 def test_schedule_rejects_empty_pool():
     with pytest.raises(ValueError, match="empty"):
-        build_round_schedule([], n_rounds=5, k_min=1, k_max=1)
+        build_round_schedule([], n_rounds=5, k=1)
 
 
 def test_manager_perfect_run_scores_one():
     mgr = PayloadManager(POOL)
-    mgr.build_schedule(n_rounds=10, k_min=3, k_max=8)
+    mgr.build_schedule(n_rounds=10, k=5)
     for rec in mgr.rounds:
         mgr.record(rec.index, {e: (e in rec.enabled) for e in POOL})
     assert mgr.calculate_score() == pytest.approx(1.0)
@@ -163,7 +168,7 @@ def test_manager_perfect_run_scores_one():
 
 def test_manager_failed_round_scores_zero_and_does_not_raise():
     mgr = PayloadManager(POOL)
-    mgr.build_schedule(n_rounds=4, k_min=3, k_max=5)
+    mgr.build_schedule(n_rounds=4, k=4)
     for rec in mgr.rounds:
         mgr.record(rec.index, {e: (e in rec.enabled) for e in POOL})
     mgr.record(0, None, error="browser crashed")
@@ -175,7 +180,7 @@ def test_manager_failed_round_scores_zero_and_does_not_raise():
 
 def test_manager_score_is_mean_over_all_rounds():
     mgr = PayloadManager(POOL)
-    mgr.build_schedule(n_rounds=2, k_min=3, k_max=3)
+    mgr.build_schedule(n_rounds=2, k=3)
     mgr.record(0, {e: (e in mgr.rounds[0].enabled) for e in POOL})  # 1.0
     mgr.record(1, {e: False for e in POOL})  # 0.0
     assert mgr.calculate_score() == pytest.approx(0.5)
@@ -184,7 +189,7 @@ def test_manager_score_is_mean_over_all_rounds():
 def test_manager_score_always_within_unit_interval():
     rng = random.Random(7)  # nosec B311
     mgr = PayloadManager(POOL)
-    mgr.build_schedule(n_rounds=30, k_min=3, k_max=8)
+    mgr.build_schedule(n_rounds=30, k=5)
     for rec in mgr.rounds:
         mgr.record(rec.index, {e: bool(rng.getrandbits(1)) for e in POOL})
     assert 0.0 <= mgr.calculate_score() <= 1.0
@@ -197,7 +202,7 @@ def test_manager_no_rounds_scores_zero():
 def test_manager_report_never_leaks_ground_truth():
     """The report must not reveal WHICH extensions were enabled."""
     mgr = PayloadManager(POOL)
-    mgr.build_schedule(n_rounds=3, k_min=3, k_max=5)
+    mgr.build_schedule(n_rounds=3, k=4)
     for rec in mgr.rounds:
         mgr.record(rec.index, {e: (e in rec.enabled) for e in POOL})
     mgr.calculate_score()
@@ -217,7 +222,7 @@ def test_public_dict_does_not_leak_the_enabled_set_via_the_error():
     """Browser errors name the extensions they tried to load, which is the
     round's answer key. The report must not carry that."""
     manager = PayloadManager(POOL)
-    manager.build_schedule(n_rounds=1, k_min=3, k_max=3)
+    manager.build_schedule(n_rounds=1, k=3)
     enabled = sorted(manager.rounds[0].enabled)
 
     manager.record(0, None, error=f"not loaded, or ids drifted: {enabled}")
@@ -233,7 +238,7 @@ def test_schedule_rejects_k_equal_to_the_pool_size():
     """Every extension enabled means no negative class: TN and FP are both 0,
     the MCC denominator vanishes, and a perfect prediction still scores 0.0."""
     with pytest.raises(ValueError, match="must be < pool size"):
-        build_round_schedule(POOL, n_rounds=1, k_min=len(POOL), k_max=len(POOL))
+        build_round_schedule(POOL, n_rounds=1, k=len(POOL))
 
 
 def test_a_perfect_prediction_with_everything_enabled_would_have_scored_zero():
@@ -242,3 +247,50 @@ def test_a_perfect_prediction_with_everything_enabled_would_have_scored_zero():
     perfect = {e: True for e in POOL}
     assert score_round(POOL, everything, perfect) == 0.0
 
+
+
+# -- infra failures must not be charged to the miner -------------------------
+
+
+def test_infra_failure_is_dropped_from_the_denominator():
+    """Our browser dying must not lower the miner's mean.
+
+    Before this behaviour existed, a failed round averaged a 0 in: at
+    n_rounds=20 the tolerated 4 infra failures capped a PERFECT submission at
+    16/20 = 0.80. That is a 20% haircut for our bug.
+    """
+    mgr = PayloadManager(pool=POOL)
+    mgr.build_schedule(n_rounds=4, k=3)
+
+    # three perfect rounds, one lost browser
+    for i in range(3):
+        mgr.record(i, {e: e in mgr.rounds[i].enabled for e in POOL})
+    mgr.record(3, None, error="BrowserInfraError", infra=True)
+
+    assert mgr.calculate_score() == 1.0, "a lost browser lowered a perfect score"
+    assert len(mgr.scored_rounds()) == 3
+    assert mgr.report()["n_scored"] == 3
+
+
+def test_miner_failure_stays_in_the_denominator():
+    """The asymmetry is the point: a miner that throws must not be scored only
+    on the rounds it felt like answering."""
+    mgr = PayloadManager(pool=POOL)
+    mgr.build_schedule(n_rounds=4, k=3)
+
+    for i in range(3):
+        mgr.record(i, {e: e in mgr.rounds[i].enabled for e in POOL})
+    mgr.record(3, None, error="BrowserError", infra=False)
+
+    assert mgr.calculate_score() == 0.75, "a miner failure was not charged"
+    assert len(mgr.scored_rounds()) == 4
+
+
+def test_every_round_losing_the_browser_scores_zero_not_a_crash():
+    mgr = PayloadManager(pool=POOL)
+    mgr.build_schedule(n_rounds=3, k=3)
+    for i in range(3):
+        mgr.record(i, None, error="BrowserInfraError", infra=True)
+
+    assert mgr.scored_rounds() == []
+    assert mgr.calculate_score() == 0.0

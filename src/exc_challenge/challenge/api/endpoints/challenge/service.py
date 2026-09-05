@@ -6,6 +6,7 @@ that lives in `_payload_manager.py`.
 """
 
 import time
+from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import NamedTuple
 
@@ -20,9 +21,15 @@ from ._payload_manager import PayloadManager, RoundRecord
 from ._pool import load_pool_groups, load_pool_ids
 from .schemas import MinerInput, MinerOutput
 
-# Failed rounds score 0 and drag the mean down, so a run with many broken
-# rounds returns a low score that looks like a bad miner. Past this share of
-# browsers failing to start, the number is not about the miner any more.
+# Infra failures no longer deflate the score - `PayloadManager.scored_rounds()`
+# drops them from the denominator, so a lost browser costs the miner nothing.
+# What they still cost is SAMPLE SIZE. Past this share, too few rounds actually
+# ran for the average to mean anything, and returning it anyway would hand the
+# validator a number that looks authoritative but is not.
+#
+# Only `BrowserInfraError` counts here. A miner's own failure is evidence about
+# the miner: it scores 0, stays in the denominator, and is not this guard's
+# business.
 _MAX_SETUP_FAILURE_RATIO = 0.2
 
 
@@ -55,7 +62,7 @@ def _run_one_round(
     round_record: RoundRecord,
     *,
     pool: list[str],
-    groups: list[str],
+    groups: Mapping[str, Sequence[str]],
     page_url: str,
     settings: BrowserSettings,
     request_id: str,
@@ -83,7 +90,7 @@ def _run_all_rounds(
     rounds: list[RoundRecord],
     *,
     pool: list[str],
-    groups: list[str],
+    groups: Mapping[str, Sequence[str]],
     page_url: str,
     settings: BrowserSettings,
     request_id: str,
@@ -132,13 +139,17 @@ def _record_all(
 
     for _result in results:
         _kind: str | None = None
+        _infra = False
         if _result.error is not None:
             _kind = type(_result.error).__name__
             _last_error = _kind
             if isinstance(_result.error, BrowserInfraError):
-                # Chrome could not start at all - infrastructure, not the miner.
+                # The browser failed us - staging, launch, navigation or a dead
+                # renderer. Not evidence about the miner, so it is excluded from
+                # the score denominator (see PayloadManager.scored_rounds).
+                _infra = True
                 _setup_failures += 1
-                _reason = "could not start"
+                _reason = "lost the browser"
             else:
                 _reason = "failed"
             logger.warning(
@@ -150,6 +161,7 @@ def _record_all(
             _result.predicted,
             error=_kind,
             duration_sec=round(_result.elapsed_sec, 2),
+            infra=_infra,
         )
 
     return _setup_failures, _last_error
@@ -164,8 +176,7 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
     _payload_manager = PayloadManager(pool=_pool)
     _payload_manager.build_schedule(
         n_rounds=_challenge_config.n_rounds,
-        k_min=_challenge_config.k_min,
-        k_max=_challenge_config.k_max,
+        k=_challenge_config.k,
     )
 
     # `BrowserSettings` mirrors `BrowserConfig` field for field; an unexpected
@@ -187,7 +198,7 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
         _results = _run_all_rounds(
             _payload_manager.rounds,
             pool=_pool,
-            groups=list(load_pool_groups()),
+            groups=load_pool_groups(),
             page_url=_bait_page_url(),
             settings=_browser_settings,
             request_id=request_id,
@@ -196,14 +207,15 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
             _payload_manager, _results, request_id
         )
 
-        # A low score from "the miner guessed badly" and a low score from "the
-        # browsers would not start" are indistinguishable to the validator, and
-        # the second one is our bug. Fail the request so it cannot be read as a score.
+        # Not "the score would be unfairly low" - infra failures are already
+        # out of the denominator. The problem is that too few rounds survived
+        # for the mean to say anything, and a thin average is indistinguishable
+        # from a solid one once it reaches the validator as a bare float.
         _n_rounds = len(_payload_manager.rounds)
         if _setup_failures > _MAX_SETUP_FAILURE_RATIO * _n_rounds:
             raise RuntimeError(
-                f"{_setup_failures} of {_n_rounds} round(s) failed to start a browser, "
-                f"so the score would not be about the miner. If max_parallel_rounds "
+                f"{_setup_failures} of {_n_rounds} round(s) lost the browser, "
+                f"leaving too few scored rounds to average. If max_parallel_rounds "
                 f"({_challenge_config.max_parallel_rounds}) was raised, lower it: "
                 f"shm_size and mem_limit are shared across concurrent browsers. "
                 # The class name only. The full text names extensions, and this
@@ -215,7 +227,8 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
         _report = _payload_manager.report()
         logger.info(
             f"[{request_id}] - Scored {_score:.4f} "
-            f"({_report['n_completed']}/{_report['n_rounds']} round(s) completed)."
+            f"({_report['n_completed']}/{_report['n_rounds']} round(s) completed, "
+            f"averaged over {_report['n_scored']})."
         )
         return _score
     finally:

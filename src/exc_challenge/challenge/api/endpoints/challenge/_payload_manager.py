@@ -20,6 +20,8 @@ class RoundStatus(str, Enum):
     CREATED = "CREATED"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    # The browser failed us, not the miner. Excluded from the score denominator.
+    INFRA_FAILED = "INFRA_FAILED"
 
 
 def mcc(tp: int, tn: int, fp: int, fn: int) -> float:
@@ -59,37 +61,41 @@ def score_round(
     return max(0.0, mcc(tp=tp, tn=tn, fp=fp, fn=fn))
 
 
-def build_round_schedule(
-    pool: list[str], n_rounds: int, k_min: int, k_max: int
-) -> list[set[str]]:
+def build_round_schedule(pool: list[str], n_rounds: int, k: int) -> list[set[str]]:
     """Pick the enabled subset for each round. THIS IS THE GROUND TRUTH.
 
     Uses `secrets`, not `random` - the subset must not be predictable from any
     observable seed. It is never serialised anywhere the browser can reach.
 
-    `k` is randomised per round so that cardinality becomes part of the miner's
-    prediction; with a fixed k, precision and recall are forced equal and false
-    positives stop costing anything.
+    Every round enables exactly `k` extensions, drawn at random from the pool.
+    `k` itself is FIXED across the run, which is deliberate and has two
+    consequences worth knowing when reading a score:
+
+      - The miner knows |enabled|, so the strongest play is to rank the pool by
+        confidence and take the top k rather than judge each extension on its
+        own. Ranking is an easier problem than absolute detection.
+      - A miner who predicts exactly k positives has FP == FN by construction,
+        so precision and recall are forced equal.
+
+    MCC still floors random guessing at ~0.
     """
     if not pool:
         raise ValueError(_EMPTY_POOL_ERROR)
     if n_rounds < 1:
         raise ValueError(f"n_rounds must be >= 1, got {n_rounds}")
-    if k_min < 1:
-        raise ValueError(f"k_min must be >= 1, got {k_min}")
-    if k_min > k_max:
-        raise ValueError(f"k_min ({k_min}) > k_max ({k_max})")
-    if k_max >= len(pool):
+    if k < 1:
+        raise ValueError(f"k must be >= 1, got {k}")
+    if k >= len(pool):
         # With every extension enabled there is no negative class: TN and FP are
         # both 0, the MCC denominator vanishes, and even a perfect prediction
         # scores 0.0. The ceiling is one short of the pool.
         raise ValueError(
-            f"k_max ({k_max}) must be < pool size ({len(pool)}); with every "
+            f"k ({k}) must be < pool size ({len(pool)}); with every "
             f"extension enabled a perfect prediction still scores 0.0"
         )
 
     rng = secrets.SystemRandom()
-    return [set(rng.sample(pool, k=rng.randint(k_min, k_max))) for _ in range(n_rounds)]
+    return [set(rng.sample(pool, k=k)) for _ in range(n_rounds)]
 
 
 @dataclass
@@ -132,8 +138,8 @@ class PayloadManager:
         self.pool: list[str] = list(pool)
         self.rounds: list[RoundRecord] = []
 
-    def build_schedule(self, n_rounds: int, k_min: int, k_max: int) -> None:
-        schedule = build_round_schedule(self.pool, n_rounds, k_min, k_max)
+    def build_schedule(self, n_rounds: int, k: int) -> None:
+        schedule = build_round_schedule(self.pool, n_rounds, k)
         self.rounds = [
             RoundRecord(index=i, enabled=enabled) for i, enabled in enumerate(schedule)
         ]
@@ -145,18 +151,23 @@ class PayloadManager:
         *,
         error: str | None = None,
         duration_sec: float | None = None,
+        infra: bool = False,
     ) -> float:
         """Record one round's result and return its score.
 
         A failed or empty round scores 0 rather than raising - one bad round must
         not abort the run.
+
+        `infra=True` marks a round the BROWSER lost, not the miner. Those are
+        dropped from the score denominator by `calculate_score()`; miner
+        failures are not. See that method for why the asymmetry is deliberate.
         """
         rec = self.rounds[index]
         rec.duration_sec = duration_sec
         rec.error = error
 
         if predicted is None:
-            rec.status = RoundStatus.FAILED
+            rec.status = RoundStatus.INFRA_FAILED if infra else RoundStatus.FAILED
             rec.score = 0.0
             return 0.0
 
@@ -164,11 +175,31 @@ class PayloadManager:
         rec.status = RoundStatus.COMPLETED
         return rec.score
 
+    def scored_rounds(self) -> list[RoundRecord]:
+        """Rounds that count toward the score.
+
+        Infrastructure failures are excluded; miner failures are NOT. The
+        asymmetry is load-bearing:
+
+          - Our browser dying is not evidence about the miner. Averaging a 0
+            into their mean charges them for our bug - at n_rounds=20 the
+            tolerated 4 failures would cap a perfect submission at 0.80.
+          - A miner's script throwing, hanging or returning the wrong shape IS
+            evidence about the miner. If those left the denominator too, a
+            miner could throw on every round it was unsure about and be scored
+            only on the easy ones, which would RAISE its mean.
+
+        Dropping ours merely shrinks the sample, which is what the caller's
+        setup-failure ratio guard already checks for.
+        """
+        return [r for r in self.rounds if r.status != RoundStatus.INFRA_FAILED]
+
     def calculate_score(self) -> float:
-        """Mean of the per-round scores. Returns 0.0 if nothing ran."""
-        if not self.rounds:
+        """Mean over the rounds that count. Returns 0.0 if none did."""
+        scored = self.scored_rounds()
+        if not scored:
             return 0.0
-        return sum(rec.score for rec in self.rounds) / len(self.rounds)
+        return sum(rec.score for rec in scored) / len(scored)
 
     def report(self) -> dict[str, Any]:
         """Recomputes the score, so the report cannot go stale if a caller
@@ -178,6 +209,7 @@ class PayloadManager:
             "pool_size": len(self.pool),
             "n_rounds": len(self.rounds),
             "n_completed": len(completed),
+            "n_scored": len(self.scored_rounds()),
             "score": round(self.calculate_score(), 4),
             "rounds": [rec.as_public_dict() for rec in self.rounds],
         }
