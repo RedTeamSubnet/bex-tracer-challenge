@@ -33,7 +33,32 @@ def load_config(
         logger.exception("Failed to load config:")
         raise SystemExit(1)
 
+    _warn_unknown_keys(_config_dict, _config)
     return _config
+
+
+def _warn_unknown_keys(raw: dict[str, Any], loaded: Any, _path: str = "") -> None:
+    """Warn about config keys the model does not declare.
+
+    `extra="allow"` is required (`env_file` makes every subclass absorb
+    unrelated `.env` keys), so `k_value: 5` instead of `k: 5` is silent - the
+    default stands and the run is misconfigured. Warn, never raise: a typo
+    should not be an outage.
+    """
+    _fields = getattr(type(loaded), "model_fields", None)
+    if not _fields:
+        return
+
+    for _key, _value in raw.items():
+        _where = f"{_path}{_key}"
+        if _key not in _fields:
+            logger.warning(
+                f"Config key '{_where}' is not a declared setting - it is being "
+                f"ignored. Check for a typo."
+            )
+            continue
+        if isinstance(_value, dict):
+            _warn_unknown_keys(_value, getattr(loaded, _key), _path=f"{_where}.")
 
 
 config = load_config()

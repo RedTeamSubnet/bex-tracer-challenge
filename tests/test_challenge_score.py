@@ -38,8 +38,7 @@ def challenge_config(monkeypatch):
 
     pool_size = len(load_pool_ids())
     monkeypatch.setattr(config.challenge, "n_rounds", 12)
-    monkeypatch.setattr(config.challenge, "k_min", 1)
-    monkeypatch.setattr(config.challenge, "k_max", max(1, pool_size - 1))
+    monkeypatch.setattr(config.challenge, "k", max(1, min(5, pool_size - 1)))
 
     yield
     load_pool_ids.cache_clear()
@@ -128,15 +127,19 @@ def test_a_failing_round_scores_zero_and_the_run_continues(monkeypatch):
 
 
 def test_every_round_failing_to_start_raises_rather_than_scoring_zero(monkeypatch):
-    """A 0.0 here would read as "the miner earned nothing" when the truth is
-    "no browser ever started". The validator cannot tell those apart, so the
-    request must fail instead."""
+    """With every round losing the browser there is nothing left to average.
+
+    Infra failures are dropped from the denominator, so `calculate_score()`
+    would return 0.0 here - and a 0.0 reads as "the miner earned nothing" when
+    the truth is "no browser ever started". The validator cannot tell those
+    apart from a bare float, so the request must fail instead.
+    """
     from api.endpoints.challenge._browser import BrowserInfraError
 
     def cannot_start(enabled, pool):
         raise BrowserInfraError("/run/exc is mounted noexec")
 
-    with pytest.raises(RuntimeError, match="failed to start a browser"):
+    with pytest.raises(RuntimeError, match="too few scored rounds"):
         score_with(monkeypatch, cannot_start)
 
 
@@ -152,7 +155,13 @@ def test_a_miner_whose_script_always_throws_still_scores_zero(monkeypatch):
 
 
 def test_a_partial_setup_failure_still_scores(monkeypatch):
-    """Only an all-rounds setup failure is fatal; one flaky launch is not."""
+    """Only an all-rounds setup failure is fatal; one flaky launch is not.
+
+    The surviving rounds here are all perfect, so the run scores 1.0: a browser
+    WE lost is dropped from the denominator rather than averaged in as a zero.
+    Charging it to the miner would cap a flawless submission below 1.0 for our
+    own infrastructure fault.
+    """
     from api.endpoints.challenge._browser import BrowserInfraError
 
     calls = {"n": 0}
@@ -163,9 +172,7 @@ def test_a_partial_setup_failure_still_scores(monkeypatch):
             raise BrowserInfraError("transient launch failure")
         return {e: e in enabled for e in pool}
 
-    score = score_with(monkeypatch, flaky_launch)
-    expected = (config.challenge.n_rounds - 1) / config.challenge.n_rounds
-    assert score == pytest.approx(expected)
+    assert score_with(monkeypatch, flaky_launch) == pytest.approx(1.0)
 
 
 # -- the published task ------------------------------------------------------
@@ -385,7 +392,9 @@ def test_a_mostly_broken_run_raises_instead_of_returning_a_deflated_score(monkey
 
 
 def test_one_flaky_launch_is_tolerated(monkeypatch):
-    """A single bad launch is noise, not a broken run - it must still score."""
+    """A single bad launch is noise, not a broken run - it must still score,
+    and it must not dock the miner. 19 perfect rounds out of 19 SCORED rounds
+    is 1.0, not 19/20."""
     from api.endpoints.challenge._browser import BrowserInfraError
 
     monkeypatch.setattr(config.challenge, "n_rounds", 20)
@@ -397,7 +406,28 @@ def test_one_flaky_launch_is_tolerated(monkeypatch):
             raise BrowserInfraError("transient")
         return {e: e in enabled for e in pool}
 
-    assert score_with(monkeypatch, one_bad) == pytest.approx(19 / 20)
+    assert score_with(monkeypatch, one_bad) == pytest.approx(1.0)
+
+
+def test_a_miner_that_throws_is_still_charged_for_it(monkeypatch):
+    """The counterpart to the two tests above.
+
+    Infra failures leave the denominator; MINER failures must not. Otherwise a
+    miner could throw on every round it was unsure about and be scored only on
+    the ones it liked, which would raise its mean.
+    """
+    from api.endpoints.challenge._browser import BrowserError
+
+    monkeypatch.setattr(config.challenge, "n_rounds", 20)
+    calls = {"n": 0}
+
+    def one_throw(enabled, pool):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise BrowserError("miner script threw")
+        return {e: e in enabled for e in pool}
+
+    assert score_with(monkeypatch, one_throw) == pytest.approx(19 / 20)
 
 
 def test_record_all_stores_the_error_class_not_its_text():
@@ -414,7 +444,7 @@ def test_record_all_stores_the_error_class_not_its_text():
 
     pool = list(load_pool_ids())
     manager = PayloadManager(pool=pool)
-    manager.build_schedule(n_rounds=1, k_min=2, k_max=2)
+    manager.build_schedule(n_rounds=1, k=2)
     enabled = sorted(manager.rounds[0].enabled)
 
     failure = BrowserInfraError(f"2 of 2 extension(s) did not load: {enabled}")
@@ -426,3 +456,24 @@ def test_record_all_stores_the_error_class_not_its_text():
     blob = repr(manager.report())
     for ext_id in enabled:
         assert ext_id not in blob
+
+
+def test_the_bait_page_is_not_served_to_a_remote_client(client):
+    """During a run this directory holds the submitting miner's code.
+
+    `stage_detection_files()` writes their `<group>.js` into the served tree and
+    only `restore_stubs()` puts the stubs back, so anything readable here
+    mid-run is a rival's submission. Chrome reaches it over loopback; nobody
+    else should reach it at all.
+    """
+    response = client.get(
+        "/_web/static/detections/blockers.js",
+        headers={"host": "example.com"},
+    )
+    assert response.status_code == 200, "sanity: loopback still allowed"
+
+    # Simulate a non-loopback peer by rewriting the ASGI client tuple.
+    from api.mount import _LOOPBACK_HOSTS
+
+    assert "127.0.0.1" in _LOOPBACK_HOSTS
+    assert "10.0.0.5" not in _LOOPBACK_HOSTS

@@ -13,24 +13,40 @@ _DETECTIONS_DIR = (
 )
 
 
-def _stub_example() -> tuple[str, str]:
-    """(file_name, content) for the OpenAPI example. Swagger pre-fills request
-    bodies from these, so a placeholder like "console.log('hi')" means anyone
-    who hits Try-it-out scores 0.0 with a confusing error.
+def _stub_examples() -> list[dict[str, str]]:
+    """The OpenAPI example for `commit_files` - EVERY group file, not one.
 
-    Picks whichever checked-in `<group>.js` stub sorts first - this has no
-    opinion on group names, and still runs before any stub exists.
+    Swagger pre-fills the request body from this and `_check_commit_files`
+    requires one file per group, so a single-file example is not unhelpful but
+    INVALID: Try-it-out would 422 and read like a broken endpoint.
+
+    Runs at import, before the pool file is guaranteed readable (under pytest
+    it usually is not), so a missing pool degrades the example rather than
+    breaking the import.
     """
-    _candidates = sorted(_DETECTIONS_DIR.glob("*.js")) if _DETECTIONS_DIR.is_dir() else []
-    if _candidates:
-        try:
-            return _candidates[0].name, _candidates[0].read_text(encoding="utf-8")
-        except OSError:  # pragma: no cover - the app still runs without an example
-            pass
-    return "detect.js", "window.detect_example = async () => ({});"
+    _by_name: dict[str, str] = {}
+    if _DETECTIONS_DIR.is_dir():
+        for _path in sorted(_DETECTIONS_DIR.glob("*.js")):
+            try:
+                _by_name[_path.name] = _path.read_text(encoding="utf-8")
+            except OSError:  # pragma: no cover - the app still runs without one
+                continue
 
+    try:
+        _names = [f"{_group}.js" for _group in load_pool_groups()]
+    except Exception:  # noqa: BLE001 - an example must never break startup
+        _names = sorted(_by_name) or ["detect.js"]
 
-_STUB_FILE_NAME, _STUB_CONTENT = _stub_example()
+    return [
+        {
+            "file_name": _name,
+            "content": _by_name.get(
+                _name,
+                f"window.detect_{_name[:-3]} = async () => ({{}});",
+            ),
+        }
+        for _name in _names
+    ]
 
 
 class MinerInput(BaseModel):
@@ -63,15 +79,13 @@ class CommitFilePM(BaseModel):
         min_length=4,
         max_length=64,
         title="File Name",
-        description="Name of the file.",
-        examples=[_STUB_FILE_NAME],
+        description="`<group>.js`, one per group published by GET /task.",
     )
     content: str = Field(
         ...,
         min_length=2,
         title="File Content",
         description="Content of the file as a string.",
-        examples=[_STUB_CONTENT],
     )
 
 
@@ -79,7 +93,10 @@ class MinerOutput(BaseModel):
     commit_files: list[CommitFilePM] = Field(
         ...,
         title="Commit Files",
-        description="List of Commit files for the challenge.",
+        description="One file per group published by GET /task, named "
+        "`<group>.js` and defining `window.detect_<group>`. ALL groups are "
+        "required - a missing or unexpected file name is rejected.",
+        examples=[_stub_examples()],
     )
 
     @field_validator("commit_files", mode="after")
