@@ -451,12 +451,19 @@ def _stage_miner_js(miner_js: str, bait_dir: Path, groups: list[str]) -> list[Pa
 
 
 def _restore_stub(staged: list[Path]) -> None:
-    """Put the checked-in stubs back. Never raises - it runs in a `finally`."""
+    """Put the checked-in stubs back. Never raises - it runs in a `finally`.
+
+    Mirrors `utils.restore_stubs()`, including the else-branch: with no backup
+    there was no file before this run, so the miner's code must be deleted, not
+    left to become the next run's "stub".
+    """
     for target in staged:
         backup = target.with_suffix(".js.stub")
         try:
             if backup.is_file():
                 shutil.copy2(backup, target)
+            else:
+                target.unlink(missing_ok=True)
         except OSError as err:
             print(f"warning: could not restore {target.name}: {err}", file=sys.stderr)
 

@@ -13,11 +13,17 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import psutil
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import (
+    InvalidSessionIdException,
+    NoSuchWindowException,
+    TimeoutException,
+    WebDriverException,
+)
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
@@ -114,7 +120,7 @@ class BrowserSettings:
     page_load_timeout_sec: float = 30.0
 
 
-def wrap_miner_script(budget_sec: float, groups: list[str]) -> str:
+def wrap_miner_script(budget_sec: float, groups: Mapping[str, Sequence[str]]) -> str:
     """Call every group's entrypoint so a hang, a per-group throw and a result
     are all reportable - and so ONE group throwing cannot cost the others.
 
@@ -124,11 +130,13 @@ def wrap_miner_script(budget_sec: float, groups: list[str]) -> str:
     that the miner defined is already in place. This wrapper only invokes them
     and normalises the outcome.
 
-    Each group's call gets its OWN try/catch, inside a `Promise.all` so groups
-    run concurrently. A throw, a missing function, or a non-object return all
-    mark that group as failed and stop there - they never reach the outer
-    catch, and never turn into a whole-round `__error`. That isolation is the
-    entire point of this change: see docs/PLAN-grouped-submissions.md.
+    Each group gets its OWN try/catch inside a `Promise.all`, so a throw, a
+    missing function or a non-object return costs only that group - never the
+    whole round. That isolation is the point of the split.
+
+    A group answers only for the ids it OWNS; other keys are dropped. Without
+    the filter two files claiming the same id would race on completion order,
+    and the same submission could score differently run to run.
 
     The `setTimeout` sentinel below is best-effort, not enforcement. It runs in
     the same JS world as the submission, which loaded first and may already have
@@ -139,6 +147,7 @@ def wrap_miner_script(budget_sec: float, groups: list[str]) -> str:
     _group_calls = ",\n".join(
         f"""
                 (async () => {{
+                    const owned = new Set({json.dumps(list(_ids))});
                     try {{
                         if (typeof window.detect_{group} !== "function") {{
                             failedGroups.push({json.dumps(group)});
@@ -146,7 +155,9 @@ def wrap_miner_script(budget_sec: float, groups: list[str]) -> str:
                         }}
                         const result = await window.detect_{group}();
                         if (result && typeof result === "object") {{
-                            Object.assign(merged, result);
+                            for (const key of Object.keys(result)) {{
+                                if (owned.has(key)) merged[key] = result[key];
+                            }}
                         }} else {{
                             failedGroups.push({json.dumps(group)});
                         }}
@@ -154,7 +165,7 @@ def wrap_miner_script(budget_sec: float, groups: list[str]) -> str:
                         failedGroups.push({json.dumps(group)});
                     }}
                 }})()"""
-        for group in groups
+        for group, _ids in groups.items()
     )
     return f"""
         const done = arguments[arguments.length - 1];
@@ -354,7 +365,10 @@ class ChromeSession:
         time.sleep(settle_seconds)
 
     def run_script(
-        self, pool: list[str], groups: list[str], budget_sec: float
+        self,
+        pool: list[str],
+        groups: Mapping[str, Sequence[str]],
+        budget_sec: float,
     ) -> dict[str, bool]:
         """Invoke every group's entrypoint and normalise what came back.
 
@@ -437,7 +451,18 @@ class ChromeSession:
                     if text:
                         element.send_keys(text)
                 performed.append(f"{action} {selector}")
+            except (InvalidSessionIdException, NoSuchWindowException) as err:
+                # The browser is GONE. These subclass WebDriverException, so
+                # the broad clause below would log "skipped" and march through
+                # the remaining gestures before anything noticed. Name the
+                # gesture that killed it - that is the only diagnostic we get.
+                raise BrowserInfraError(
+                    f"browser died during gesture {action} {selector} "
+                    f"({type(err).__name__}); completed {performed}"
+                ) from err
             except WebDriverException as err:
+                # A missing or covered element is normal - a blocker can remove
+                # the ad banner.
                 performed.append(
                     f"{action} {selector} -> skipped ({type(err).__name__})"
                 )
@@ -524,7 +549,7 @@ def run_round(
     subset: set[str],
     *,
     pool: list[str],
-    groups: list[str],
+    groups: Mapping[str, Sequence[str]],
     page_url: str,
     settings: BrowserSettings,
     settle_seconds: float = 4.0,
@@ -536,9 +561,11 @@ def run_round(
     `subset` is ground truth and is never written anywhere the browser can
     reach it - not into the page, not into a global, not into a query param.
 
-    `groups` are the published group names (`extensions.yml`'s `group:`
-    values) - the wrapper calls `window.detect_<group>()` for each, in its own
-    try/catch, so one group throwing costs only that group's labels.
+    `groups` maps each published group name (`extensions.yml`'s `group:`
+    values) to the ids it owns. The wrapper calls `window.detect_<group>()` for
+    each, in its own try/catch, so one group throwing costs only that group's
+    labels - and it keeps only the ids that group owns, so two files cannot
+    race to answer for the same extension.
 
     The gesture script runs on every round. It is fixed and identical each time,
     so it leaks nothing, and without it the whole password-manager class of the

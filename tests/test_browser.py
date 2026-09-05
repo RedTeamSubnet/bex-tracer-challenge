@@ -27,7 +27,7 @@ from api.endpoints.challenge._browser import (  # noqa: E402
 )
 
 POOL = ["aaaa", "bbbb", "cccc"]
-GROUPS = ["group_one", "group_two"]
+GROUPS = {"group_one": ["aaaa", "bbbb"], "group_two": ["cccc"]}
 
 
 @pytest.fixture

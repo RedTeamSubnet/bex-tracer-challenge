@@ -9,6 +9,7 @@ do. The plan's own words on what matters:
     clean the rest looks."
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -154,8 +155,8 @@ def test_wrapper_calls_one_entrypoint_per_group():
     """
     from api.endpoints.challenge._browser import wrap_miner_script
 
-    groups = list(load_pool_groups())
-    js = wrap_miner_script(10.0, groups)  # type: ignore[call-arg]
+    groups = load_pool_groups()
+    js = wrap_miner_script(10.0, groups)
 
     for name in groups:
         assert f"detect_{name}" in js, f"wrapper never calls detect_{name}"
@@ -174,17 +175,20 @@ def test_a_throw_in_one_group_does_not_lose_the_others():
 
     from api.endpoints.challenge._browser import wrap_miner_script
 
-    groups = list(load_pool_groups())
-    broken, *healthy = groups
-    js = wrap_miner_script(10.0, groups)  # type: ignore[call-arg]
+    groups = load_pool_groups()
+    broken, *healthy = list(groups)
+    js = wrap_miner_script(10.0, groups)
 
+    # Each healthy group answers `true` for the ids it actually owns - the
+    # wrapper drops anything else, so fake ids would be filtered out and the
+    # test would pass for the wrong reason.
     harness = f"""
     const window = globalThis;
     {"".join(
         f'window.detect_{g} = async () => {{ throw new Error("boom"); }};'
         if g == broken else
-        f'window.detect_{g} = async () => ({{"id_{g}": true}});'
-        for g in groups
+        f'window.detect_{g} = async () => ({json.dumps({i: True for i in ids})});'
+        for g, ids in groups.items()
     )}
     const done = (payload) => {{
         console.log(JSON.stringify(payload));
@@ -213,4 +217,63 @@ def test_a_throw_in_one_group_does_not_lose_the_others():
     )
     merged = payload.get("ok") or {}
     for g in healthy:
-        assert f"id_{g}" in merged, f"{g} reported nothing after {broken} threw"
+        for _id in groups[g]:
+            assert merged.get(_id) is True, (
+                f"{g} lost id {_id} after {broken} threw"
+            )
+    assert sorted(payload.get("failed_groups") or []) == [broken]
+    # The broken group's ids must be absent, not guessed at.
+    for _id in groups[broken]:
+        assert _id not in merged
+
+
+def test_a_group_cannot_answer_for_another_groups_extension():
+    """Each group is authoritative only for the ids it owns.
+
+    Without this, `Object.assign(merged, result)` copied every key a group
+    returned. Two files claiming the same id would race - `Promise.all` settles
+    in completion order, so whichever finished last won and the same submission
+    could score differently run to run. With 27 ids across seven files, putting
+    one in the wrong file is an easy mistake.
+    """
+    import subprocess
+    import tempfile
+
+    from api.endpoints.challenge._browser import wrap_miner_script
+
+    groups = load_pool_groups()
+    names = list(groups)
+    victim_group, liar_group = names[0], names[1]
+    victim_id = groups[victim_group][0]
+
+    js = wrap_miner_script(10.0, groups)
+
+    # The victim honestly answers False for its own id. The liar claims True
+    # for that same id, which it does not own. The truthful answer must win.
+    stubs = []
+    for g, ids in groups.items():
+        if g == liar_group:
+            payload = {victim_id: True}
+        else:
+            payload = {i: False for i in ids}
+        stubs.append(f"window.detect_{g} = async () => ({json.dumps(payload)});")
+
+    harness = f"""
+    const window = globalThis;
+    {"".join(stubs)}
+    const done = (p) => {{ console.log(JSON.stringify(p)); process.exit(0); }};
+    (async function () {{
+        {js}
+    }}).call(null, done);
+    """
+    with tempfile.NamedTemporaryFile("w", suffix=".mjs", delete=False) as fh:
+        fh.write(harness)
+        path = fh.name
+
+    out = subprocess.run(["node", path], capture_output=True, text=True, timeout=30)
+    assert out.stdout.strip(), f"no output. stderr:\n{out.stderr[:600]}"
+    merged = (json.loads(out.stdout.strip().splitlines()[-1]).get("ok")) or {}
+
+    assert merged[victim_id] is False, (
+        f"{liar_group} overwrote {victim_group}'s answer for {victim_id}"
+    )
