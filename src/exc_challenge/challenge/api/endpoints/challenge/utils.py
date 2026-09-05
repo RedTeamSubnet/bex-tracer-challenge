@@ -46,8 +46,7 @@ def stage_detection_files(
     for commit_file in miner_output.commit_files:
         target = _safe_target(detections_dir, commit_file.file_name)
 
-        # Keep the stub so `restore_stubs()` can put the page back. Written once
-        # per target: a crashed earlier run must not have its miner code
+        # Written once per target: a crashed run must not get its miner code
         # promoted to "the stub".
         backup = target.with_suffix(target.suffix + _STUB_SUFFIX)
         if target.is_file() and not backup.exists():

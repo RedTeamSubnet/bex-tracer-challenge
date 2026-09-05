@@ -21,15 +21,10 @@ from ._payload_manager import PayloadManager, RoundRecord
 from ._pool import load_pool_groups, load_pool_ids
 from .schemas import MinerInput, MinerOutput
 
-# Infra failures no longer deflate the score - `PayloadManager.scored_rounds()`
-# drops them from the denominator, so a lost browser costs the miner nothing.
-# What they still cost is SAMPLE SIZE. Past this share, too few rounds actually
-# ran for the average to mean anything, and returning it anyway would hand the
-# validator a number that looks authoritative but is not.
-#
-# Only `BrowserInfraError` counts here. A miner's own failure is evidence about
-# the miner: it scores 0, stays in the denominator, and is not this guard's
-# business.
+# Infra failures are already out of the denominator, so they cost sample size,
+# not score. Past this share too few rounds ran for the average to mean
+# anything. Counts `BrowserInfraError` only - a miner's own failure is not this
+# guard's business.
 _MAX_SETUP_FAILURE_RATIO = 0.2
 
 
@@ -125,14 +120,11 @@ def _record_all(
     results: list[RoundResult],
     request_id: str,
 ) -> tuple[int, str | None]:
-    """Score every round on this thread. Returns (setup failures, last error kind).
+    """Score every round. Returns (infra failures, last error class).
 
-    `executor.map` yields in the order of the input rather than completion, so
-    recording here is already index-ordered and the report is deterministic.
-
-    The full exception text can name extensions, which is this round's answer
-    key, so it goes to the log and nowhere else. `RoundRecord` and the returned
-    "last error" keep only the exception class name.
+    `executor.map` yields in input order, so the report is deterministic.
+    Exception TEXT can name extensions - this round's answer key - so only the
+    class name is kept; the text goes to the log.
     """
     _setup_failures = 0
     _last_error: str | None = None
@@ -144,9 +136,7 @@ def _record_all(
             _kind = type(_result.error).__name__
             _last_error = _kind
             if isinstance(_result.error, BrowserInfraError):
-                # The browser failed us - staging, launch, navigation or a dead
-                # renderer. Not evidence about the miner, so it is excluded from
-                # the score denominator (see PayloadManager.scored_rounds).
+                # Our fault, not the miner's - excluded from the denominator.
                 _infra = True
                 _setup_failures += 1
                 _reason = "lost the browser"
@@ -188,11 +178,8 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
         f"over a pool of {len(_pool)}..."
     )
 
-    # The miner's files are served as static/detections/<group>.js and loaded
-    # by the bait page itself, matching ab_sniffer and ada_detection. Every
-    # round in this run uses the same submission, so it is staged once, and
-    # restored in the `finally` so a miner's code never outlives the run that
-    # sent it.
+    # Staged once - every round uses the same submission - and restored in the
+    # `finally` so a miner's code never outlives its own run.
     _staged = ch_utils.stage_detection_files(miner_output)
     try:
         _results = _run_all_rounds(
@@ -207,10 +194,8 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
             _payload_manager, _results, request_id
         )
 
-        # Not "the score would be unfairly low" - infra failures are already
-        # out of the denominator. The problem is that too few rounds survived
-        # for the mean to say anything, and a thin average is indistinguishable
-        # from a solid one once it reaches the validator as a bare float.
+        # A thin average is indistinguishable from a solid one once it reaches
+        # the validator as a bare float, so fail instead of returning it.
         _n_rounds = len(_payload_manager.rounds)
         if _setup_failures > _MAX_SETUP_FAILURE_RATIO * _n_rounds:
             raise RuntimeError(

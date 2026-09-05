@@ -67,17 +67,9 @@ def build_round_schedule(pool: list[str], n_rounds: int, k: int) -> list[set[str
     Uses `secrets`, not `random` - the subset must not be predictable from any
     observable seed. It is never serialised anywhere the browser can reach.
 
-    Every round enables exactly `k` extensions, drawn at random from the pool.
-    `k` itself is FIXED across the run, which is deliberate and has two
-    consequences worth knowing when reading a score:
-
-      - The miner knows |enabled|, so the strongest play is to rank the pool by
-        confidence and take the top k rather than judge each extension on its
-        own. Ranking is an easier problem than absolute detection.
-      - A miner who predicts exactly k positives has FP == FN by construction,
-        so precision and recall are forced equal.
-
-    MCC still floors random guessing at ~0.
+    `k` is fixed, so the miner knows |enabled|: ranking the pool and taking the
+    top k beats judging each extension, and predicting exactly k positives
+    forces FP == FN. Deliberate. MCC still floors random guessing at ~0.
     """
     if not pool:
         raise ValueError(_EMPTY_POOL_ERROR)
@@ -158,9 +150,8 @@ class PayloadManager:
         A failed or empty round scores 0 rather than raising - one bad round must
         not abort the run.
 
-        `infra=True` marks a round the BROWSER lost, not the miner. Those are
-        dropped from the score denominator by `calculate_score()`; miner
-        failures are not. See that method for why the asymmetry is deliberate.
+        `infra=True` marks a round the BROWSER lost - dropped from the score
+        denominator by `scored_rounds()`. Miner failures are not.
         """
         rec = self.rounds[index]
         rec.duration_sec = duration_sec
@@ -176,21 +167,13 @@ class PayloadManager:
         return rec.score
 
     def scored_rounds(self) -> list[RoundRecord]:
-        """Rounds that count toward the score.
+        """Rounds that count toward the score. Infra failures are excluded.
 
-        Infrastructure failures are excluded; miner failures are NOT. The
-        asymmetry is load-bearing:
-
-          - Our browser dying is not evidence about the miner. Averaging a 0
-            into their mean charges them for our bug - at n_rounds=20 the
-            tolerated 4 failures would cap a perfect submission at 0.80.
-          - A miner's script throwing, hanging or returning the wrong shape IS
-            evidence about the miner. If those left the denominator too, a
-            miner could throw on every round it was unsure about and be scored
-            only on the easy ones, which would RAISE its mean.
-
-        Dropping ours merely shrinks the sample, which is what the caller's
-        setup-failure ratio guard already checks for.
+        Our browser dying is not evidence about the miner - averaging a 0 in
+        charges them for our bug. A miner's own failure IS evidence, and must
+        stay in: otherwise throwing on every uncertain round would raise its
+        mean. Dropping ours only shrinks the sample, which the caller's
+        setup-failure guard already checks.
         """
         return [r for r in self.rounds if r.status != RoundStatus.INFRA_FAILED]
 
