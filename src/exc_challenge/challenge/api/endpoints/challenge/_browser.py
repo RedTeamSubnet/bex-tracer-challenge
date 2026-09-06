@@ -363,6 +363,36 @@ class ChromeSession:
         except WebDriverException as err:
             raise BrowserInfraError(f"could not load the bait page: {err}") from err
         time.sleep(settle_seconds)
+        self._assert_page_rendered()
+
+    def _assert_page_rendered(self) -> None:
+        """Fail loudly if the bait page came back empty.
+
+        The page is a React bundle: `<div id="root">` is filled in by
+        `static/js/main.*.js`. If that asset 404s - a bad sync, a renamed
+        hash - navigation still succeeds with HTTP 200 and an empty body.
+        Every extension then has nothing to react to, every detector returns
+        nothing, and ALL miners score 0 with no error anywhere.
+
+        Infra, not miner: this is our asset failing, so the round must not
+        count against whoever happened to be scored when it broke.
+        """
+        try:
+            rendered = self.driver.execute_script(
+                "const r = document.getElementById('root');"
+                "return !!r && r.childElementCount > 0;"
+            )
+        except WebDriverException as err:
+            raise BrowserInfraError(
+                f"could not check whether the bait page rendered: {err}"
+            ) from err
+
+        if not rendered:
+            raise BrowserInfraError(
+                "the bait page loaded but rendered nothing (#root is empty) - "
+                "its script bundle is probably missing; check "
+                "templates/static/js/ against index.html"
+            )
 
     def run_script(
         self,

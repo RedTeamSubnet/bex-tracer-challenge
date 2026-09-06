@@ -11,13 +11,14 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 # declare `matches: ["http://*/*", "https://*/*"]`, so from a file:// page every
 # WAR probe is a false negative no matter which extensions are loaded.
 _BAIT_DIR = Path(__file__).resolve().parent.parent / "templates"
+BAIT_INDEX = _BAIT_DIR / "index.html"
 
 
 # During a run this directory holds the submitting miner's code, and Chrome
 # reaches it from inside the container. Left open on the published port, a rival
 # could read that submission and copy it - which the similarity gate then
 # penalises for both. Loopback only.
-_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
 
 
 class _LoopbackOnly:
@@ -33,7 +34,7 @@ class _LoopbackOnly:
 
         _client = scope.get("client")
         _host = _client[0] if _client else None
-        if _host not in _LOOPBACK_HOSTS:
+        if _host not in LOOPBACK_HOSTS:
             # 404, not 403 - do not confirm the path exists.
             await PlainTextResponse("Not Found", status_code=404)(
                 scope, receive, send
@@ -52,13 +53,13 @@ def add_mounts(app: FastAPI) -> None:
     """
 
     app.mount(
-        "/_web",
-        _LoopbackOnly(StaticFiles(directory=str(_BAIT_DIR))),
-        name="bait",
+        "/static",
+        _LoopbackOnly(StaticFiles(directory=str(_BAIT_DIR / "static"))),
+        name="bait-static",
     )
     # Add mounts here
 
     return
 
 
-__all__ = ["add_mounts"]
+__all__ = ["add_mounts", "BAIT_INDEX", "LOOPBACK_HOSTS"]

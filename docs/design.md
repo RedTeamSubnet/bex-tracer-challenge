@@ -24,7 +24,7 @@ pipeline dependency.
 |---|---|
 | Threat model | Page-context JS, injected post-load via `execute_async_script` |
 | Browser driver | **Selenium, in-repo** |
-| Extension pool | 27, IDs published to miners (2 more sit in `rejected:`) |
+| Extension pool | 21, IDs published to miners (8 more sit in `rejected:`) |
 | Enabled per round | **Fixed k = 5**, random subset, never revealed |
 | Sourcing | `.crx` from the Chrome Web Store, downloaded at image build |
 | Metric | **MCC** over all N binary decisions, `max(0, mcc)` → `[0,1]` |
@@ -291,7 +291,7 @@ store ID; no extension path contains a comma.
 `compose.yml` (**dev**) *and* the `challenge_container_run_kwargs` block for
 `active_challenges.yaml` (**prod**) — both need: `shm_size: 2gb` (the 64MB default crashes tabs),
 `tmpfs` for round scratch, `mem_limit: 8g`, `pids_limit`, `cap_drop: ALL`, `no-new-privileges`,
-seccomp profile, and an `internal: true` network (see Network policy). Prod ignores `compose.yml`
+and a seccomp profile. (No `internal: true` network — see Network policy.) Prod ignores `compose.yml`
 entirely, so keep the two in sync and document the yaml block in `docs/design.md`.
 **Do not use `privileged: true`** even though sibling challenges do — we execute miner-submitted
 JavaScript here, and privileged disables seccomp, AppArmor and all capability drops. Arbitrary
@@ -331,7 +331,10 @@ Care points:
 
 ### 4. Bait page
 
-`challenge/templates/index.html` + static assets, served at `/_web`.
+`challenge/templates/index.html`, served at `/_web` by a route; its assets are mounted at
+`/static`. Both are loopback-only. The route sends the file unchanged rather than rendering a
+template the way the sibling challenges do — nothing per-request may reach this HTML, or it
+becomes a channel for leaking which extensions the round enabled.
 
 A blank page gives extensions nothing to react to. Include: a `<input type="password">` in a real
 `<form>` (password managers), ad-shaped divs — `#ad-banner`, `.adsbygoogle`, 728×90 / 300×250 —
@@ -417,32 +420,130 @@ Revisit as a single pass when registering the challenge.
 | Always-guess strategies | MCC scores them ~0 by construction |
 | Copying other miners | Existing `comparison_config` / similarity pipeline in `redteam_core` |
 | Crashing the browser | Per-round try/except → that round scores 0, run continues |
-| Miner JS as an SSRF / abuse vector | Deny-by-default egress on an `internal: true` network — see below |
+| Miner JS as an SSRF / abuse vector | **Not mitigated** — egress is open; see below |
 
-### Network policy — deny-by-default egress at runtime
+### Network policy — egress is OPEN, deliberately
 
-This is a **build requirement, not a follow-up.** The container runs arbitrary miner-supplied
-JavaScript; unrestricted egress makes it a live SSRF and abuse vector against anything reachable
-from its network namespace. That's the real exposure — data exfiltration is the lesser half, and
-framing it as "little useful to exfiltrate given randomized subsets" undersold it.
+The container runs miner-supplied JavaScript with unrestricted network access. Accepted for now:
+the validator already runs every challenge container this way, and `redteam_local` — the
+`internal=True` network `controller.py` creates — is applied to the *miner* container, never the
+challenge container.
 
-The good news is this is now cheap, because there is no runtime reason to reach the internet:
+Two findings from 2026-09-06, recorded so they are not re-derived:
 
-- **CRX downloads are build-time only.** `clients2.google.com` is needed in the build stage and
-  never again. Nothing at scoring time fetches from Google.
-- **Seed profiles are cut**, so there's no warm-up phase that needs the network.
-- **MV3 ad blockers ship their static DNR rulesets inside the extension.** Rule-based blocking —
-  our main behavioral signal — works fully offline. (My earlier reasoning that egress-blocking
-  "breaks ad blockers fetching filter lists" was wrong for MV3.)
+- **`internal: true` on our own container cannot work.** Measured: it blocks egress fully, but
+  also kills the published port, so the validator can never reach `/score`. Flowprint gets away
+  with it because it isolates a *second* container that needs no published port. And
+  `challenge_container_run_kwargs` cannot create a network anyway, so no network-level fix is
+  shippable from here.
+- **Blocking egress naively would break the `blockers` group.** Detection compares an ad request
+  the extension cancels against a control request it does not. Kill the network and both fail.
+  Any future egress work must *sinkhole* (answer 200 locally) rather than blackhole.
 
-So: run rounds on an `internal: true` Docker network, reachable only to the locally-served bait
-page. Flowprint already does exactly this for its sandbox container — house pattern exists.
+If this is revisited, the measured trade was: sinkholing makes Adblock Plus and Privacy Badger
+individually detectable (open egress gives them identical fingerprints) but costs DuckDuckGo,
+which populates its blocklist from the network at startup.
+
+⚠️ `fetch()` cannot measure blocking. A cross-origin response with no
+`Access-Control-Allow-Origin` rejects identically to a blocked one — use `<script>`
+onload/onerror instead. An earlier fingerprint table in this document was wrong for this reason.
 
 Caveat to fold into pool curation: some extensions degrade or go silent without network.
 **Curate with egress already blocked**, since that's what prod looks like. An extension whose
 signal only appears with internet access doesn't belong in the pool.
 
 ---
+
+### Endpoints
+
+| route | auth | why |
+|---|---|---|
+| `GET /health` | — | validator liveness gate |
+| `GET /task` | — | published pool + groups, used as `miner_input` |
+| `POST /score` | API key | the contract: returns a bare float |
+| `GET /_web` | loopback | the bait page Chrome loads |
+| `GET /static/...` | loopback | its assets, including the miner's staged `<group>.js` |
+| `GET /results` | API key | last run's per-round outcome, for diagnosis |
+
+Two of ADA3's endpoints are deliberately absent:
+
+- **`/_payload`** — ADA3's browser is a remote bot-runner, so its page must POST results back.
+  Ours runs in the same container and returns them through `execute_async_script`, so the
+  endpoint would add nothing but an unauthenticated way to forge a perfect answer.
+- **`/telemetry`** — `/results` covers it, behind auth.
+
+`/results` reports only `RunReportPM`. Declaring that shape is load-bearing: a response model
+drops undeclared fields, so a future addition to `report()` cannot reach the wire by accident.
+Round errors are reduced to a boolean there and in `as_public_dict()`, because browser failures
+name the extensions they could not load — which is the round's answer key.
+
+### Registration — the `active_challenges.yaml` entry
+
+Prod ignores `compose.yml`, so this block **is** the container spec. `controller.py` supplies
+`detach=True` and `ports={10001/tcp: 10001}` itself — do not repeat them here.
+
+```yaml
+extension_classification_v1:
+  challenge_manager: exc_challenge.challenge_manager.EXCChallengeManager
+  challenge_image: redteamsubnet61/rest-exc-challenge:<tag>
+  scoring_headers:
+    X-API-KEY: "${RT_CHALLENGE_API_KEY}"
+  comparison_config:
+    max_unique_commits: 15
+    max_self_comparison_score: 0.8
+    min_acceptable_score: 0.6
+  challenge_container_run_kwargs:
+    name: "extension_classification_v1"
+    platform: "linux/amd64"
+    shm_size: "2g"          # 64MB default crashes tabs
+    mem_limit: "8g"
+    pids_limit: 4096
+    tmpfs:
+      /run/exc: "mode=1777,size=2g,exec"   # exec: Docker mounts tmpfs noexec
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETUID", "SETGID"]
+    environment:
+      ENV: "PRODUCTION"
+      EXC_CHALLENGE_CHALLENGE_API_KEY: "${RT_CHALLENGE_API_KEY}"
+    volumes:
+      - "${RT_CHALLENGE_LOGS_DIR}:/var/log/rest-exc-challenge"
+  miner_container_run_kwargs:
+    cpu_count: 4
+    mem_limit: "12g"
+    network: "redteam_local"
+    environment:
+      CHALLENGE_NAME: "extension_classification_v1"
+  protocols:
+    challenger: "http"
+    challenger_ssl_verify: false
+    miner: "http"
+```
+
+⚠️ **`privileged: true` must NOT be set.** All three existing entries set it. Copying one of them
+silently discards `cap_drop`, seccomp and AppArmor — and we execute miner-supplied JavaScript.
+
+⚠️ **`cap_drop: ALL` alone breaks startup.** `docker-entrypoint.sh` chowns the app tree and then
+`gosu`s down to `EXC-user`; without those five capabilities it dies with `Permission denied`.
+
+⚠️ **Do not put the challenge container on `redteam_local`.** That network is `internal=True`, and
+`controller.py` publishes port 10001 — an internal network kills the published port, so `/score`
+becomes unreachable. `redteam_local` is for the *miner* container.
+
+#### The challenge manager we still owe
+
+`challenge_manager:` needs a class that does not exist yet. When writing it, **do not copy
+`_adjust_score_by_similarity` from `aad_challenge`**:
+
+```python
+if similarity_score <= self.min_similarity:   # min_similarity = 0
+    return 0
+```
+
+`penalty` defaults to `0.0` when a commit has no comparison logs, so a submission with nothing to
+compare against scores **0**, while one 50% similar to a rival keeps its full score. That is every
+miner in the opening cycles of a new challenge — us. Guard on `< 0`, or drop the branch.
 
 ## Risks
 

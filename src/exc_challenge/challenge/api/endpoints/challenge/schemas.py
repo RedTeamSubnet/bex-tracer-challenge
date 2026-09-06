@@ -122,8 +122,39 @@ class MinerOutput(BaseModel):
         return val
 
 
+class RoundReportPM(BaseModel):
+    """One round, as reported by `RoundRecord.as_public_dict()`."""
+
+    index: int = Field(..., description="round number within the run")
+    status: str = Field(..., description="completed, failed or infra_failed")
+    n_enabled: int = Field(..., description="how many extensions were enabled")
+    score: float = Field(..., description="this round's clamped MCC")
+    failed: bool = Field(..., description="whether the round raised")
+    duration_sec: float | None = Field(None, description="wall time for the round")
+
+
+class RunReportPM(BaseModel):
+    """Outcome of the most recent scoring run.
+
+    Deliberately carries NO ground truth - no enabled set, no per-extension
+    labels, no error text (browser errors name the extensions they failed to
+    load, which is the round's answer key). Declaring the shape here also means
+    a field added to `report()` later cannot reach the response without being
+    added to this model on purpose.
+    """
+
+    pool_size: int
+    n_rounds: int
+    n_completed: int
+    n_scored: int
+    score: float
+    rounds: list[RoundReportPM]
+
+
 __all__ = [
     "MinerInput",
     "CommitFilePM",
     "MinerOutput",
+    "RoundReportPM",
+    "RunReportPM",
 ]

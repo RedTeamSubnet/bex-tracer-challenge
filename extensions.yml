@@ -1,7 +1,8 @@
 # Extension pool - the closed world miners are told about.
 #
 # Every `id` under `pool:` is published to miners via GET /task. A random subset
-# of k in [k_min, k_max] is enabled per round; miners return a boolean per id.
+# of exactly `k` (config, default 5) is enabled per round; miners return a boolean
+# per id.
 #
 # Six fields, and no more:
 #   id                 identifies the extension. Not copied from a store URL -
@@ -30,7 +31,10 @@
 # one here makes the image unbuildable. That check reads the real manifest, which
 # is why no `manifest_version` field is kept below.
 #
-# STATUS 2026-09-02: 27 candidates. Ids, versions and hashes verified against the
+# STATUS 2026-09-06: 21 in the pool, 8 rejected. Ids, versions and hashes verified
+# against the live store. The six dropped on 2026-09-06 were unearnable - no WAR probe
+# path and no measured page-visible signal - so they only added label noise. Reasons
+# are recorded under `rejected:`. Original note: candidates verified against the
 # live store. Headless signal stability and time_to_stable_ms are NOT yet
 # measured - that is the remaining Step 1 work. Entries carrying a SUSPECT note
 # are expected to fail curation.
@@ -43,13 +47,6 @@ pool:
     group: blockers
     version: "4.43.4"
     sha256: "0062d8196baa1a59719f7f50e6c1d16f616e8a61462e06b08f3fcda55412c311"
-    time_to_stable_ms: null
-
-  - id: mlomiejdfkolichcflejclcbmpeaniij
-    name: "Ghostery"
-    group: blockers
-    version: "10.6.0"
-    sha256: "02544d8bed72ead07d63e9bbe8b58c7ef2caacc763bb7e1d58031ff66f05ab25"
     time_to_stable_ms: null
 
   - id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
@@ -65,17 +62,11 @@ pool:
     version: "2026.8.24"
     sha256: "80412dd30db53fee4ae151407a9d26e8b5663fb612ab679d6eeca06a55f5c719"
     time_to_stable_ms: null
-
-  - id: nngceckbapebfimnlniiiahkandclblb
-    name: "Bitwarden"
-    group: password_managers
-    version: "2026.8.0"
-    sha256: "d1a5942d9c234d03382da99279932055064caae7a32cc9b157940c863165d59f"
-    time_to_stable_ms: null
     notes: >
-      SUSPECT. 2026-08-25 A/B against a control found zero headless footprint, before and
-      after real click()/send_keys() gestures. No WAR fallback. Move to rejected: if curation
-      cannot reproduce a signal.
+      SUSPECT. 2026-09-06, CORS-immune <script> probe over 7 ad hosts: blocks exactly one
+      (connect.facebook.net), which Adblock Plus and Privacy Badger also block - so it carries no
+      fingerprint of its own. WAR probing is out too: its web_accessible_resources set
+      use_dynamic_url. Needs a different technique or rejection.
 
   - id: hdokiejnpimakedhajhdlcegeplioahd
     name: "LastPass"
@@ -171,8 +162,8 @@ pool:
   - id: bpoadfkcbjbfhfodiogcnhhhpibjhbnh
     name: "Immersive Translate"
     group: translate
-    version: "1.32.7"
-    sha256: "8e8d74ecbec062e78babb7ebbbcfb6e9a2c0e6982e717ef0a7207e72a3b00e27"
+    version: "1.32.10"
+    sha256: "55ab6ed5798ab4cb2b815c435aa3e6a39c5ea786566fcd51e2a3e98ceba47e95"
     time_to_stable_ms: null
 
   - id: pioclpoplcdbaefihamjohnefbikjilc
@@ -181,26 +172,6 @@ pool:
     version: "7.41.1"
     sha256: "5fc9205b34a282b34b2fd2b37b328592fe11815be2ab6584d5f357ab3b2f9642"
     time_to_stable_ms: null
-
-  - id: knheggckgoiihginacbkhaalnibhilkk
-    name: "Notion Web Clipper"
-    group: productivity
-    version: "0.2.13"
-    sha256: "a38b4be0f9260a660b17318e6c34f1e37d1c419493fbda5cdfd7e9b940b24a9e"
-    time_to_stable_ms: null
-    notes: >
-      SUSPECT. No web-accessible resources and no content scripts - nothing a page can
-      observe.
-
-  - id: bcjindcccaagfpapjjmafapmmgkkhgoa
-    name: "JSON Formatter"
-    group: productivity
-    version: "0.10.2"
-    sha256: "5e0ebde71ee60f997a9f5fc0850e6ae4a9f67006dbf662f00507f99e957c2b21"
-    time_to_stable_ms: null
-    notes: >
-      SUSPECT. Only acts on JSON content-type responses; screen it against a JSON route, not
-      the HTML bait page.
 
   - id: bhlhnicpbhignbdhedgjhgdocnmhomnp
     name: "ColorZilla"
@@ -216,16 +187,6 @@ pool:
     sha256: "1d1de5459a90e9e784fece758e63c790d47ec60ee80f8e19674da90f3432c307"
     time_to_stable_ms: null
 
-  - id: lmjnegcaeklhafolokijcfjliaokphfk
-    name: "Video DownloadHelper"
-    group: appearance_media
-    version: "10.5.24.2"
-    sha256: "b388f6ec2dece7b5ae0d0f89b07360374d555bf99c91e729db5cddd3a0575d01"
-    time_to_stable_ms: null
-    notes: >
-      SUSPECT. Content scripts are scoped to video hosts, so a generic bait page never
-      triggers it.
-
   - id: liecbddmkiiihnedobmlmillhodjkdmb
     name: "Loom"
     group: appearance_media
@@ -233,16 +194,6 @@ pool:
     sha256: "e8ee91fdbfa1cea74a06e22e923206e6a952493221f517c740c37e829351f898"
     time_to_stable_ms: null
 
-  - id: oeopbcgkkoapgobdbedcemjljbihmemj
-    name: "Checker Plus for Gmail"
-    group: productivity
-    version: "36.4"
-    sha256: "695935ba2e05f010c7d816843ec7157f760b9db1b14bf2a0ef1e9c33703f2db0"
-    time_to_stable_ms: null
-
-# ---------------------------------------------------------------------------
-# REJECTED - kept so nobody re-adds them
-# ---------------------------------------------------------------------------
 rejected:
   - id: cjpalhdlnbpafiamejdnhcphjbkeiagm
     name: "uBlock Origin"
@@ -259,3 +210,41 @@ rejected:
       WAR paths are dynamic and it ships no content scripts, leaving behavioural DNR
       timing as the only signal, at 1-4s per round in ruleset re-indexing. Re-add only if
       the pool needs a pure-DNR label and the round budget can absorb it.
+
+  - id: mlomiejdfkolichcflejclcbmpeaniij
+    name: "Ghostery"
+    reason: >
+      Dropped 2026-09-06. No signal. WAR entries all set use_dynamic_url, and a CORS-immune
+      <script> probe over 7 ad hosts found it blocking none of them - with and without network
+      access. Nothing for a miner to detect.
+
+  - id: nngceckbapebfimnlniiiahkandclblb
+    name: "Bitwarden"
+    reason: >
+      Dropped 2026-09-06. Two independent problems: zero headless footprint (A/B against a
+      control, before and after real gestures) with WAR behind use_dynamic_url, AND it
+      reproducibly crashes the tab, costing the whole round for every other extension in it.
+
+  - id: bcjindcccaagfpapjjmafapmmgkkhgoa
+    name: "JSON Formatter"
+    reason: >
+      Dropped 2026-09-06. No web_accessible_resources, and it only acts on documents served as
+      application/json - the bait page is HTML, so it never activates.
+
+  - id: knheggckgoiihginacbkhaalnibhilkk
+    name: "Notion Web Clipper"
+    reason: >
+      Dropped 2026-09-06. No web_accessible_resources and no page-visible footprint; it acts
+      only on toolbar interaction, which never fires headless.
+
+  - id: lmjnegcaeklhafolokijcfjliaokphfk
+    name: "Video DownloadHelper"
+    reason: >
+      Dropped 2026-09-06. No web_accessible_resources. Its footprint needs a media element to
+      attach to, which the bait page does not have.
+
+  - id: oeopbcgkkoapgobdbedcemjljbihmemj
+    name: "Checker Plus for Gmail"
+    reason: >
+      Dropped 2026-09-06. Declares web_accessible_resources but ships no file under a
+      probeable static path, and its UI is popup-only - never rendered headless.

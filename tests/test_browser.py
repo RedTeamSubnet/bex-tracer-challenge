@@ -413,3 +413,36 @@ def test_infra_error_does_not_name_the_loaded_extensions(settings, monkeypatch):
     assert "aaaa" in message, "the failure must be diagnosable"
     assert "bbbb" not in message, "loaded ids are the answer key"
     assert "cccc" not in message
+
+
+class _RenderDriver:
+    """Stands in for the driver, for `_assert_page_rendered` only."""
+
+    def __init__(self, outcome):
+        self._outcome = outcome
+
+    def execute_script(self, _script):
+        if isinstance(self._outcome, Exception):
+            raise self._outcome
+        return self._outcome
+
+
+def test_an_empty_bait_page_is_our_fault_not_the_miners(settings):
+    """A missing script bundle still navigates with HTTP 200 and an empty body.
+
+    Every detector then finds nothing and ALL miners score 0. Booking that
+    against whoever happened to be scored would hide our own broken asset, so
+    it has to arrive as `BrowserInfraError` and leave the run's denominator.
+    """
+    session = ChromeSession(settings, "test")
+    session.driver = _RenderDriver(False)
+
+    with pytest.raises(BrowserInfraError, match="rendered nothing"):
+        session._assert_page_rendered()
+
+
+def test_a_rendered_bait_page_passes(settings):
+    session = ChromeSession(settings, "test")
+    session.driver = _RenderDriver(True)
+
+    session._assert_page_rendered()  # must not raise

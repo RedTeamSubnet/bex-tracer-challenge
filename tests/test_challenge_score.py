@@ -5,6 +5,7 @@ fake that answers the way a given miner would. Everything else - schedule,
 recording, metric, auth, single-flight - is the real code.
 """
 
+import json
 import random
 import sys
 import time
@@ -294,7 +295,7 @@ def test_task_publishes_the_pool_over_http(client):
 
 
 def test_the_bait_page_is_served(client):
-    response = client.get("/_web/index.html")
+    response = client.get("/_web")
     assert response.status_code == 200
     assert "<html" in response.text.lower()
 
@@ -459,21 +460,66 @@ def test_record_all_stores_the_error_class_not_its_text():
 
 
 def test_the_bait_page_is_not_served_to_a_remote_client(client):
-    """During a run this directory holds the submitting miner's code.
+    """During a run the served tree holds the submitting miner's code.
 
-    `stage_detection_files()` writes their `<group>.js` into the served tree and
-    only `restore_stubs()` puts the stubs back, so anything readable here
-    mid-run is a rival's submission. Chrome reaches it over loopback; nobody
-    else should reach it at all.
+    `stage_detection_files()` writes their `<group>.js` into it and only
+    `restore_stubs()` puts the stubs back, so anything readable here mid-run is
+    a rival's submission. Chrome reaches it over loopback; nobody else should
+    reach it at all. Covers the page route and the asset mount, which enforce
+    this separately.
     """
-    response = client.get(
-        "/_web/static/detections/blockers.js",
-        headers={"host": "example.com"},
+    for path in ("/_web", "/static/detections/blockers.js"):
+        assert client.get(path).status_code == 200, f"sanity: loopback allowed for {path}"
+
+    remote = TestClient(app, client=("10.0.0.5", 51234))
+    for path in ("/_web", "/static/detections/blockers.js"):
+        assert remote.get(path).status_code == 404, f"{path} leaked to a remote client"
+
+
+def test_results_requires_the_api_key(client):
+    """Same gate as /score: the report exposes the last-scored miner's
+    per-round results, which a rival should not read off an open port."""
+    assert client.get("/results").status_code == 401
+
+
+def test_results_is_404_before_any_run(client, monkeypatch):
+    monkeypatch.setattr(service, "_last_report", None)
+    response = client.get("/results", headers={"X-API-Key": API_KEY})
+    assert response.status_code == 404
+
+
+def test_results_reports_the_last_run(client):
+    """A scored run is readable afterwards, per round."""
+    assert (
+        client.post("/score", json=payload(), headers={"X-API-Key": API_KEY}).status_code
+        == 200
     )
-    assert response.status_code == 200, "sanity: loopback still allowed"
 
-    # Simulate a non-loopback peer by rewriting the ASGI client tuple.
-    from api.mount import _LOOPBACK_HOSTS
+    response = client.get("/results", headers={"X-API-Key": API_KEY})
+    assert response.status_code == 200
 
-    assert "127.0.0.1" in _LOOPBACK_HOSTS
-    assert "10.0.0.5" not in _LOOPBACK_HOSTS
+    body = response.json()
+    assert body["n_rounds"] == len(body["rounds"])
+    assert body["n_completed"] <= body["n_rounds"]
+    assert 0.0 <= body["score"] <= 1.0
+    assert [r["index"] for r in body["rounds"]] == list(range(body["n_rounds"]))
+
+
+def test_results_never_leaks_ground_truth(client):
+    """The response model must not carry the enabled set, per-extension labels
+    or error text - browser errors name the extensions they failed to load,
+    which is the round's answer key."""
+    assert (
+        client.post("/score", json=payload(), headers={"X-API-Key": API_KEY}).status_code
+        == 200
+    )
+    body = client.get("/results", headers={"X-API-Key": API_KEY}).json()
+
+    banned = {"enabled", "predicted", "error", "labels", "truth", "extension_ids"}
+    assert not banned & set(body)
+    for round_report in body["rounds"]:
+        assert not banned & set(round_report)
+
+    flat = json.dumps(body)
+    for ext_id in load_pool_ids():
+        assert ext_id not in flat, f"{ext_id} leaked into /results"

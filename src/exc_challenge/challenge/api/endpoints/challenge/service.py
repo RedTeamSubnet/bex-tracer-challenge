@@ -8,7 +8,7 @@ that lives in `_payload_manager.py`.
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from pydantic import validate_call
 
@@ -35,13 +35,28 @@ def get_task() -> MinerInput:
     )
 
 
+# Outcome of the most recent run, for GET /results. Kept here rather than on
+# the manager because a manager is per-run and is discarded with it. Writes are
+# serialised by the single-flight lock in router.py, so at most one run can be
+# setting this.
+_last_report: dict[str, Any] | None = None
+
+
+def get_results() -> dict[str, Any] | None:
+    """The last run's report, or None if nothing has been scored yet."""
+    return _last_report
+
+
 def _bait_page_url() -> str:
-    """The bait page is served by this very app, mounted at `/_web`.
+    """The bait page is served by this very app, at `/_web`.
 
     Chrome runs in the same container, so it reaches the app over loopback
     regardless of what `bind_host` is set to.
+
+    No trailing slash: the page's asset paths are relative, and they only
+    resolve onto the `/static` mount when the browser's base URL is `/`.
     """
-    return f"http://127.0.0.1:{config.api.port}/_web/index.html"
+    return f"http://127.0.0.1:{config.api.port}/_web"
 
 
 class RoundResult(NamedTuple):
@@ -210,6 +225,8 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
 
         _score: float = _payload_manager.calculate_score()
         _report = _payload_manager.report()
+        global _last_report
+        _last_report = _report
         logger.info(
             f"[{request_id}] - Scored {_score:.4f} "
             f"({_report['n_completed']}/{_report['n_rounds']} round(s) completed, "
@@ -222,5 +239,6 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
 
 __all__ = [
     "get_task",
+    "get_results",
     "score",
 ]

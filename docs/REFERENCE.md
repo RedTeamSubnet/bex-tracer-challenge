@@ -569,8 +569,9 @@ compared against `config.challenge.api_key`.
   `score_round()`, `PayloadManager`.
 - `api/endpoints/challenge/_browser.py` — `run_round()`, `ChromeSession`, `BrowserSettings`,
   `wrap_miner_script()`, `normalize_predictions()`. **Verified live on mac-arm64 2026-08-25.**
-- `challenge/templates/index.html` — bait page. Written, used by `run_round.py`, and mounted at
-  `/_web` by `api/mount.py`.
+- `challenge/templates/index.html` — bait page. Written, used by `run_round.py`, and served at
+  `/_web` by a route in `endpoints/challenge/router.py`; its assets are mounted at `/static` by
+  `api/mount.py`.
 - `scripts/run_round.py` — shared dev plumbing: `Extension` / `Pool` (id and display-name
   resolution lives here, not at print sites), `bait_server()` context manager, `build_settings()`,
   `base_parser()`.
@@ -585,7 +586,8 @@ compared against `config.challenge.api_key`.
 ### Files that do NOT exist yet
 
 None. `auth_api_key` now lives in `api/core/dependencies/auth.py` (which replaced the scaffold's
-unused JWT machinery) and the `/_web` mount is in `api/mount.py`.
+unused JWT machinery), the `/_web` route is in `endpoints/challenge/router.py` and the `/static`
+mount is in `api/mount.py`.
 
 ---
 
@@ -673,6 +675,9 @@ module-level singleton with no concurrency guard.
   Non-numeric is coerced to `0.0`. **No client timeout** — ADA3 legitimately runs 277s.
 - Miner container on port 10002, `POST /solve`, returns `MinerOutput`.
 - Scoring headers typically `{"X-API-KEY": "..."}`.
+- `GET /results` is **ours, not part of the contract** — the last run's per-round outcome, behind
+  the same API key as `/score`. Nothing in `redteam_core` calls it; it exists so a run can be
+  diagnosed on the validator box without reading container logs. It reports no ground truth.
 - In production the validator launches our image via the Docker socket using
   `challenge_container_run_kwargs` from `active_challenges.yaml`. **`compose.yml` is ignored in
   prod** — hardening settings must appear in both.

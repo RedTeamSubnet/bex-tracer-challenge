@@ -23,7 +23,7 @@ accurately it identified what was installed.
 |---|---|
 | Threat model | Page-context JS, injected post-load via `execute_async_script` |
 | Browser | Chrome for Testing — headless in prod, headful under Xvfb for dev |
-| Extension pool | 27 Chrome Web Store extensions, IDs published to miners (2 more sit in `rejected:`) |
+| Extension pool | 21 Chrome Web Store extensions, IDs published to miners (8 more sit in `rejected:`) |
 | Enabled per round | Fixed `k = 5` (`k` in config), random subset, never revealed |
 | Miner output | 7 files, one per group, each `{extensionId: true\|false}` for that group's IDs |
 | Metric | MCC over all N binary decisions, `max(0, mcc)` → `[0,1]` |
@@ -103,21 +103,20 @@ each group name to the extension ids it owns. A submission is **one file per gro
 
 | group | n | file | entrypoint |
 |---|---|---|---|
-| `blockers` | 4 | `blockers.js` | `window.detect_blockers` |
-| `password_managers` | 5 | `password_managers.js` | `window.detect_password_managers` |
+| `blockers` | 3 | `blockers.js` | `window.detect_blockers` |
+| `password_managers` | 4 | `password_managers.js` | `window.detect_password_managers` |
 | `shopping` | 3 | `shopping.js` | `window.detect_shopping` |
 | `writing` | 3 | `writing.js` | `window.detect_writing` |
-| `appearance_media` | 5 | `appearance_media.js` | `window.detect_appearance_media` |
+| `appearance_media` | 4 | `appearance_media.js` | `window.detect_appearance_media` |
 | `translate` | 2 | `translate.js` | `window.detect_translate` |
-| `productivity` | 5 | `productivity.js` | `window.detect_productivity` |
+| `productivity` | 2 | `productivity.js` | `window.detect_productivity` |
 
 ```js
-// blockers.js - returns the four blocker ids and nothing else
+// blockers.js - returns this group's ids and nothing else
 window.detect_blockers = async function () {
   // ... probe the page ...
   return {
     "cfhdojbkjhnklbpkdaibdccddilifddb": true,   // Adblock Plus
-    "mlomiejdfkolichcflejclcbmpeaniij": false,  // Ghostery
     "pkehgijcmpdhfbdbbnkijodmdjhbjlgp": false,  // Privacy Badger
     "bkdgflcldnnnapblkhphbgpggdiikppg": false,  // DuckDuckGo
   };

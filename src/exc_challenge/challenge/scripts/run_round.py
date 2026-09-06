@@ -23,6 +23,7 @@ import shutil
 import sys
 import threading
 import time
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -138,9 +139,17 @@ def load_pool(pool_file: Path) -> list[Extension]:
     return [Extension(e["id"], e.get("name") or e["id"], e["group"]) for e in entries]
 
 
-def groups_of(pool: list[Extension]) -> list[str]:
-    """Group names present in `pool`, in first-seen order."""
-    return list(dict.fromkeys(e.group for e in pool))
+def groups_of(pool: list[Extension]) -> dict[str, list[str]]:
+    """group name -> ids it owns, in first-seen order.
+
+    Same shape as `_pool.load_pool_groups()`, which is what `run_script` wants:
+    it filters each group's answer down to the ids that group owns. Callers
+    that only need the names iterate the keys.
+    """
+    groups: dict[str, list[str]] = {}
+    for ext in pool:
+        groups.setdefault(ext.group, []).append(ext.id)
+    return groups
 
 
 def select(pool: list[Extension], tokens: list[str] | None) -> list[Extension]:
@@ -421,7 +430,9 @@ def _prove_they_load(
     return 0
 
 
-def _stage_miner_js(miner_js: str, bait_dir: Path, groups: list[str]) -> list[Path]:
+def _stage_miner_js(
+    miner_js: str, bait_dir: Path, groups: Mapping[str, Sequence[str]]
+) -> list[Path]:
     """Write the miner's code where every group's <script src> tag will find
     it - one copy per group file.
 
@@ -489,7 +500,7 @@ def _score_rounds(
     staged = _stage_miner_js(miner_js, bait_dir, groups)
     k = min(args.k, len(ids))
     manager = PayloadManager(ids)
-    manager.build_schedule(args.rounds, k, k)
+    manager.build_schedule(args.rounds, k)
 
     misses = 0
     try:
