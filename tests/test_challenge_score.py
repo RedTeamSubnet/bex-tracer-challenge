@@ -459,6 +459,48 @@ def test_record_all_stores_the_error_class_not_its_text():
         assert ext_id not in blob
 
 
+def test_the_enabled_set_is_logged_at_debug_and_nowhere_else(monkeypatch):
+    """The enabled set is the round's answer key, so it may reach the operator's
+    log at DEBUG - which `logger.yml` pins to INFO in production - and nothing
+    else. This is the diagnostic that makes an infra failure traceable to a
+    specific extension; `report()` deliberately reduces `error` to a boolean, so
+    without it there is no way to tell which extension killed a browser.
+
+    Asserts both halves: the ids DO appear in the DEBUG record, and they do NOT
+    appear at WARNING or in the report.
+    """
+    from api.endpoints.challenge._browser import BrowserInfraError
+    from api.endpoints.challenge._payload_manager import PayloadManager
+
+    pool = list(load_pool_ids())
+    manager = PayloadManager(pool=pool)
+    manager.build_schedule(n_rounds=1, k=2)
+    enabled = sorted(manager.rounds[0].enabled)
+
+    seen: list[tuple[str, str]] = []
+    for level in ("debug", "warning"):
+        monkeypatch.setattr(
+            service.logger,
+            level,
+            lambda msg, _lvl=level: seen.append((_lvl, str(msg))),
+        )
+
+    failure = BrowserInfraError(f"2 of 2 extension(s) did not load: {enabled}")
+    service._record_all(manager, [service.RoundResult(0, None, failure, 1.0)], "test")
+
+    debug_blob = " ".join(m for lvl, m in seen if lvl == "debug")
+    warn_blob = " ".join(m for lvl, m in seen if lvl == "warning")
+
+    assert enabled, "schedule produced an empty round"
+    for ext_id in enabled:
+        assert ext_id in debug_blob, f"{ext_id} missing from the DEBUG record"
+        assert ext_id not in repr(manager.report()), f"{ext_id} leaked into report()"
+    # The WARNING line carries the exception text, which for THIS hand-made
+    # exception happens to contain the ids. What must not happen is the enabled
+    # set being added to it independently - so it must be no worse than the text.
+    assert warn_blob.count(enabled[0]) <= 1
+
+
 def test_the_bait_page_is_not_served_to_a_remote_client(client):
     """During a run the served tree holds the submitting miner's code.
 

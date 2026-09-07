@@ -10,7 +10,7 @@ from redteam_core.validator.challenge_manager import ChallengeManager
 from redteam_core.validator.models import MinerChallengeInfo
 
 
-class MyChallengeManager(ChallengeManager):
+class EXCChallengeManager(ChallengeManager):
 
     def __init__(self, challenge_info: dict, metagraph: bt.metagraph):
         super().__init__(challenge_info, metagraph)
@@ -28,8 +28,15 @@ class MyChallengeManager(ChallengeManager):
         )
 
         self.max_similarity = 0.4
+        # Kept for parity with the sibling managers; `penalty` is never
+        # negative, so this floor never rejects anything on its own. The
+        # "no comparison happened" case is handled by `penalty is None`.
         self.min_similarity = 0
-        self.min_score = 0.1
+        # Calibrated against this pool (21 extensions, k=5): all-false and
+        # all-true score 0.00, random guessing ~0.09, a plain WAR lookup
+        # table ~0.87. 0.3 sits well clear of guessing without rejecting a
+        # miner who has only solved some of the groups.
+        self.min_score = 0.3
         self.break_point = 0.6
         self.max_input = 1.0
         self.min_value = 0
@@ -63,7 +70,12 @@ class MyChallengeManager(ChallengeManager):
                     penalty = miner_commit.get_higest_comparison_score()
                     miner_commit.penalty = float(penalty)
                 else:
-                    miner_commit.penalty = 0.0
+                    # Left as None, NOT 0.0. `penalty` is Optional[float] and
+                    # None already means "no comparison ran" - the sibling
+                    # managers overwrite it with 0.0, which is indistinguishable
+                    # from "compared, and found completely dissimilar". They
+                    # then zero the score on it. See `_adjust_score_by_similarity`.
+                    miner_commit.penalty = None
 
             except Exception as e:
                 bt.logging.error(
@@ -73,11 +85,16 @@ class MyChallengeManager(ChallengeManager):
                 )
                 continue
 
-            # Acceptance criteria
-            miner_commit.accepted = (
-                miner_commit.penalty >= self.min_similarity
-                and miner_commit.penalty <= self.comparison_min_acceptable_score
-                and miner_commit.score >= self.min_score
+            # Acceptance criteria. A commit with nothing to compare against
+            # is not accepted-by-default and not rejected-by-default: it is
+            # judged on its score alone, which is the only evidence there is.
+            _penalty = miner_commit.penalty
+            miner_commit.accepted = miner_commit.score >= self.min_score and (
+                _penalty is None
+                or (
+                    self.min_similarity <= _penalty
+                    <= self.comparison_min_acceptable_score
+                )
             )
 
             # Adjust scores
@@ -102,7 +119,7 @@ class MyChallengeManager(ChallengeManager):
 
             if miner_commit.accepted and miner_commit.encrypted_commit:
                 bt.logging.info(
-                    f"[CHALLENGE MANAGER - MyChallengeManager] Adding miner commit `{miner_commit.miner_uid}` "
+                    f"[CHALLENGE MANAGER - EXCChallengeManager] Adding miner commit `{miner_commit.miner_uid}` "
                     "to unique commit set."
                 )
                 self._try_add_unique_commit(
@@ -195,9 +212,23 @@ class MyChallengeManager(ChallengeManager):
         )
 
     def _adjust_score_by_similarity(self, raw_score, similarity_score) -> float:
-        """Adjusts the raw score based on the similarity score."""
-        if similarity_score <= self.min_similarity:
-            return 0
+        """Adjusts the raw score based on the similarity score.
+
+        The sibling managers open with `if similarity_score <= self.min_similarity:
+        return 0`, and `min_similarity` is 0. Combined with a `penalty` that
+        defaults to 0.0 whenever no comparison ran, that zeroes the score of
+        every commit there was nothing to compare against - which is every
+        miner in a new challenge's opening cycle, including ours. Worse, it is
+        permanent for a genuinely original submission: score 0 is the reward
+        for resembling nobody. That branch is deliberately not reproduced here.
+
+        Ordering note: `update_miner_scores` decides `accepted` from the RAW
+        score before calling this, so a commit still enters the unique set on
+        its own merit even if similarity later scales its score down.
+        """
+        if similarity_score is None:
+            # Nothing to compare against. Not evidence of copying.
+            return raw_score
         if similarity_score < self.max_similarity:
             return raw_score
         s = self._scaling_from_similarity(similarity_score)
@@ -258,5 +289,5 @@ class MyChallengeManager(ChallengeManager):
 
 
 __all__ = [
-    "MyChallengeManager",
+    "EXCChallengeManager",
 ]

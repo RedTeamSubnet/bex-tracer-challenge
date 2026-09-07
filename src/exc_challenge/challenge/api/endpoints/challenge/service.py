@@ -80,6 +80,14 @@ def _run_one_round(
     """One round, on a worker thread. Returns rather than raises, so a single
     bad round cannot take the pool of workers down with it."""
     _started_at = time.monotonic()
+    # The enabled set is this round's answer key, so it is never logged above
+    # DEBUG and never leaves the container. At DEBUG it is the only way to tell
+    # which extension broke a browser - `level.base: INFO` in logger.yml keeps
+    # it off in production, and an operator diagnosing a failure turns it on.
+    logger.debug(
+        f"[{request_id}] - Round {round_record.index} enabling "
+        f"{sorted(round_record.enabled)}"
+    )
     try:
         _predicted = run_round(
             round_record.enabled,
@@ -143,6 +151,7 @@ def _record_all(
     """
     _setup_failures = 0
     _last_error: str | None = None
+    _by_index = {_r.index: _r for _r in payload_manager.rounds}
 
     for _result in results:
         _kind: str | None = None
@@ -160,6 +169,16 @@ def _record_all(
             logger.warning(
                 f"[{request_id}] - Round {_result.index} {_reason}: {_result.error}"
             )
+            # Same rule as above: the answer key only at DEBUG. Pairing the
+            # failure with what was enabled is the whole point - a browser that
+            # dies on one specific extension is otherwise invisible, because
+            # `report()` reduces `error` to a boolean on purpose.
+            _record = _by_index.get(_result.index)
+            if _record is not None:
+                logger.debug(
+                    f"[{request_id}] - Round {_result.index} had "
+                    f"{sorted(_record.enabled)} enabled when it {_reason}."
+                )
 
         payload_manager.record(
             _result.index,
