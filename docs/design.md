@@ -400,10 +400,10 @@ For the record, what's in them and when it will matter:
 | Item | Status |
 |---|---|
 | `_score_miner_with_new_inputs` loops over inputs but only writes `scoring_logs[0]` | **Latent, never fires for us.** `num_tasks` defaults to `N_CHALLENGES_PER_EPOCH = 1`, so there's exactly one input. We run T rounds inside a single `/score`, so we want `num_tasks: 1` regardless |
-| `_exclude_output_keys` is a no-op (`return`) | Only affects the anti-plagiarism comparison payload. ADA3 and flowprint null `commit_files`/`telemetry`/`scoring_results`. Decide at registration |
-| Class names `MyController` / `MyChallengeManager` | Cosmetic. The yaml points at whatever path we write |
+| `_exclude_output_keys` is a no-op (`return`) | **Resolved.** Now nulls `scoring_results` only. `commit_files` stays in - ADA3 and flowprint null it, but it is the only thing a miner submits here, so dropping it would leave nothing to compare and make similarity meaningless for every pair |
+| Class names `MyController` / `MyChallengeManager` | **Resolved.** Renamed `EXCController` / `EXCChallengeManager` |
 | Not exported from `src/exc_challenge/__init__.py` | Only needed to re-enable `tests/test_module.py`, which is 100% commented out |
-| `min_score` / `reward_temperature` in the manager | **Can't be chosen yet.** Needs the real MCC distribution from working baselines. Genuinely a later decision |
+| `min_score` / `reward_temperature` in the manager | **Resolved for `min_score`** (0.3 - random guessing scores ~0.09 on this pool, a WAR lookup table ~0.87). `reward_temperature` left at the shared 0.2 |
 | `commit_timestamp + 1 + 24 + 60 + 60` (meant to be `1*24*60*60`) | Inherited template bug, upstream's problem, doesn't affect scoring correctness here |
 
 Revisit as a single pass when registering the challenge.
@@ -470,7 +470,21 @@ Two of ADA3's endpoints are deliberately absent:
 - **`/_payload`** — ADA3's browser is a remote bot-runner, so its page must POST results back.
   Ours runs in the same container and returns them through `execute_async_script`, so the
   endpoint would add nothing but an unauthenticated way to forge a perfect answer.
-- **`/telemetry`** — `/results` covers it, behind auth.
+- **`/telemetry`** — ADA3 records per-run metrics (submission size, runtime, network bytes,
+  score) after the fact. We gate the same things up front instead: `submission_max_lines`
+  rejects an oversized commit with a 422, and `script_budget_sec` plus `page_load_timeout_sec`
+  cap a stalling one. A gate stops the abuse; a metric only documents it. `/results` already
+  carries the score and per-round `duration_sec`; only `total_file_size_bytes` is genuinely
+  absent, and its range is bounded by the line limit anyway. ADA3's `network_rx_bytes` /
+  `network_tx_bytes` are never populated by its only caller - always 0 - so there is no
+  network signal to copy.
+
+  There is also a reason not to copy it verbatim. ADA3's `/telemetry` carries no
+  `Depends(auth_api_key)` while its `/results` does. That is survivable there because ADA3's
+  browser is a *remote* bot-runner and cannot reach the challenge's loopback. Ours runs miner
+  JavaScript in a browser **inside this container**, where `fetch("http://127.0.0.1:10001/
+  telemetry")` succeeds - `_LoopbackOnly` does not help, because the miner's script *is*
+  loopback. An unauthenticated telemetry endpoint would hand a miner the previous run's score.
 
 `/results` reports only `RunReportPM`. Declaring that shape is load-bearing: a response model
 drops undeclared fields, so a future addition to `report()` cannot reach the wire by accident.
@@ -484,8 +498,35 @@ Prod ignores `compose.yml`, so this block **is** the container spec. `controller
 
 ```yaml
 extension_classification_v1:
-  challenge_manager: exc_challenge.challenge_manager.EXCChallengeManager
+  name: "extension_classification_v1"
+  description: "Identify which Chrome extensions are enabled in a headless browser"
+  # REQUIRED - ChallengeManager.__init__ subscripts this directly, so a missing
+  # key is a KeyError at startup, not a default. The live entries sum to exactly
+  # 1.0 (ab_sniffer_v6 0.4 + bot_virus_v1 0.6), so adding this one means
+  # lowering those. That is a subnet-level call, not ours; the value below is a
+  # placeholder.
+  challenge_incentive_weight: 0.2
   challenge_image: redteamsubnet61/rest-exc-challenge:<tag>
+  # REQUIRED. `get_obj_from_str(None)` returns None rather than raising, so
+  # omitting this does not fail at import - it fails later, when the validator
+  # tries to call None as the controller. `challenge_manager` is the one that
+  # falls back to a base class; `target` is not.
+  target: exc_challenge.controller.EXCController
+  challenge_manager: exc_challenge.challenge_manager.EXCChallengeManager
+  script_path_identifier: "commit_files"
+  # Selects the upstream validation endpoint: /check/challenge/<type>/. There is
+  # no "exc" checker deployed yet, so this stays "default" until one exists -
+  # an unknown type 404s and the commit is recorded as failing validation.
+  challenge_type: "default"
+  challenge_solve_timeout: 60
+  # Acceptance floor applied by the controller. Calibrated on the 21-extension
+  # pool: random guessing scores ~0.09, a plain WAR lookup table ~0.87.
+  challenge_min_acceptable_score: 0.3
+  # A 20-round run measured 6m59s under QEMU on arm64 and is expected to be
+  # well under half that on prod x86. This bounds the miner container, not
+  # /score, which the validator calls with no timeout at all.
+  docker_run_timeout: 900
+  num_tasks: 1
   scoring_headers:
     X-API-KEY: "${RT_CHALLENGE_API_KEY}"
   comparison_config:
@@ -519,6 +560,10 @@ extension_classification_v1:
     challenger: "http"
     challenger_ssl_verify: false
     miner: "http"
+    miner_ssl_verify: false
+  resource_limits:
+    num_cpus: 4
+    mem_limit: "12g"
 ```
 
 ⚠️ **`privileged: true` must NOT be set.** All three existing entries set it. Copying one of them
@@ -531,19 +576,40 @@ silently discards `cap_drop`, seccomp and AppArmor — and we execute miner-supp
 `controller.py` publishes port 10001 — an internal network kills the published port, so `/score`
 becomes unreachable. `redteam_local` is for the *miner* container.
 
-#### The challenge manager we still owe
+#### Two inherited bugs the manager and controller deliberately do not reproduce
 
-`challenge_manager:` needs a class that does not exist yet. When writing it, **do not copy
-`_adjust_score_by_similarity` from `aad_challenge`**:
+Both were copied verbatim into every sibling challenge, and both punish a commit for having
+nothing to compare against. Together they zero every miner in a new challenge's opening cycle.
+
+**1. `Controller._score_miner_with_new_inputs` — the fatal one.** The ADA controller skips
+scoring outright when the comparison score is exactly `0.0`:
+
+```python
+if (_higest_comparison_score >= self.comparison_min_acceptable_score
+        or _higest_comparison_score == 0.0):     # <-- no comparison ran
+    _scoring_log.score = 0.0
+```
+
+`get_higest_comparison_score()` returns `0.0` in two unrelated cases: a comparison ran and found
+nothing in common, and no comparison ran at all. On a freshly registered challenge there are no
+reference commits, so it is always the second — the browser never launches and every miner scores
+0. `EXCController` gates on `bool(miner_commit.comparison_logs)` instead, which is the thing that
+actually distinguishes them.
+
+**2. `ChallengeManager._adjust_score_by_similarity`.** The same mistake one layer down:
 
 ```python
 if similarity_score <= self.min_similarity:   # min_similarity = 0
     return 0
 ```
 
-`penalty` defaults to `0.0` when a commit has no comparison logs, so a submission with nothing to
-compare against scores **0**, while one 50% similar to a rival keeps its full score. That is every
-miner in the opening cycles of a new challenge — us. Guard on `< 0`, or drop the branch.
+The siblings overwrite `penalty` — declared `Optional[float] = None` — with `0.0` whenever a
+commit has no comparison logs, destroying the distinction, then zero the score on it. A
+submission resembling nobody scores **0**, while one 50% similar to a rival keeps full score.
+`EXCChallengeManager` leaves `penalty` as `None` and returns the raw score for it.
+
+Fixing only the manager achieves nothing: the controller has already forced the score to `0.0`
+before the manager ever sees the commit.
 
 ## Risks
 
