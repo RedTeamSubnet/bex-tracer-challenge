@@ -1,0 +1,209 @@
+chrome_for_testing_version: 152.0.7977.54
+
+pool:
+  ## -- blockers --------------------------------------------------
+  - id: ddkjiahejlhfcafbddmgiahcphecmpfh
+    name: "uBlock Origin Lite"
+    group: blockers
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
+    name: "Privacy Badger"
+    group: blockers
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: bkdgflcldnnnapblkhphbgpggdiikppg
+    name: "DuckDuckGo Privacy Essentials"
+    group: blockers
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: cfhdojbkjhnklbpkdaibdccddilifddb
+    name: "Adblock Plus"
+    group: blockers
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: jpkfgepcmmchgfbjblnodjhldacghenp
+    name: "Pie Adblock"
+    group: blockers
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- appearance_media ------------------------------------------
+  - id: eimadpbcbfnmbkopoojfekhnkhdbieeh
+    name: "Dark Reader"
+    group: appearance_media
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: agionbommeaifngbhincahgmoflcikhm
+    name: "Imageye"
+    group: appearance_media
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: nffaoalbilbmmfgbnbgppjihopabppdk
+    name: "Video Speed Controller"
+    group: appearance_media
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: ejkiikneibegknkgimmihdpcbcedgmpo
+    name: "Volume Booster"
+    group: appearance_media
+    tier: subtle            # 1 content script, no DOM change
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- downloaders -----------------------------------------------
+  - id: elicpjhcidhpjomhibiffojpinpmmpil
+    name: "Video Downloader Professional"
+    group: downloaders
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: ahmpjcflkgiildlgicmcieglgoilbfdp
+    name: "Free Download Manager"
+    group: downloaders
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: lknmjhcajhfbbglglccadlfdjbaiifig
+    name: "Record and Transcribe"
+    group: downloaders
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- docs_pdf --------------------------------------------------
+  - id: efaidnbmnnnibpcajpcglclefindmkaj
+    name: "Adobe Acrobat"
+    group: docs_pdf
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: ecnphlgnajanjnkcmbpancdjoidceilk
+    name: "Kami"
+    group: docs_pdf
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: bcjindcccaagfpapjjmafapmmgkkhgoa
+    name: "JSON Formatter"
+    group: docs_pdf
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- writing_ai ------------------------------------------------
+  - id: camppjleccjaphfdbohjdohecfnoikec
+    name: "Merlin AI"
+    group: writing_ai
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: lmcngpkjkplipamgflhioabnhnopeabf
+    name: "Briskine"
+    group: writing_ai
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: epbobagokhieoonfplomdklollconnkl
+    name: "Scribbr Citation Generator"
+    group: writing_ai
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: noaijdpnepcgjemiklgfkcfbkokogabh
+    name: "ImTranslator"
+    group: writing_ai
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- productivity ----------------------------------------------
+  - id: laankejkbhbdhmipfmgcngdelahlfoji
+    name: "StayFocusd"
+    group: productivity
+    tier: active
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: nngceckbapebfimnlniiiahkandclblb
+    name: "Bitwarden"
+    group: productivity
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: gpdjojdkbbmdfjfahjcgigfpmkopogic
+    name: "Save to Pinterest"
+    group: productivity
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: bfbameneiokkgbdmiekhjnmfkcnldhhm
+    name: "Web Developer"
+    group: productivity
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: cnojnbdhbhnkbcieeekonklommdnndci
+    name: "Search by Image"
+    group: productivity
+    tier: subtle            # 1 content script, no DOM change
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: iifmmpcbkkjplbamhfohikljoogdbadp
+    name: "ID.me Shop"
+    group: productivity
+    tier: subtle            # 2 content scripts, no DOM change
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
