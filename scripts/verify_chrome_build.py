@@ -14,7 +14,6 @@ prove less.
 """
 
 import argparse
-import base64
 import hashlib
 import json
 import shutil
@@ -26,17 +25,22 @@ from pathlib import Path
 CHROME_BIN = Path("/opt/chrome/browser/chrome")
 DRIVER_BIN = Path("/opt/chrome/driver/chromedriver")
 EXT_ROOT = Path("/opt/extensions")
-POOL_PATH = Path("/app/extensions.yml")
+POOL_PATH = Path("/app/rest-exc-challenge/extensions.yml")
 
 
 class GateFailed(Exception):
     """One gate failed. All gates still run, so the log shows every problem."""
 
 
-def derive_id(spki_der: bytes) -> str:
-    """Chrome's extension id: first 16 bytes of sha256(public key), hex mapped
-    onto a-p. This is what Chrome will compute from the injected `key`."""
-    digest = hashlib.sha256(spki_der).hexdigest()[:32]
+def derive_id(payload: bytes) -> str:
+    """Chrome's extension id: first 16 bytes of sha256(payload), hex mapped
+    onto a-p.
+
+    Chrome hashes the signing key when a manifest carries `key`, and the
+    absolute directory path when it does not. We no longer inject `key`, so
+    the path is what matters here - see `derive_path_id`.
+    """
+    digest = hashlib.sha256(payload).hexdigest()[:32]
     return "".join(chr(ord("a") + int(c, 16)) for c in digest)
 
 
@@ -103,12 +107,23 @@ def gate_pool_is_unpacked() -> str:
     return f"all {len(pool)} pool ids unpacked"
 
 
-def gate_ids_match_keys() -> str:
-    """The injected `key` must derive the pinned id.
+def derive_path_id(ext_dir: Path) -> str:
+    """Chrome's id for an unpacked extension with no `key`: sha256 of the
+    absolute directory path, first 16 bytes mapped onto a-p."""
+    return derive_id(str(ext_dir).encode("utf-8"))
 
-    Without it Chrome derives the id from the directory path, every
-    `chrome-extension://<real-id>/` probe fails, and the challenge silently
-    becomes unsolvable by any published technique.
+
+def gate_no_key_is_injected() -> str:
+    """No manifest may carry `key`.
+
+    This gate is deliberately the inverse of what it used to assert. Injecting
+    the signing key pins Chrome's computed id to the store id and makes it
+    stable across rounds; leaving it out means Chrome derives the id from the
+    staging path, so every round assigns a different id and a miner cannot
+    hardcode `chrome-extension://<id>/...` against any published id table.
+
+    A stray `key` would silently restore stable ids and hand WAR probing back,
+    with nothing failing, so it has to fail the build here.
     """
     problems = []
     checked = 0
@@ -131,23 +146,18 @@ def gate_ids_match_keys() -> str:
             )
             continue
 
-        key = manifest.get("key")
-        if not key:
+        if manifest.get("key"):
             problems.append(
-                f"{ext_id}: manifest has no `key` - id will be path-derived"
+                f"{ext_id}: manifest carries `key` - ids would be stable across "
+                f"rounds; fetch_extensions.py must not inject it"
             )
-            continue
-
-        derived = derive_id(base64.b64decode(key))
-        if derived != ext_id:
-            problems.append(f"{ext_id}: injected key derives {derived}")
             continue
 
         checked += 1
 
     if problems:
         raise GateFailed("extension key/id problems:\n    " + "\n    ".join(problems))
-    return f"{checked} extension(s) derive their pinned id from the injected key"
+    return f"{checked} extension(s) carry no `key`, so ids rotate per round"
 
 
 def gate_headless_launch_loads_an_extension() -> str:
@@ -201,11 +211,19 @@ def gate_headless_launch_loads_an_extension() -> str:
                 pass
         shutil.rmtree(scratch, ignore_errors=True)
 
-    if ext_id not in loaded:
+    # With no `key` in the manifest Chrome reports the PATH-derived id, not the
+    # store id, so that is what has to be looked for. Same derivation as
+    # `_browser.derive_unpacked_id`.
+    expected = derive_path_id(staged)
+    if expected not in loaded:
         raise GateFailed(
-            f"chrome started but did not load {ext_id} (reported: {sorted(loaded)})"
+            f"chrome started but did not load {ext_id} as {expected} "
+            f"(reported: {sorted(loaded)})"
         )
-    return f"chrome loaded {ext_id} and reported it via chrome://extensions-internals/"
+    return (
+        f"chrome loaded {ext_id} as path-derived id {expected} "
+        f"and reported it via chrome://extensions-internals/"
+    )
 
 
 def main() -> int:
@@ -217,7 +235,7 @@ def main() -> int:
         ("shared libraries", gate_shared_libraries),
         ("chrome + chromedriver version", lambda: gate_versions(args.expect_version)),
         ("pool is unpacked", gate_pool_is_unpacked),
-        ("ids match injected keys", gate_ids_match_keys),
+        ("no `key` injected (ids rotate)", gate_no_key_is_injected),
         ("headless launch loads an extension", gate_headless_launch_loads_an_extension),
     ]
 

@@ -1,10 +1,11 @@
 """Chrome-for-Testing driver layer. Single entry point: `run_round()`.
 
 Every non-obvious constraint below is marked `see REFERENCE §n` and explained in
-docs/REFERENCE.md. Changing one of those lines without reading the section it
+.internal/REFERENCE.md. Changing one of those lines without reading the section it
 points at is how this file silently starts producing wrong labels.
 """
 
+import hashlib
 import json
 import os
 import shutil
@@ -134,9 +135,10 @@ def wrap_miner_script(budget_sec: float, groups: Mapping[str, Sequence[str]]) ->
     missing function or a non-object return costs only that group - never the
     whole round. That isolation is the point of the split.
 
-    A group answers only for the ids it OWNS; other keys are dropped. Without
-    the filter two files claiming the same id would race on completion order,
-    and the same submission could score differently run to run.
+    A group answers only for the extension NAMES it OWNS; other keys are
+    dropped. Without the filter two files claiming the same name would race on
+    completion order, and the same submission could score differently run to
+    run.
 
     The `setTimeout` sentinel below is best-effort, not enforcement. It runs in
     the same JS world as the submission, which loaded first and may already have
@@ -192,14 +194,33 @@ def wrap_miner_script(budget_sec: float, groups: Mapping[str, Sequence[str]]) ->
     """
 
 
+def derive_unpacked_id(ext_dir: Path) -> str:
+    """The id Chrome assigns to an unpacked extension whose manifest has no `key`.
+
+    Chrome hashes the extension's absolute directory path and maps the first 16
+    bytes of the digest onto a-p, the same alphabet a store id uses. Since
+    `fetch_extensions.py` no longer injects `key`, this - not the store id - is
+    what Chrome reports for everything we load, and it changes every round
+    because `ChromeSession` stages under `/run/exc/round-<tag>/`.
+
+    Verified against a real Chrome 152: Dark Reader staged at
+    `/run/exc/round-AAAA/ext/dr` loaded as `laacekklnghmcmbipfoanbjnjmejfibk`
+    and at `/run/exc/round-BBBB/ext/dr` as `adjcpmplfoiaeekhcleccnhcekcmkhpd`,
+    both of which this function reproduces exactly.
+    """
+    _digest = hashlib.sha256(str(ext_dir).encode("utf-8")).hexdigest()[:32]
+    return "".join(chr(ord("a") + int(_c, 16)) for _c in _digest)
+
+
 def normalize_predictions(raw: Any, pool: list[str]) -> dict[str, bool]:
-    """One boolean per pool id. Missing and non-boolean values become False;
-    keys outside the pool are dropped."""
+    """One boolean per pool entry, keyed by extension NAME. Missing and
+    non-boolean values become False; keys outside the pool are dropped."""
     if not isinstance(raw, dict):
         raise BrowserError(
-            f"miner returned {type(raw).__name__}, expected {{extensionId: boolean}}"
+            f"miner returned {type(raw).__name__}, expected "
+            f"{{extensionName: boolean}}"
         )
-    return {ext_id: bool(raw.get(ext_id, False)) for ext_id in pool}
+    return {_name: bool(raw.get(_name, False)) for _name in pool}
 
 
 class ChromeSession:
@@ -217,7 +238,9 @@ class ChromeSession:
         self.profile_dir = self.root / "profile"
         self.ext_root = self.root / "ext"
         self.driver: webdriver.Chrome | None = None
-        self.loaded: set[str] = set()  # real store ids Chrome actually enabled
+        # Store ids, translated back from the per-round ids Chrome actually
+        # assigned - see `launch()`.
+        self.loaded: set[str] = set()
         self._driver_pid: int | None = None
 
     def __enter__(self) -> "ChromeSession":
@@ -236,9 +259,21 @@ class ChromeSession:
         Populates `self.loaded` so callers can report what enabled without a
         second round trip to chrome://extensions-internals/.
         """
-        ext_dirs = self._stage_extensions(ext_ids)
-        self._start_driver(self._build_options(ext_dirs))
-        self.loaded = self._read_loaded_ids()
+        _staged = self._stage_extensions(ext_ids)
+        self._start_driver(self._build_options(list(_staged.values())))
+
+        # `fetch_extensions.py` deliberately does not inject `key`, so Chrome
+        # derives each id from the staging path and every round produces a
+        # different set. Translate back to store ids here, so everything above
+        # this method keeps working in the stable ids it already speaks.
+        _runtime_to_store = {
+            derive_unpacked_id(_dir): _ext_id for _ext_id, _dir in _staged.items()
+        }
+        self.loaded = {
+            _runtime_to_store[_id]
+            for _id in self._read_loaded_ids()
+            if _id in _runtime_to_store
+        }
 
         missing = set(ext_ids) - self.loaded
         if missing:
@@ -254,11 +289,19 @@ class ChromeSession:
                 f"{sorted(missing)}"
             )
 
-    def _stage_extensions(self, ext_ids: list[str]) -> list[Path]:
+    def _stage_extensions(self, ext_ids: list[str]) -> dict[str, Path]:
+        """store id -> the directory it was copied to, for this round.
+
+        Returns the mapping rather than a bare list on purpose. `launch()` has
+        to pair each staged path with the id it came from in order to work out
+        what Chrome will call it, and pairing by position would make that
+        correctness depend on this loop never filtering or reordering - a
+        coupling nothing enforces and whose failure is silent.
+        """
         # REFERENCE §7: Chrome rewrites `_metadata/` on every unpacked load. A
         # read-only source dir makes static DNR silently no-op, so we copy.
         source_root = Path(self.settings.extensions_dir)
-        staged = []
+        staged: dict[str, Path] = {}
 
         for ext_id in ext_ids:
             if "," in ext_id:
@@ -276,7 +319,7 @@ class ChromeSession:
             dst = self.ext_root / ext_id
             shutil.copytree(src, dst)
             _make_writable(dst)
-            staged.append(dst)
+            staged[ext_id] = dst
 
         return staged
 
@@ -340,7 +383,12 @@ class ChromeSession:
 
     # -- run ---------------------------------------------------------------
 
-    def open_page(self, page_url: str, settle_seconds: float) -> None:
+    def open_page(
+        self,
+        page_url: str,
+        settle_seconds: float,
+        groups: Sequence[str] | None = None,
+    ) -> None:
         """Load the bait page and wait for extensions to act.
 
         Service workers spin up, DNR rulesets re-index and content scripts
@@ -351,10 +399,15 @@ class ChromeSession:
         try:
             self.driver.get(page_url)
         except TimeoutException as err:
-            # index.html pulls the submission in with a render-blocking
-            # `<script src>` in `<head>`, so its top-level code runs inside this
-            # navigation. A miner that blocks there stalls the load, and that is
-            # the miner's doing - not ours. See `run_script`.
+            # The submission runs during this navigation, so a hang here is
+            # usually the miner's - but not always. `_blame_for_stalled_load`
+            # checks what the browser actually received before deciding.
+            _ours = self._blame_for_stalled_load(groups)
+            if _ours:
+                raise BrowserInfraError(
+                    f"the bait page did not load within "
+                    f"{self.settings.page_load_timeout_sec}s: {_ours}"
+                ) from err
             raise BrowserError(
                 f"the bait page did not load within "
                 f"{self.settings.page_load_timeout_sec}s; the submission runs "
@@ -364,6 +417,76 @@ class ChromeSession:
             raise BrowserInfraError(f"could not load the bait page: {err}") from err
         time.sleep(settle_seconds)
         self._assert_page_rendered()
+
+    def _blame_for_stalled_load(self, groups: Sequence[str] | None) -> str | None:
+        """Decide whether a stalled load was the submission's doing or ours.
+
+        `index.html` pulls each group's file in with a render-blocking
+        `<script src>` in `<head>`, so two very different things produce the
+        same symptom - a navigation that never finishes:
+
+          - the submission's top-level code hangs, which is the miner's, or
+          - our own server was too slow to deliver the file, which is ours.
+
+        Blaming the wrong one is not cosmetic. Charge a miner for our slow
+        server and an honest submission silently earns 0 on that round; charge
+        ourselves for their hang and any submission can turn its own timeout
+        into a failed run, which `service.py` reports as a 500 rather than the
+        0.0 it earned.
+
+        Resource Timing separates them, because it records what the browser
+        actually RECEIVED, independently of what ran afterwards:
+
+          - a file that arrived but left `window.detect_<group>` undefined
+            started executing and never came back -> the miner's
+          - files that never arrived, while every file that DID arrive defined
+            its function -> the bytes were still in flight -> ours
+
+        Returns None when the miner is to blame (the caller raises
+        `BrowserError`), or a reason string when we are (`BrowserInfraError`).
+        Also returns None when the page is too broken to ask, since guessing
+        "infra" there would hand every submission the same free pass.
+        """
+        if not groups:
+            return None
+        try:
+            state = self.driver.execute_script(
+                """
+                const groups = arguments[0];
+                const seen = new Set(
+                  performance.getEntriesByType('resource')
+                    .filter(e => e.responseEnd > 0)
+                    .map(e => e.name)
+                );
+                const arrived = [], missing = [], ran = [], hung = [];
+                for (const g of groups) {
+                  const got = [...seen].some(n => n.endsWith('/detections/' + g + '.js'));
+                  (got ? arrived : missing).push(g);
+                  if (got) (typeof window['detect_' + g] === 'function' ? ran : hung).push(g);
+                }
+                return {arrived, missing, ran, hung};
+                """,
+                list(groups),
+            )
+        except Exception:  # noqa: BLE001
+            # Best-effort diagnosis only. This runs while a round is already
+            # failing, so it must never replace that failure with one of its
+            # own - and it must not invent "infra" in the miner's favour when
+            # it cannot tell.
+            return None
+
+        if not isinstance(state, dict):
+            return None
+        if state.get("hung"):
+            return None  # their file arrived and never finished executing
+        if state.get("missing"):
+            return (
+                f"{len(state['missing'])} of {len(groups)} detection file(s) "
+                f"never reached the browser ({sorted(state['missing'])}) while "
+                f"every file that did arrive ran fine - the bait server, not "
+                f"the submission, is what stalled"
+            )
+        return None
 
     def _assert_page_rendered(self) -> None:
         """Fail loudly if the bait page came back empty.
@@ -449,6 +572,13 @@ class ChromeSession:
 
         failed_groups = sorted(result.get("failed_groups") or [])
         if groups and set(failed_groups) >= set(groups):
+            # Every group failing looks like a broken submission, and usually
+            # is. But it is also exactly what a miner sees when OUR files never
+            # reached the browser: no `window.detect_<group>` is defined, so
+            # every call throws. Check before charging them for it.
+            _ours = self._blame_for_stalled_load(list(groups))
+            if _ours:
+                raise BrowserInfraError(f"every group failed because {_ours}")
             raise BrowserError(
                 f"every group failed ({len(groups)}): {failed_groups}"
             )
@@ -580,22 +710,28 @@ def run_round(
     *,
     pool: list[str],
     groups: Mapping[str, Sequence[str]],
+    id_map: Mapping[str, str],
     page_url: str,
     settings: BrowserSettings,
     settle_seconds: float = 4.0,
     script_budget_sec: float = 10.0,
     round_tag: str | None = None,
 ) -> dict[str, bool]:
-    """Run one round and return the miner's verdict for every id in `pool`.
+    """Run one round and return the miner's verdict for every NAME in `pool`.
+
+    Everything crossing this function is a name, not a store id - that is what
+    `GET /task` publishes and what a miner answers in. `id_map` translates
+    name -> store id purely so `ChromeSession` knows which unpacked directory
+    under `/opt/extensions` to stage; ids go no further than that call.
 
     `subset` is ground truth and is never written anywhere the browser can
     reach it - not into the page, not into a global, not into a query param.
 
     `groups` maps each published group name (`extensions.yml`'s `group:`
-    values) to the ids it owns. The wrapper calls `window.detect_<group>()` for
-    each, in its own try/catch, so one group throwing costs only that group's
-    labels - and it keeps only the ids that group owns, so two files cannot
-    race to answer for the same extension.
+    values) to the names it owns. The wrapper calls `window.detect_<group>()`
+    for each, in its own try/catch, so one group throwing costs only that
+    group's labels - and it keeps only the names that group owns, so two files
+    cannot race to answer for the same extension.
 
     The gesture script runs on every round. It is fixed and identical each time,
     so it leaks nothing, and without it the whole password-manager class of the
@@ -607,10 +743,16 @@ def run_round(
             "subset is empty; a round must enable at least one extension"
         )
 
+    _unknown = sorted(set(subset) - set(id_map))
+    if _unknown:
+        # A name with no directory behind it would be scored every round and
+        # never enabled - a permanent false negative nobody can fix.
+        raise BrowserInfraError(f"no extension directory mapped for: {_unknown}")
+
     tag = round_tag or uuid.uuid4().hex[:12]
     with ChromeSession(settings, tag) as session:
-        session.launch(sorted(subset))
-        session.open_page(page_url, settle_seconds)
+        session.launch(sorted(id_map[_name] for _name in subset))
+        session.open_page(page_url, settle_seconds, groups=list(groups))
         session.interact()
         time.sleep(_GESTURE_SETTLE_SEC)
         return session.run_script(pool, groups, script_budget_sec)

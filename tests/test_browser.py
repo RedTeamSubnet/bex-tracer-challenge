@@ -28,6 +28,8 @@ from api.endpoints.challenge._browser import (  # noqa: E402
 
 POOL = ["aaaa", "bbbb", "cccc"]
 GROUPS = {"group_one": ["aaaa", "bbbb"], "group_two": ["cccc"]}
+# name -> store id. `run_round` speaks names; only `ChromeSession.launch` sees ids.
+ID_MAP = {"aaaa": "id-aaaa", "bbbb": "id-bbbb", "cccc": "id-cccc"}
 
 
 @pytest.fixture
@@ -172,9 +174,9 @@ def test_stage_copies_rather_than_referencing_the_source(settings, tmp_path):
     with ChromeSession(settings, "test") as session:
         staged = session._stage_extensions(["aaaa"])
 
-        assert len(staged) == 1
-        assert staged[0] != source
-        assert (staged[0] / "manifest.json").is_file()
+        assert set(staged) == {"aaaa"}, "keyed by store id, not position"
+        assert staged["aaaa"] != source
+        assert (staged["aaaa"] / "manifest.json").is_file()
 
 
 def test_stage_makes_the_whole_copied_tree_writable(settings):
@@ -199,7 +201,8 @@ def test_stage_makes_the_whole_copied_tree_writable(settings):
     with ChromeSession(settings, "test") as session:
         staged = session._stage_extensions(["aaaa"])
 
-        for path in [staged[0], *staged[0].rglob("*")]:
+        _root = staged["aaaa"]
+        for path in [_root, *_root.rglob("*")]:
             assert path.stat().st_mode & 0o200, f"not writable: {path}"
 
 
@@ -248,6 +251,13 @@ class _ScriptDriver:
         if isinstance(self._outcome, Exception):
             raise self._outcome
         return self._outcome
+
+    def execute_script(self, _script, *_args):
+        # `run_script` consults the load diagnostic when every group fails.
+        # Report every file as arrived and every entrypoint as defined, i.e.
+        # nothing was wrong on our side - so the failure stays the miner's.
+        _groups = _args[0] if _args else []
+        return {"arrived": list(_groups), "missing": [], "ran": list(_groups), "hung": []}
 
 
 def test_a_dead_renderer_is_our_fault_not_the_miners(settings):
@@ -319,7 +329,31 @@ def test_run_script_raises_only_when_every_group_failed(settings):
 
 def test_run_round_rejects_an_empty_subset(settings):
     with pytest.raises(BrowserError, match="empty"):
-        run_round(set(), pool=POOL, groups=GROUPS, page_url="http://x", settings=settings)
+        run_round(
+            set(),
+            pool=POOL,
+            groups=GROUPS,
+            id_map=ID_MAP,
+            page_url="http://x",
+            settings=settings,
+        )
+
+
+def test_run_round_rejects_a_name_with_no_extension_behind_it(settings):
+    """A published name that maps to no directory would be scored every round
+    and enabled in none of them - a permanent false negative no miner can fix,
+    silently capping the metric. It has to fail the round instead."""
+    import api.endpoints.challenge._browser as browser
+
+    with pytest.raises(browser.BrowserInfraError, match="no extension directory"):
+        run_round(
+            {"aaaa", "not-in-the-pool"},
+            pool=POOL,
+            groups=GROUPS,
+            id_map=ID_MAP,
+            page_url="http://x",
+            settings=settings,
+        )
 
 
 def test_run_round_drives_the_page_before_sampling(settings, monkeypatch):
@@ -342,7 +376,7 @@ def test_run_round_drives_the_page_before_sampling(settings, monkeypatch):
         def launch(self, ext_ids):
             calls.append("launch")
 
-        def open_page(self, page_url, settle):
+        def open_page(self, page_url, settle, groups=None):
             calls.append("open_page")
 
         def interact(self, pause=0.0):
@@ -357,7 +391,12 @@ def test_run_round_drives_the_page_before_sampling(settings, monkeypatch):
     monkeypatch.setattr(browser.time, "sleep", lambda _s: None)
 
     browser.run_round(
-        {"aaaa"}, pool=POOL, groups=GROUPS, page_url="http://x", settings=settings
+        {"aaaa"},
+        pool=POOL,
+        groups=GROUPS,
+        id_map=ID_MAP,
+        page_url="http://x",
+        settings=settings,
     )
 
     assert calls == ["launch", "open_page", "interact", "run_script"]
@@ -391,6 +430,71 @@ def test_sweep_does_not_match_a_sibling_round_by_prefix(settings, monkeypatch):
     assert matched == {1}, f"swept a concurrent round's browser: {matched}"
 
 
+def test_derive_unpacked_id_matches_real_chrome():
+    """Pins the two ids a real Chrome 152 actually assigned.
+
+    `fetch_extensions.py` no longer injects `key`, so Chrome derives the id
+    from the staging path and `launch()` relies on reproducing that exactly. If
+    Chrome ever changes the derivation these values break, which is the point -
+    a silent drift here would make every round report every extension missing.
+
+    Measured by staging Dark Reader into both paths inside the challenge
+    container and reading the ids back from the browser profile.
+    """
+    import api.endpoints.challenge._browser as browser
+
+    assert (
+        browser.derive_unpacked_id(Path("/run/exc/round-AAAA/ext/dr"))
+        == "laacekklnghmcmbipfoanbjnjmejfibk"
+    )
+    assert (
+        browser.derive_unpacked_id(Path("/run/exc/round-BBBB/ext/dr"))
+        == "adjcpmplfoiaeekhcleccnhcekcmkhpd"
+    )
+
+
+def test_the_build_gate_derives_ids_the_same_way_the_runtime_does():
+    """`scripts/verify_chrome_build.py` reimplements the path -> id derivation.
+
+    That duplication is deliberate: the gate runs as a build step with only
+    Chrome and the unpacked extensions present, and importing
+    `api.endpoints.challenge._browser` would drag in selenium, psutil and
+    `api.config` - which reads config files that are not mounted at build time.
+
+    What is NOT acceptable is the two drifting. If the gate derived ids
+    differently it would pass a build whose runtime then reports every
+    extension missing on every round. This pins them together.
+    """
+    import importlib.util
+
+    import api.endpoints.challenge._browser as browser
+
+    _gate_path = Path(__file__).resolve().parent.parent / "scripts/verify_chrome_build.py"
+    _spec = importlib.util.spec_from_file_location("_vcb", _gate_path)
+    _gate = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_gate)
+
+    for path in (
+        Path("/run/exc/round-AAAA/ext/dr"),
+        Path("/run/exc/round-req1-0/ext/eimadpbcbfnmbkopoojfekhnkhdbieeh"),
+        Path("/opt/extensions/kbfnbcaeplbcioakkpcpgfkobkghlhen"),
+    ):
+        assert _gate.derive_path_id(path) == browser.derive_unpacked_id(path), path
+
+
+def test_the_same_extension_gets_a_different_id_each_round():
+    """The whole point of dropping `key`: a miner cannot hardcode
+    `chrome-extension://<id>/...` because the id does not survive the round."""
+    import api.endpoints.challenge._browser as browser
+
+    ext = "eimadpbcbfnmbkopoojfekhnkhdbieeh"
+    first = browser.derive_unpacked_id(Path(f"/run/exc/round-req1-0/ext/{ext}"))
+    second = browser.derive_unpacked_id(Path(f"/run/exc/round-req1-1/ext/{ext}"))
+
+    assert first != second
+    assert first != ext and second != ext, "the store id must never be the runtime id"
+
+
 def test_infra_error_does_not_name_the_loaded_extensions(settings, monkeypatch):
     """`missing` and `loaded` together reconstruct the round's enabled subset.
 
@@ -402,9 +506,22 @@ def test_infra_error_does_not_name_the_loaded_extensions(settings, monkeypatch):
 
     enabled = ["aaaa", "bbbb", "cccc"]
     with ChromeSession(settings, "leak") as session:
-        monkeypatch.setattr(session, "_stage_extensions", lambda ids: [])
+        # `_stage_extensions` returns {store id: staged path} - see the real one.
+        staged = {ext_id: session.ext_root / ext_id for ext_id in enabled}
+        monkeypatch.setattr(
+            session, "_stage_extensions", lambda ids: {i: staged[i] for i in ids}
+        )
         monkeypatch.setattr(session, "_start_driver", lambda opts: None)
-        monkeypatch.setattr(session, "_read_loaded_ids", lambda: {"bbbb", "cccc"})
+        # Chrome reports PATH-DERIVED ids now, not store ids - `key` is no
+        # longer injected. Only bbbb and cccc came up.
+        monkeypatch.setattr(
+            session,
+            "_read_loaded_ids",
+            lambda: {
+                browser.derive_unpacked_id(staged["bbbb"]),
+                browser.derive_unpacked_id(staged["cccc"]),
+            },
+        )
 
         with pytest.raises(browser.BrowserInfraError) as err:
             session.launch(enabled)
@@ -446,3 +563,74 @@ def test_a_rendered_bait_page_passes(settings):
     session.driver = _RenderDriver(True)
 
     session._assert_page_rendered()  # must not raise
+
+
+# -- blame attribution when a load stalls -----------------------------------
+
+
+class _DiagDriver:
+    """Driver double whose Resource Timing answer is scripted per test."""
+
+    def __init__(self, state):
+        self._state = state
+
+    def execute_script(self, _script, *_args):
+        if isinstance(self._state, Exception):
+            raise self._state
+        return self._state
+
+
+def _session_with(state):
+    sess = ChromeSession.__new__(ChromeSession)
+    sess.driver = _DiagDriver(state)
+    return sess
+
+
+def test_a_stalled_load_is_ours_when_our_files_never_arrived():
+    """Files still in flight, and every file that did arrive ran fine. The
+    submission cannot be blamed for bytes it never received."""
+    sess = _session_with(
+        {"arrived": ["blockers"], "missing": ["developer"], "ran": ["blockers"], "hung": []}
+    )
+    reason = sess._blame_for_stalled_load(["blockers", "developer"])
+    assert reason and "never reached the browser" in reason
+
+
+def test_a_stalled_load_is_the_miners_when_their_file_arrived_and_hung():
+    """The file was delivered but never defined its entrypoint - it started
+    executing and did not come back. That is the submission's doing."""
+    sess = _session_with(
+        {"arrived": ["blockers"], "missing": [], "ran": [], "hung": ["blockers"]}
+    )
+    assert sess._blame_for_stalled_load(["blockers"]) is None
+
+
+def test_a_hung_file_outranks_a_missing_one():
+    """A submission must not launder its own hang into an infra failure by
+    also happening to race one of our slower responses."""
+    sess = _session_with(
+        {"arrived": ["blockers"], "missing": ["developer"], "ran": [], "hung": ["blockers"]}
+    )
+    assert sess._blame_for_stalled_load(["blockers", "developer"]) is None
+
+
+def test_everything_arrived_and_ran_means_the_miner_is_to_blame():
+    sess = _session_with(
+        {"arrived": ["blockers"], "missing": [], "ran": ["blockers"], "hung": []}
+    )
+    assert sess._blame_for_stalled_load(["blockers"]) is None
+
+
+def test_an_undiagnosable_page_does_not_excuse_the_miner():
+    """If the diagnostic itself cannot run, guessing 'infra' would hand every
+    submission a free pass - so it must fall back to blaming the miner."""
+    from selenium.common.exceptions import WebDriverException
+
+    assert _session_with(WebDriverException("dead"))._blame_for_stalled_load(["a"]) is None
+    assert _session_with(RuntimeError("boom"))._blame_for_stalled_load(["a"]) is None
+    assert _session_with("not a dict")._blame_for_stalled_load(["a"]) is None
+
+
+def test_no_groups_means_no_diagnosis():
+    assert _session_with({})._blame_for_stalled_load([]) is None
+    assert _session_with({})._blame_for_stalled_load(None) is None

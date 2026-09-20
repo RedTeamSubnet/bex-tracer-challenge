@@ -2,14 +2,25 @@
 """Download, verify and unpack the extension pool. BUILD TIME ONLY.
 
 Reads `extensions.yml`, and per extension:
-    download .crx -> verify sha256 -> parse CRX3 -> extract the matching public
-    key -> unzip -> inject `key` into manifest.json -> assert derived id == pinned id
+    download .crx -> verify sha256 -> parse CRX3 -> assert the signature id
+    matches the pin -> unzip
 
-The `key` injection is the whole point. Store .crx manifests carry no `key` field
-(the Web Store rejects uploads that have one; Chrome injects it at install time in
-SandboxedUnpacker, which loading unpacked bypasses). Without it Chrome derives the
-extension id from the *directory path*, so `chrome-extension://<real-id>/` probes
-all fail and every piece of public prior-art is useless against our pool.
+`key` is deliberately NOT injected into manifest.json. Store .crx manifests
+carry no `key` field (the Web Store rejects uploads that have one; Chrome
+injects it at install time in SandboxedUnpacker, which loading unpacked
+bypasses). Leaving it out means Chrome derives the extension id from the
+*directory path* instead - and `_browser.py` stages every round under
+`/run/exc/round-<tag>/`, so each extension gets a DIFFERENT id every round.
+
+That is the point. A miner cannot hardcode `chrome-extension://<id>/...`
+against an id that does not exist until the round starts, so WAR probing from
+a published id table - and every piece of public prior-art keyed by store id -
+stops working. Measured: Dark Reader staged at two paths came back as
+`laacekkl...` and `adjcpmpl...`, neither of them its store id.
+
+The store id is still used at BUILD time: it names the unpacked directory and
+`parse_crx3` checks it against the pin, which is what verifies we downloaded
+the extension we meant to. It just never reaches a running browser.
 
 Usage:
     python3 scripts/fetch_extensions.py --out /opt/extensions
@@ -17,7 +28,6 @@ Usage:
 """
 
 import argparse
-import base64
 import hashlib
 import io
 import json
@@ -151,7 +161,7 @@ def _drop_chrome_metadata(dest: Path) -> None:
 
 
 def unpack_crx(crx_bytes: bytes, dest: Path, *, expected_id: str) -> dict[str, Any]:
-    ext_id, spki, zip_bytes = parse_crx3(crx_bytes)
+    ext_id, _spki, zip_bytes = parse_crx3(crx_bytes)
     if ext_id != expected_id:
         raise ValueError(f"CRX id {ext_id} != pinned {expected_id}")
 
@@ -173,7 +183,12 @@ def unpack_crx(crx_bytes: bytes, dest: Path, *, expected_id: str) -> dict[str, A
             f"{manifest.get('manifest_version')}; Chrome 152 hard-rejects MV2"
         )
 
-    manifest["key"] = base64.b64encode(spki).decode("ascii")
+    # `key` is REMOVED, not merely not-injected. Most store manifests carry no
+    # `key` (the Web Store rejects uploads that have one), but some ship it
+    # anyway - NordPass does - and such an extension would keep a stable id
+    # while every other one rotated, handing a miner exactly the WAR-probe
+    # foothold this is meant to close. Popping covers both cases.
+    manifest.pop("key", None)
     manifest.pop("update_url", None)
     manifest_path.write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
@@ -244,7 +259,7 @@ def format_ok_line(entry: dict[str, Any], info: dict[str, Any]) -> str:
 def _parse_args() -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parent.parent
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--pool", default=str(repo_root / "extensions.yml"))
+    ap.add_argument("--pool", default=str(repo_root / "src/exc_challenge/challenge/extensions.yml"))
     ap.add_argument("--out", required=True, help="output dir, e.g. /opt/extensions")
     ap.add_argument(
         "--allow-sha-mismatch",
