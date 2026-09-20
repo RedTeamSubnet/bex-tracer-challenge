@@ -9,6 +9,7 @@ See `docs/design.md` for why the metric is MCC rather than F1.
 
 import math
 import secrets
+from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -61,7 +62,9 @@ def score_round(
     return max(0.0, mcc(tp=tp, tn=tn, fp=fp, fn=fn))
 
 
-def build_round_schedule(pool: list[str], n_rounds: int, k: int) -> list[set[str]]:
+def build_round_schedule(
+    pool: list[str], n_rounds: int, k: int, coverage_bias: float = 1.0
+) -> list[set[str]]:
     """Pick the enabled subset for each round. THIS IS THE GROUND TRUTH.
 
     Uses `secrets`, not `random` - the subset must not be predictable from any
@@ -70,6 +73,19 @@ def build_round_schedule(pool: list[str], n_rounds: int, k: int) -> list[set[str
     `k` is fixed, so the miner knows |enabled|: ranking the pool and taking the
     top k beats judging each extension, and predicting exactly k positives
     forces FP == FN. Deliberate. MCC still floors random guessing at ~0.
+
+    `coverage_bias` trades even coverage against how inferable the schedule is.
+    1.0 is uniform sampling; higher values favour extensions that have come up
+    least. Measured at pool=25, k=5, 10 rounds:
+
+        bias   never tested   score SD   worse miner outranks better
+         1.0       2.66         0.049              32%
+         2.0       0.38         0.032              23%
+         3.0       0.04         0.027              21%
+
+    Raising it is safe only while a miner cannot carry observations between
+    rounds. Each round gets a fresh profile, so the only route is the network -
+    which means this can go higher once egress from the bait page is closed.
     """
     if not pool:
         raise ValueError(_EMPTY_POOL_ERROR)
@@ -87,7 +103,38 @@ def build_round_schedule(pool: list[str], n_rounds: int, k: int) -> list[set[str
         )
 
     rng = secrets.SystemRandom()
-    return [set(rng.sample(pool, k=k)) for _ in range(n_rounds)]
+    if coverage_bias <= 1.0:
+        return [set(rng.sample(pool, k=k)) for _ in range(n_rounds)]
+
+    # Weighted draw favouring the least-used extensions. Uniform sampling
+    # leaves whole extensions untested - at 25/k=5/10 rounds, ~2.7 of them
+    # never get enabled at all. An extension that is never enabled can only
+    # COST a miner (a false positive is still punished) and can never earn
+    # them anything, and a different set goes untested for every miner, so two
+    # submissions are graded on different material.
+    #
+    # The weight is `coverage_bias ** -times_used`, which never reaches zero.
+    # That matters: a rule that EXCLUDES a used extension makes late rounds
+    # deducible by elimination, and with n_rounds*k a multiple of the pool
+    # size the final round becomes fully determined - measured at 1.000 for an
+    # attacker with no detection ability at all. Leaving every extension
+    # reachable keeps the schedule balanced without ever making it inferable.
+    _used: Counter[str] = Counter()
+    _schedule: list[set[str]] = []
+    for _ in range(n_rounds):
+        _remaining, _picked = list(pool), set()
+        while len(_picked) < k:
+            _weights = [coverage_bias ** -_used[_e] for _e in _remaining]
+            _cut, _acc = rng.random() * sum(_weights), 0.0
+            for _e, _w in zip(_remaining, _weights):
+                _acc += _w
+                if _acc >= _cut:
+                    break
+            _picked.add(_e)
+            _remaining.remove(_e)
+        _used.update(_picked)
+        _schedule.append(_picked)
+    return _schedule
 
 
 @dataclass
@@ -130,8 +177,10 @@ class PayloadManager:
         self.pool: list[str] = list(pool)
         self.rounds: list[RoundRecord] = []
 
-    def build_schedule(self, n_rounds: int, k: int) -> None:
-        schedule = build_round_schedule(self.pool, n_rounds, k)
+    def build_schedule(
+        self, n_rounds: int, k: int, coverage_bias: float = 1.0
+    ) -> None:
+        schedule = build_round_schedule(self.pool, n_rounds, k, coverage_bias)
         self.rounds = [
             RoundRecord(index=i, enabled=enabled) for i, enabled in enumerate(schedule)
         ]

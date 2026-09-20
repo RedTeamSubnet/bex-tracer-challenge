@@ -20,9 +20,13 @@ sys.path.insert(0, str(REPO / "src/exc_challenge/challenge"))
 from api.config import config  # noqa: E402
 from api.main import app  # noqa: E402
 from api.endpoints.challenge import service  # noqa: E402
-from api.endpoints.challenge._pool import load_pool_groups, load_pool_ids  # noqa: E402
+from api.endpoints.challenge._pool import (  # noqa: E402
+    load_name_to_id,
+    load_pool_groups,
+    load_pool_names,
+)
 
-POOL_PATH = REPO / "extensions.yml"
+POOL_PATH = REPO / "src/exc_challenge/challenge/extensions.yml"
 API_KEY = config.challenge.api_key.get_secret_value()
 
 
@@ -34,15 +38,17 @@ def challenge_config(monkeypatch):
     sampled - see the Step 1 blockers in docs/BUILD.md.
     """
     monkeypatch.setattr(config.challenge, "pool_path", str(POOL_PATH))
-    load_pool_ids.cache_clear()
+    load_pool_names.cache_clear()
+    load_name_to_id.cache_clear()
     load_pool_groups.cache_clear()
 
-    pool_size = len(load_pool_ids())
+    pool_size = len(load_pool_names())
     monkeypatch.setattr(config.challenge, "n_rounds", 12)
     monkeypatch.setattr(config.challenge, "k", max(1, min(5, pool_size - 1)))
 
     yield
-    load_pool_ids.cache_clear()
+    load_pool_names.cache_clear()
+    load_name_to_id.cache_clear()
     load_pool_groups.cache_clear()
 
 
@@ -181,13 +187,14 @@ def test_a_partial_setup_failure_still_scores(monkeypatch):
 
 def test_get_task_publishes_the_pool():
     task = service.get_task()
-    assert task.extension_ids == list(load_pool_ids())
-    assert len(task.extension_ids) >= 1
+    assert task.extension_names == list(load_pool_names())
+    assert len(task.extension_names) >= 1
 
 
 def test_rejected_extensions_are_not_published():
     # uBlock Origin proper is manifest v2 and sits under `rejected:`.
-    assert "cjpalhdlnbpafiamejdnhcphjbkeiagm" not in load_pool_ids()
+    assert "uBlock Origin" not in load_pool_names()
+    assert "cjpalhdlnbpafiamejdnhcphjbkeiagm" not in load_name_to_id().values()
 
 
 # -- the endpoint ------------------------------------------------------------
@@ -291,7 +298,7 @@ def test_score_rejects_a_too_long_submission(client):
 def test_task_publishes_the_pool_over_http(client):
     response = client.get("/task")
     assert response.status_code == 200
-    assert response.json()["extension_ids"] == list(load_pool_ids())
+    assert response.json()["extension_names"] == list(load_pool_names())
 
 
 def test_the_bait_page_is_served(client):
@@ -443,7 +450,7 @@ def test_record_all_stores_the_error_class_not_its_text():
     from api.endpoints.challenge._browser import BrowserInfraError
     from api.endpoints.challenge._payload_manager import PayloadManager
 
-    pool = list(load_pool_ids())
+    pool = list(load_pool_names())
     manager = PayloadManager(pool=pool)
     manager.build_schedule(n_rounds=1, k=2)
     enabled = sorted(manager.rounds[0].enabled)
@@ -472,7 +479,7 @@ def test_the_enabled_set_is_logged_at_debug_and_nowhere_else(monkeypatch):
     from api.endpoints.challenge._browser import BrowserInfraError
     from api.endpoints.challenge._payload_manager import PayloadManager
 
-    pool = list(load_pool_ids())
+    pool = list(load_pool_names())
     manager = PayloadManager(pool=pool)
     manager.build_schedule(n_rounds=1, k=2)
     enabled = sorted(manager.rounds[0].enabled)
@@ -557,11 +564,88 @@ def test_results_never_leaks_ground_truth(client):
     )
     body = client.get("/results", headers={"X-API-Key": API_KEY}).json()
 
-    banned = {"enabled", "predicted", "error", "labels", "truth", "extension_ids"}
+    banned = {"enabled", "predicted", "error", "labels", "truth", "extension_names"}
     assert not banned & set(body)
     for round_report in body["rounds"]:
         assert not banned & set(round_report)
 
     flat = json.dumps(body)
-    for ext_id in load_pool_ids():
+    for name in load_pool_names():
+        assert name not in flat, f"{name} leaked into /results"
+    # Store ids must never appear either - they are not published anywhere.
+    for ext_id in load_name_to_id().values():
         assert ext_id not in flat, f"{ext_id} leaked into /results"
+
+
+# -- coverage weighting ------------------------------------------------------
+
+
+def _coverage(pool, schedule):
+    from collections import Counter
+    c = Counter(e for rnd in schedule for e in rnd)
+    return [c[e] for e in pool]
+
+
+def test_uniform_sampling_leaves_extensions_untested():
+    """The behaviour `coverage_bias` exists to fix. An extension that is never
+    enabled can only cost a miner - a false positive on it is still punished -
+    and never earn them anything."""
+    from api.endpoints.challenge._payload_manager import build_round_schedule
+
+    pool = [f"e{i}" for i in range(25)]
+    worst = max(
+        _coverage(pool, build_round_schedule(pool, 10, 5, 1.0)).count(0)
+        for _ in range(40)
+    )
+    assert worst > 0, "uniform sampling should sometimes miss extensions"
+
+
+def test_weighting_covers_the_pool_far_more_evenly():
+    from api.endpoints.challenge._payload_manager import build_round_schedule
+
+    pool = [f"e{i}" for i in range(25)]
+    missed = sum(
+        _coverage(pool, build_round_schedule(pool, 10, 5, 3.0)).count(0)
+        for _ in range(40)
+    )
+    assert missed <= 4, f"weighted sampling still missed {missed} across 40 runs"
+
+
+def test_no_round_is_ever_deducible_by_elimination():
+    """THE property that makes this safe.
+
+    A rule that excludes an already-used extension makes late rounds inferable:
+    with n_rounds*k a multiple of the pool size, the final round becomes fully
+    determined, and an attacker with no detection ability at all scores 1.000
+    on it. Every extension must stay reachable in every round, however heavily
+    it has already been used.
+    """
+    from api.endpoints.challenge._payload_manager import build_round_schedule
+
+    pool = [f"e{i}" for i in range(25)]
+    # 5 rounds x k=5 over 25 is the worst case: the slots exactly exhaust the
+    # pool, so under strict elimination the final round IS the set of
+    # extensions not yet used. Predict it that way and count how often the
+    # guess is perfect.
+    perfect = 0
+    runs = 80
+    for _ in range(runs):
+        sched = build_round_schedule(pool, 5, 5, 10.0)  # heaviest allowed bias
+        used = {e for rnd in sched[:-1] for e in rnd}
+        if set(sched[-1]) == set(pool) - used:
+            perfect += 1
+    assert perfect < runs * 0.5, (
+        f"the final round matched the unused set in {perfect}/{runs} runs - "
+        f"it is deducible by elimination, which scores 1.000 for an attacker "
+        f"with no detection ability"
+    )
+
+
+def test_every_round_still_has_exactly_k_distinct_extensions():
+    from api.endpoints.challenge._payload_manager import build_round_schedule
+
+    pool = [f"e{i}" for i in range(25)]
+    for bias in (1.0, 2.0, 5.0):
+        for rnd in build_round_schedule(pool, 8, 5, bias):
+            assert len(rnd) == 5
+            assert rnd <= set(pool)

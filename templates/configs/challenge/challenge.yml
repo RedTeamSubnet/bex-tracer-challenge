@@ -1,6 +1,6 @@
 challenge:
   # Pool of extensions published to miners. Path is inside the container.
-  pool_path: "/app/extensions.yml"
+  pool_path: "/app/rest-exc-challenge/extensions.yml"
 
   # T - rounds per /score call. Each round is one browser launch.
   n_rounds: 5
@@ -9,6 +9,9 @@ challenge:
   # INVARIANT: k must be < the number of entries in pool_path, or
   # build_round_schedule() raises. Today's pool has 27 entries.
   k: 5
+  ## Weight each draw toward least-used extensions; 1.0 = uniform.
+  ## Uniform leaves ~2.7 of 25 never enabled per run.
+  coverage_bias: 2.0
 
   # P - concurrent rounds. RAM-bound, roughly 1GB peak per Chrome instance.
   ## Raise only with measurement - see the field description in _challenge.py

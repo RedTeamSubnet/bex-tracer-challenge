@@ -31,7 +31,7 @@ class BrowserConfig(BaseConfig):
 
 class ChallengeConfig(BaseConfig):
     api_key: SecretStr = Field(default=SecretStr("challenge_api_key"))
-    pool_path: str = Field(default="/app/extensions.yml")
+    pool_path: str = Field(default="/app/rest-exc-challenge/extensions.yml")
     n_rounds: int = Field(
         default=20, ge=1, le=200, description="T - rounds per /score call"
     )
@@ -44,6 +44,18 @@ class ChallengeConfig(BaseConfig):
     # with everything enabled there is no negative class and even a perfect
     # prediction scores 0.0.
     k: int = Field(default=5, ge=1, description="extensions enabled per round")
+    coverage_bias: float = Field(
+        default=2.0,
+        ge=1.0,
+        le=10.0,
+        description="Weights each round's draw toward the least-used "
+        "extensions: weight = coverage_bias ** -times_used. 1.0 is uniform, "
+        "which leaves ~2.7 of 25 never enabled in a 10-round run - those can "
+        "only cost a miner, never earn them anything. Higher is more even but "
+        "more inferable; a used extension is never excluded, so no round "
+        "becomes deducible. Raise above ~3 only once egress from the bait "
+        "page is closed - see build_round_schedule.",
+    )
     max_parallel_rounds: int = Field(
         default=1,
         ge=1,
