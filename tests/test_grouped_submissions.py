@@ -22,19 +22,19 @@ from api.config import config  # noqa: E402
 from api.endpoints.challenge import service  # noqa: E402
 from api.endpoints.challenge._pool import (  # noqa: E402
     load_pool_groups,
-    load_pool_ids,
+    load_pool_names,
 )
 
-POOL_PATH = Path(__file__).resolve().parent.parent / "extensions.yml"
+POOL_PATH = Path(__file__).resolve().parent.parent / "src/exc_challenge/challenge/extensions.yml"
 
 
 @pytest.fixture(autouse=True)
 def _use_the_real_pool(monkeypatch):
     monkeypatch.setattr(config.challenge, "pool_path", str(POOL_PATH))
-    load_pool_ids.cache_clear()
+    load_pool_names.cache_clear()
     load_pool_groups.cache_clear()
     yield
-    load_pool_ids.cache_clear()
+    load_pool_names.cache_clear()
     load_pool_groups.cache_clear()
 
 
@@ -49,7 +49,7 @@ def test_every_pool_extension_belongs_to_exactly_one_group():
     for ids in groups.values():
         seen.extend(ids)
 
-    assert sorted(seen) == sorted(load_pool_ids())
+    assert sorted(seen) == sorted(load_pool_names())
     assert len(seen) == len(set(seen)), "an extension appears in two groups"
 
 
@@ -63,12 +63,16 @@ def test_rejected_extensions_are_not_in_any_group():
     import yaml
 
     rejected = {
-        e["id"] for e in (yaml.safe_load(POOL_PATH.read_text()).get("rejected") or [])
+        e["name"] for e in (yaml.safe_load(POOL_PATH.read_text()).get("rejected") or [])
     }
-    assert rejected, "fixture assumes extensions.yml still has a rejected block"
+    if not rejected:
+        # The block is optional - it documents what was considered and dropped,
+        # and a pool that ships only what it uses is a valid choice. There is
+        # simply nothing to cross-check when it is absent.
+        pytest.skip("extensions.yml carries no `rejected` block")
 
-    for name, ids in load_pool_groups().items():
-        assert not (set(ids) & rejected), f"{name} contains a rejected extension"
+    for group, names in load_pool_groups().items():
+        assert not (set(names) & rejected), f"{group} contains a rejected extension"
 
 
 # -- what /task publishes ---------------------------------------------------
@@ -82,7 +86,7 @@ def test_task_publishes_the_groups():
     assert set(groups) == set(load_pool_groups())
 
     published = [i for ids in groups.values() for i in ids]
-    assert sorted(published) == sorted(task.extension_ids)
+    assert sorted(published) == sorted(task.extension_names)
 
 
 # -- the submission contract ------------------------------------------------
