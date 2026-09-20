@@ -1,44 +1,18 @@
 /**
- * appearance_media detector stub for the extension-classification challenge.
+ * `appearance_media` detector for the extension-classification challenge.
  *
- * This is a STARTING POINT, not a worked solution - finding the signals is
- * the challenge. Define `window.detect_appearance_media`, returning one boolean per
- * extension id BELOW - the ids this group owns. The challenge merges every
- * group's file into one prediction, so an id from another group never
- * belongs here; GET /task's `groups` field is the source of truth.
- *
- *     window.detect_appearance_media = async function () {
- *       return { "<extension-id>": true, ... };
- *     };
- *
- * May be async; runs under a fixed per-round script budget. Missing keys and
- * a throw both count as false for their extension(s) - scoring is MCC over
- * the whole pool, so a false positive costs real score and an honest false
- * beats a hopeful true.
- *
- * Where to look (not demonstrated here - you have to find the details
- * yourself, per extension):
- *   - web_accessible_resources: `fetch("chrome-extension://<id>/<path>")`
- *     resolves iff the extension is installed. Download the .crx, unzip it,
- *     read manifest.json - a declared path is not proof the file ships, and
- *     `use_dynamic_url: true` makes a resource unprobeable this way.
- *   - DOM/page footprint: injected stylesheets, stamped attributes, shadow
- *     roots, rewritten content.
- *   - declarativeNetRequest: blockers cancel matching requests before they
- *     reach the network - use a control request or an all-blocked page
- *     looks identical to a blocker-free one.
- *   - user gestures: some extensions only inject after a real interaction
- *     with the field they care about.
- */
-window.detect_appearance_media = async function () {
+ * A STARTING POINT, not a worked solution - finding the signals IS the
+ * challenge. Define `window.detect_appearance_media = async function () {
   const result = {};
-  for (const id of [
-    "eimadpbcbfnmbkopoojfekhnkhdbieeh", // Dark Reader
-    "bfbmjmiodbnnpllbbbfblcplfjjepjdn", // Turn Off the Lights
-    "bhlhnicpbhignbdhedgjhgdocnmhomnp", // ColorZilla
-    "lmjnegcaeklhafolokijcfjliaokphfk", // Video DownloadHelper
-    "liecbddmkiiihnedobmlmillhodjkdmb", // Loom
-  ]) result[id] = false;
+
+  // Every name this group owns. Returning false for all of them is a VALID
+  // submission that scores 0 - replace these with real detection.
+  for (const name of [
+    "Dark Reader",
+    "Imageye",
+    "Video Speed Controller",
+    "Volume Booster",
+  ]) result[name] = false;
 
   return result;
 };

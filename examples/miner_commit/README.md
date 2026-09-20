@@ -19,52 +19,76 @@ JavaScript in that page. You return one boolean per extension: was it enabled?
 The pool is split into **groups** by category. You submit **one file per group** - all of them,
 in a single response - named `<group>.js`, each defining `window.detect_<group>`:
 
-| file | entrypoint | owns |
-|---|---|---|
-| `blockers.js` | `window.detect_blockers` | 4 ids |
-| `password_managers.js` | `window.detect_password_managers` | 5 ids |
-| `shopping.js` | `window.detect_shopping` | 3 ids |
-| `writing.js` | `window.detect_writing` | 3 ids |
-| `appearance_media.js` | `window.detect_appearance_media` | 5 ids |
-| `translate.js` | `window.detect_translate` | 2 ids |
-| `productivity.js` | `window.detect_productivity` | 5 ids |
+```
+groups = { "blockers": [...], "developer": [...], ... }   from GET /task
+            |
+            +--> blockers.js   defining window.detect_blockers
+            +--> developer.js  defining window.detect_developer
+                 ... one file per group, all of them, in one response
+```
 
-`src/commit/` holds a runnable stub for each. They return all-`false` - a valid submission that
+**The group names come from `GET /task` and nowhere else.** They are generated from the
+challenge's pool at runtime and change whenever the pool does, so anything hardcoded - including
+in this file - goes stale. `src/app.py` builds its file list from `miner_input.groups` for
+exactly that reason; a group with no detector gets an empty stub so the submission stays valid.
+
+`src/commit/` holds a runnable stub per group. They return all-`false`: a valid submission that
 scores 0. Finding the signals is the challenge.
-
-**Get the group names and ids from `GET /task`**, not from this table. The grouping is generated
-from the challenge's pool file at runtime and changes when the pool rotates:
 
 ```json
 {
-  "extension_ids": ["cfhdojbkjhnklbpkdaibdccddilifddb", "..."],
-  "groups": { "blockers": ["cfhdojbkjhnklbpkdaibdccddilifddb", "..."], "...": [] }
+  "extension_names": ["Adblock Plus", "..."],
+  "groups": { "blockers": ["Adblock Plus", "Privacy Badger", "DuckDuckGo"], "...": [] }
 }
 ```
 
-Each entrypoint may be `async`, and returns ids for **its own group only**:
+Each entrypoint may be `async`, and returns names for **its own group only**:
 
 ```js
 window.detect_blockers = async function () {
-  return { "cfhdojbkjhnklbpkdaibdccddilifddb": true, /* ... */ };
+  return { "Adblock Plus": true, /* ... */ };
 };
 ```
 
+### There are no extension ids to probe
+
+Extensions are loaded unpacked with `key` stripped from their manifests, so Chrome derives each
+id from the directory it was staged in - and every round uses a fresh directory. The id an
+extension has this round is gone the next one, and it is never its Chrome Web Store id. A
+hardcoded `chrome-extension://<store-id>/...` fetch always fails, and published id-keyed lookup
+tables are worthless here. Detect what the extension *does* to the page instead.
+
 ### Rules that decide your score
 
-- **All seven files are required.** A missing or unexpected filename is rejected outright.
+- **Every group needs a file.** A missing or unexpected filename is rejected outright -
+  the whole submission, not just that group.
 - **≤ 500 lines per file.**
-- **All seven run every round**, in parallel, each in its own `try`/`catch`. A throw costs only
-  that group's ids; the rest still score. The round is only lost if all seven fail.
+- **Every file runs every round**, in parallel, each in its own `try`/`catch`. A throw costs
+  only that group's names; the rest still score. The round is lost only if they all fail.
 - **A missing key counts as `false`**, as does a throw.
 - **Scoring is MCC over the whole pool.** A false positive costs real score, so an honest `false`
   beats a hopeful `true`. Answering all-`true` or all-`false` scores 0.
 - **You are not told how many are enabled**, or which.
 - Your script runs under a fixed per-round time budget; overrunning it loses the round.
 
-Where to look: `web_accessible_resources` probes (`fetch("chrome-extension://<id>/<path>")`),
-injected stylesheets and DOM footprint, blocked network requests, and behaviour that only appears
-after a user gesture. The stubs in `src/commit/` carry more detail per group.
+### Where to look
+
+Not at ids - see above; that route is closed. What is left is what the extension *does*:
+
+- **Page footprint** - injected nodes, shadow roots, stylesheets, changed computed styles,
+  attributes stamped on `<html>` or `<body>`.
+- **Blocked requests** - an extension that cancels a request leaves a different `performance`
+  resource timeline than one that does not. Use a control request, or a page where everything is
+  blocked looks the same as a page with no blocker at all.
+- **Post-gesture behaviour** - some extensions inject nothing until a real interaction with the
+  element they care about.
+- **Tampered natives** - `fetch`, `XMLHttpRequest`, `addEventListener` and friends are not always
+  the originals once a content script has run.
+- **Timing** - an extension can run a content script on every page and still change nothing you
+  can see. It is not invisible: it costs time. A pool deliberately contains extensions that only
+  show up this way, so DOM diffing alone will not get you a high score.
+
+The stubs in `src/commit/` carry more detail per group.
 
 ---
 

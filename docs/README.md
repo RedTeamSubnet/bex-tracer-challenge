@@ -11,8 +11,6 @@ accurately it identified what was installed.
 
 | Document | What's in it |
 |---|---|
-| [`REFERENCE.md`](./REFERENCE.md) | **Self-contained technical reference** — verified facts, working CRX3 parser, Chrome flags, Selenium API, current repo state. No web search needed. |
-| [`design.md`](./design.md) | The reasoning: architecture, scoring rationale, extension pool, container spec, anti-cheat, risks |
 | [`pipeline.html`](./pipeline.html) | Pool-to-score pipeline diagram — open in a browser |
 | [`architecture.excalidraw`](./architecture.excalidraw) | Flow diagram — open at [excalidraw.com](https://excalidraw.com) |
 | [`release-notes.md`](./release-notes.md) | Release notes |
@@ -23,9 +21,9 @@ accurately it identified what was installed.
 |---|---|
 | Threat model | Page-context JS, injected post-load via `execute_async_script` |
 | Browser | Chrome for Testing — headless in prod, headful under Xvfb for dev |
-| Extension pool | 21 Chrome Web Store extensions, IDs published to miners (8 more sit in `rejected:`) |
-| Enabled per round | Fixed `k = 5` (`k` in config), random subset, never revealed |
-| Miner output | 7 files, one per group, each `{extensionId: true\|false}` for that group's IDs |
+| Extension pool | Chrome Web Store extensions, published to miners **by name** — ids are never sent |
+| Enabled per round | Fixed `k` (config), drawn per round and never revealed |
+| Miner output | One file per group, each `{extensionName: true\|false}` for that group's names |
 | Metric | MCC over all N binary decisions, `max(0, mcc)` → `[0,1]` |
 
 ## Running it locally
@@ -98,44 +96,50 @@ committed.
 ## Miner contract
 
 The pool is published in **groups** (by extension category) - `GET /task`'s `groups` field maps
-each group name to the extension ids it owns. A submission is **one file per group**, named
-`<group>.js`, each defining its own entrypoint. All seven are sent in a single `POST /score`:
+each group name to the extension **names** it owns. Names are the answer key; store ids are not
+published. A submission is **one file per group**, named
+`<group>.js`, each defining its own entrypoint. Every group is sent in a single `POST /score`:
 
-| group | n | file | entrypoint |
-|---|---|---|---|
-| `blockers` | 3 | `blockers.js` | `window.detect_blockers` |
-| `password_managers` | 4 | `password_managers.js` | `window.detect_password_managers` |
-| `shopping` | 3 | `shopping.js` | `window.detect_shopping` |
-| `writing` | 3 | `writing.js` | `window.detect_writing` |
-| `appearance_media` | 4 | `appearance_media.js` | `window.detect_appearance_media` |
-| `translate` | 2 | `translate.js` | `window.detect_translate` |
-| `productivity` | 2 | `productivity.js` | `window.detect_productivity` |
+For each group `g` that `GET /task` publishes, send `g.js` defining `window.detect_g`. The
+grouping is generated from `extensions.yml` at runtime, so the set of files changes with the
+pool — read it from `/task` rather than from any table, this one included.
 
 ```js
-// blockers.js - returns this group's ids and nothing else
+// blockers.js - returns this group's names and nothing else
 window.detect_blockers = async function () {
   // ... probe the page ...
   return {
-    "cfhdojbkjhnklbpkdaibdccddilifddb": true,   // Adblock Plus
-    "pkehgijcmpdhfbdbbnkijodmdjhbjlgp": false,  // Privacy Badger
-    "bkdgflcldnnnapblkhphbgpggdiikppg": false,  // DuckDuckGo
+    "Adblock Plus": true,
+    "Privacy Badger": false,
+    "DuckDuckGo": false,
   };
 };
 ```
 
-Take the ids from `GET /task`, never from a doc - **the grouping is generated from
-`extensions.yml` at runtime and changes when the pool changes.** Ids in `extensions.yml`'s
-`rejected:` block are never enabled in any round, so claiming one is a guaranteed false positive.
+### There are no stable extension ids
 
-Return a boolean for each extension ID in *that group only* - the challenge merges all seven
-files' answers before scoring, so an id from another group does not belong here. Missing keys are
-treated as `false`. All seven run every round, in parallel, each in its own try/catch: a throw in
-one group's file costs only that group's labels and the others still score normally. Scoring is
+Extensions are loaded **unpacked with `key` stripped from their manifests**, so Chrome derives
+each extension's id from the directory it was staged in - and every round stages into a fresh
+directory. Consequences:
+
+- The id an extension has in one round is gone in the next, and it is **never** its store id.
+- `fetch("chrome-extension://<store-id>/<path>")` always fails. Every published id-keyed
+  lookup table is dead weight here.
+- Detection has to come from what the extension *does* to the page: injected nodes and
+  stylesheets, computed style, blocked requests, tampered natives, post-gesture injection.
+
+Take the names from `GET /task`, never from a doc - **the grouping is generated from
+`extensions.yml` at runtime and changes when the pool changes.** Only the names `/task`
+publishes are ever enabled; anything else you name is a guaranteed false positive.
+
+Return a boolean for each extension name in *that group only* - the challenge merges every
+file's answers before scoring, so a name from another group does not belong here. Missing keys are
+treated as `false`. Every file runs each round, in parallel, in its own try/catch: a throw in one
+group's file costs only that group's labels and the others still score normally. Scoring is
 MCC over the whole pool, so a false positive costs real score and an honest `false` beats a
 hopeful `true`.
 
-See [`design.md`](./design.md) for the full contract and the reference baseline in
-[`examples/miner_commit/`](../examples/miner_commit/).
+See the reference baseline in [`examples/miner_commit/`](../examples/miner_commit/).
 
 ## Scope note
 
