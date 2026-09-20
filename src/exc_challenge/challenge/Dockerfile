@@ -62,7 +62,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=cache,target=/root/.cache,sharing=locked \
 	python3 -m pip install --timeout 60 -q PyYAML
 
-RUN	--mount=type=bind,source=extensions.yml,target=/tmp/extensions.yml \
+RUN	--mount=type=bind,source=src/exc_challenge/challenge/extensions.yml,target=/tmp/extensions.yml \
 	--mount=type=bind,source=scripts/fetch_extensions.py,target=/tmp/fetch_extensions.py \
 	python3 /tmp/fetch_extensions.py --pool /tmp/extensions.yml --out /opt/extensions && \
 	chmod -R a+rX /opt/extensions
@@ -247,8 +247,9 @@ COPY --chown=${UID}:${GID} ./src/exc_challenge/challenge/api ${EXC_CHALLENGE_API
 ## path is load-bearing: StaticFiles raises at import time if it is missing and
 ## the app never starts.
 COPY --chown=${UID}:${GID} ./src/exc_challenge/challenge/templates ${EXC_CHALLENGE_API_DIR}/templates
-## `config.challenge.pool_path` defaults to /app/extensions.yml.
-COPY --chown=${UID}:${GID} ./extensions.yml ${EXC_CHALLENGE_HOME_DIR}/extensions.yml
+## `config.challenge.pool_path` defaults to this path. It sits beside api/ and
+## templates/ rather than loose in ${EXC_CHALLENGE_HOME_DIR}, matching the package layout.
+COPY --chown=${UID}:${GID} ./src/exc_challenge/challenge/extensions.yml ${EXC_CHALLENGE_API_DIR}/extensions.yml
 COPY --chown=${UID}:${GID} --chmod=770 ./src/exc_challenge/challenge/scripts/*.sh /usr/local/bin/
 COPY --chown=${UID}:${GID} --chmod=775 ./src/exc_challenge/challenge/scripts/run_round.py /usr/local/bin/
 

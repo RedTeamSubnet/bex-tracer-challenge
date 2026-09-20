@@ -9,7 +9,7 @@ uses it for `bt.logging` and a type hint; `models.py` does not import it).
 
 What is being pinned here is one behaviour: a commit with nothing to compare
 against keeps its score. Every sibling manager zeroes it, which zeroes every
-miner in a new challenge's opening cycle. See docs/design.md.
+miner in a new challenge's opening cycle. See .internal/design.md.
 """
 
 import pathlib
@@ -71,7 +71,7 @@ def manager_bits():
         n = 8
         hotkeys = [f"hk{i}" for i in range(8)]
 
-    # Mirrors the registration block in docs/design.md. `challenge_incentive_weight`
+    # Mirrors the registration block in .internal/design.md. `challenge_incentive_weight`
     # and `comparison_config.max_unique_commits` are both bare subscripts in the
     # base class, so a missing one is a KeyError at construction - which is
     # exactly what this fixture would surface.

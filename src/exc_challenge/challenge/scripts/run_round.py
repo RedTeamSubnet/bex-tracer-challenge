@@ -4,9 +4,10 @@
 Runs the same way in the container and from a repo checkout - the only
 difference is where the binaries live, which is detected rather than configured.
 
-    run_round.py                                    one round, WAR-probe miner
+    run_round.py                                    one round, all-false stub
     run_round.py --rounds 3 --miner path/to.js      score a real submission
     run_round.py --rounds 0 --ext grammarly dark    just prove they load
+    run_round.py --miner war-probe                  shows id probing FAILS now
     run_round.py --rounds 0 --no-headless --interact --slow 1 --hold 30
 
     docker compose exec challenge-api python3 /usr/local/bin/run_round.py
@@ -92,7 +93,7 @@ def detect_layout() -> Layout:
             chrome=_CONTAINER_CHROME,
             driver=Path("/opt/chrome/driver/chromedriver"),
             extensions=Path("/opt/extensions"),
-            pool_file=Path("/app/extensions.yml"),
+            pool_file=_API_DIR / "extensions.yml",
             bait_dir=_API_DIR / "templates",
             scratch=Path(
                 os.environ.get(
@@ -108,7 +109,7 @@ def detect_layout() -> Layout:
                 chrome=chrome,
                 driver=driver,
                 extensions=_REPO / "volumes/extensions",
-                pool_file=_REPO / "extensions.yml",
+                pool_file=_REPO / "src/exc_challenge/challenge/extensions.yml",
                 bait_dir=_REPO / "src/exc_challenge/challenge/templates",
                 scratch=_REPO / "volumes/scratch",
             )
@@ -222,8 +223,26 @@ def war_probe_path(ext_id: str, ext_root: Path) -> str | None:
     return None
 
 
+def stub_miner(pool: list[Extension]) -> str:
+    """All-false: a VALID submission that scores ~0. The default.
+
+    It exists so `run_round.py` with no arguments exercises the real plumbing -
+    staging, launch, the per-group fan-out, scoring - without teaching a
+    technique. Replace it with `--miner path/to.js` once you have one.
+    """
+    return "\n".join(
+        f"window.detect_{group} = async function () {{ return {{}}; }};"
+        for group in groups_of(pool)
+    )
+
+
 def war_probe_miner(pool: list[Extension], probes: dict[str, str]) -> str:
-    """The baseline technique, not a clever one - it proves the mechanism.
+    """Demonstrates that id probing DOES NOT WORK any more. Not a baseline.
+
+    `fetch("chrome-extension://<store-id>/<path>")` used to identify installed
+    extensions outright. It cannot now: manifests ship without `key`, so Chrome
+    derives each id from the staging directory and every round uses a fresh
+    one. Run this and every probe misses - that is the point of keeping it.
 
     One `window.detect_<group>` per group, matching the grouped-submission
     contract in `_browser.wrap_miner_script`. All of them land in the same
@@ -342,8 +361,10 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--rounds", type=int, default=1, help="0 = launch only, no miner")
     ap.add_argument(
         "--miner",
-        default="war-probe",
-        help="'war-probe' or a path to .js defining one or more window.detect_<group>",
+        default="stub",
+        help="'stub' (all-false, valid, scores ~0), 'war-probe' (demonstrates "
+        "that id probing no longer works), or a path to .js defining one or "
+        "more window.detect_<group>",
     )
     ap.add_argument(
         "--ext", nargs="+", metavar="NAME_OR_ID", help="default: whole pool"
@@ -488,11 +509,12 @@ def _score_rounds(
     args: argparse.Namespace,
     bait_dir: Path,
 ) -> int:
-    miner_js = (
-        war_probe_miner(pool, probes)
-        if args.miner == "war-probe"
-        else Path(args.miner).read_text(encoding="utf-8")
-    )
+    if args.miner == "stub":
+        miner_js = stub_miner(pool)
+    elif args.miner == "war-probe":
+        miner_js = war_probe_miner(pool, probes)
+    else:
+        miner_js = Path(args.miner).read_text(encoding="utf-8")
     groups = groups_of(pool)
     # The miner's code is no longer injected at sample time - the bait page
     # loads it with a <script src>, so it has to be on disk before Chrome

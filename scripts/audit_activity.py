@@ -42,7 +42,7 @@ import yaml  # noqa: E402
 
 from api.config import config  # noqa: E402
 from api.endpoints.challenge._browser import BrowserSettings, ChromeSession  # noqa: E402
-from api.endpoints.challenge._pool import load_pool_ids  # noqa: E402
+from api.endpoints.challenge._pool import load_name_to_id  # noqa: E402
 
 # One host per known blocker fingerprint, plus a control nothing blocks. If the
 # control fails there is no egress and every "blocked" reading is meaningless.
@@ -156,7 +156,9 @@ def report(results: dict, args) -> None:
 def main() -> int:
     args = ARGS
 
-    pool = list(load_pool_ids())
+    # Curation tool: it launches real extensions, so it works in store ids
+    # (the directory names under /opt/extensions), not published names.
+    pool = list(load_name_to_id().values())
     if args.only:
         pool = [i for i in pool if i in set(args.only)]
     settings = BrowserSettings(**config.challenge.browser.declared_dump())

@@ -2,7 +2,7 @@ services:
   challenge-api:
     image: redteamsubnet61/rest-exc-challenge:0.0.0
     build:
-      ## Repo root, so the Dockerfile can reach extensions.yml and scripts/.
+      ## Repo root, so the Dockerfile can reach src/, extensions.yml and scripts/.
       context: .
       dockerfile: ./src/exc_challenge/challenge/Dockerfile
     ## Chrome for Testing ships no linux-arm64 build before 153, and 153 is
