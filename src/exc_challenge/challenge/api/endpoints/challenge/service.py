@@ -5,6 +5,7 @@ miner predicted, and returns the run score. It never computes the metric itself 
 that lives in `_payload_manager.py`.
 """
 
+import secrets
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -18,7 +19,7 @@ from api.logger import logger
 from . import utils as ch_utils
 from ._browser import BrowserSettings, BrowserInfraError, run_round
 from ._payload_manager import PayloadManager, RoundRecord
-from ._pool import load_pool_groups, load_pool_ids
+from ._pool import load_name_to_id, load_pool_groups, load_pool_names
 from .schemas import MinerInput, MinerOutput
 
 # Infra failures are already out of the denominator, so they cost sample size,
@@ -29,9 +30,15 @@ _MAX_SETUP_FAILURE_RATIO = 0.2
 
 
 def get_task() -> MinerInput:
+    """The published pool, by name.
+
+    Ids are deliberately absent. They would also be useless: extensions load
+    unpacked without `key`, so Chrome derives a fresh id from the staging path
+    every round - see `_browser.derive_unpacked_id`.
+    """
     return MinerInput(
-        extension_ids=list(load_pool_ids()),
-        groups={_g: list(_ids) for _g, _ids in load_pool_groups().items()},
+        extension_names=list(load_pool_names()),
+        groups={_g: list(_names) for _g, _names in load_pool_groups().items()},
     )
 
 
@@ -73,12 +80,17 @@ def _run_one_round(
     *,
     pool: list[str],
     groups: Mapping[str, Sequence[str]],
+    id_map: Mapping[str, str],
     page_url: str,
     settings: BrowserSettings,
     request_id: str,
+    path_nonce: str,
 ) -> RoundResult:
     """One round, on a worker thread. Returns rather than raises, so a single
-    bad round cannot take the pool of workers down with it."""
+    bad round cannot take the pool of workers down with it.
+
+    `path_nonce` - not `request_id` - names the staging directory. See
+    `_run_all_rounds` for why that distinction is load-bearing."""
     _started_at = time.monotonic()
     # The enabled set is this round's answer key, so it is never logged above
     # DEBUG and never leaves the container. At DEBUG it is the only way to tell
@@ -93,11 +105,12 @@ def _run_one_round(
             round_record.enabled,
             pool=pool,
             groups=groups,
+            id_map=id_map,
             page_url=page_url,
             settings=settings,
             settle_seconds=config.challenge.settle_seconds,
             script_budget_sec=config.challenge.script_budget_sec,
-            round_tag=f"{request_id}-{round_record.index}",
+            round_tag=f"{path_nonce}-{round_record.index}",
         )
     except Exception as err:  # one bad round must not abort the run
         return RoundResult(round_record.index, None, err, time.monotonic() - _started_at)
@@ -109,6 +122,7 @@ def _run_all_rounds(
     *,
     pool: list[str],
     groups: Mapping[str, Sequence[str]],
+    id_map: Mapping[str, str],
     page_url: str,
     settings: BrowserSettings,
     request_id: str,
@@ -119,6 +133,21 @@ def _run_all_rounds(
     process sweeper matches on that path so one round's teardown cannot touch
     another's browser. Peak RAM is roughly 1GB per concurrent Chrome.
     """
+    # The staging path decides the id Chrome assigns each extension, so it has
+    # to be unguessable. `request_id` is NOT safe to use here: the logging
+    # middleware honours a client-supplied `X-Request-ID` header, so whoever
+    # calls /score could choose it, reconstruct
+    # `<scratch_dir>/round-<request_id>-<index>/ext/<store id>`, run the same
+    # derivation `_browser.derive_unpacked_id` uses, and probe
+    # web_accessible_resources by the resulting id - which is exactly the
+    # lookup the per-round rotation exists to kill. `scratch_dir` and the store
+    # ids are both public, so the tag is the only secret in that path.
+    #
+    # This nonce is generated here, never logged above DEBUG, and never
+    # reaches a response body, a header or the bait page.
+    _path_nonce = secrets.token_hex(8)
+    logger.debug(f"[{request_id}] - staging nonce {_path_nonce}")
+
     _workers = max(1, min(config.challenge.max_parallel_rounds, len(rounds)))
     logger.info(f"[{request_id}] - Using {_workers} parallel browser(s).")
 
@@ -129,9 +158,11 @@ def _run_all_rounds(
                     rec,
                     pool=pool,
                     groups=groups,
+                    id_map=id_map,
                     page_url=page_url,
                     settings=settings,
                     request_id=request_id,
+                    path_nonce=_path_nonce,
                 ),
                 rounds,
             )
@@ -194,13 +225,14 @@ def _record_all(
 @validate_call
 def score(request_id: str, miner_output: MinerOutput) -> float:
 
-    _pool: list[str] = list(load_pool_ids())
+    _pool: list[str] = list(load_pool_names())
     _challenge_config = config.challenge
 
     _payload_manager = PayloadManager(pool=_pool)
     _payload_manager.build_schedule(
         n_rounds=_challenge_config.n_rounds,
         k=_challenge_config.k,
+        coverage_bias=_challenge_config.coverage_bias,
     )
 
     # `BrowserSettings` mirrors `BrowserConfig` field for field; an unexpected
@@ -220,6 +252,7 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
             _payload_manager.rounds,
             pool=_pool,
             groups=load_pool_groups(),
+            id_map=load_name_to_id(),
             page_url=_bait_page_url(),
             settings=_browser_settings,
             request_id=request_id,
