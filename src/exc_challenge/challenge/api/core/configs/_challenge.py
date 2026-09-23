@@ -78,7 +78,7 @@ class ChallengeConfig(BaseConfig):
     script_budget_sec: float = Field(
         default=10.0, gt=0, description="Hard cap on the miner script"
     )
-    submission_max_lines: int = Field(default=500, ge=1)
+    submission_max_lines: int = Field(default=750, ge=1)
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
 
     model_config = SettingsConfigDict(env_prefix=ENV_PREFIX_CHALLENGE)

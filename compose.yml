@@ -5,47 +5,34 @@ services:
       ## Repo root, so the Dockerfile can reach src/, extensions.yml and scripts/.
       context: .
       dockerfile: ./src/exc_challenge/challenge/Dockerfile
-    ## Chrome for Testing ships no linux-arm64 build before 153, and 153 is
-    ## Beta. Staying on Stable 152 means amd64 - on Apple Silicon this build
-    ## and every round runs under QEMU and is slow. Prod is x86, so this is a
-    ## local-dev tax only.
+    ## Chrome for Testing has no linux-arm64 Stable build, so this runs under
+    ## QEMU on Apple Silicon (slow). Prod is x86.
     platform: linux/amd64
     restart: unless-stopped
     environment:
-      TERM: ${TERM:-xterm}
-      TZ: ${TZ:-KST}
+      ## Same variable `ports:` below reads, so the app listens where Docker
+      ## maps - even when it is set in the shell rather than in .env.
       EXC_CHALLENGE_API_PORT: ${EXC_CHALLENGE_API_PORT:-10001}
     env_file:
       - path: .env
         required: false
     volumes:
-      - "./volumes/configs/rest-exc-challenge:${EXC_CHALLENGE_API_CONFIGS_DIR:-/etc/rest-exc-challenge}"
-      - "./volumes/storage/rest-exc-challenge/logs:${EXC_CHALLENGE_API_LOGS_DIR:-/var/log/rest-exc-challenge}"
-      - "./volumes/storage/rest-exc-challenge/data:${EXC_CHALLENGE_API_DATA_DIR:-/var/lib/rest-exc-challenge}"
-    ## Chrome maps shared memory for every renderer. The 64MB Docker default
-    ## makes tabs crash under load; the alternative, --disable-dev-shm-usage,
-    ## pushes that traffic onto disk and slows every round.
+      - ./volumes/configs/rest-exc-challenge:/etc/rest-exc-challenge
+      - ./volumes/storage/rest-exc-challenge/logs:/var/log/rest-exc-challenge
+    ## Chrome needs shared memory per renderer; the 64MB default crashes tabs.
     shm_size: 2gb
     tmpfs:
-      ## Per-round profiles and extension copies. On tmpfs so teardown is free
-      ## and nothing survives a round. `exec` is set explicitly because Docker
-      ## mounts --tmpfs noexec by default, and Chrome maps files out of the
-      ## profile directory.
+      ## Per-round profiles and extension copies, gone after each round.
+      ## `exec` because Chrome maps files out of the profile directory.
       - /run/exc:mode=1777,size=2g,exec
     mem_limit: 8g
     pids_limit: 4096
     security_opt:
       - no-new-privileges:true
+    ## Drop everything, then add back only what docker-entrypoint.sh needs to
+    ## chown the app tree and drop to EXC-user via gosu.
     cap_drop:
       - ALL
-    ## docker-entrypoint.sh runs as root: it chowns/chmods the app tree, then
-    ## gosu's down to EXC-user. A bare `cap_drop: ALL` makes the container die
-    ## at startup with "exec docker-entrypoint.sh failed: Permission denied" -
-    ## the app dirs are 770 owned by EXC-user, and root only traverses them by
-    ## virtue of DAC_OVERRIDE. These five are what the entrypoint needs and
-    ## nothing more; NET_RAW, SYS_ADMIN, MKNOD and the rest stay dropped.
-    ## Granting DAC_OVERRIDE costs little here since CHOWN is already present.
-    ## gosu is not setuid, so no-new-privileges does not interfere with it.
     cap_add:
       - CHOWN
       - DAC_OVERRIDE
@@ -54,6 +41,11 @@ services:
       - SETGID
     ports:
       - "${EXC_CHALLENGE_API_PORT:-10001}:${EXC_CHALLENGE_API_PORT:-10001}"
+    ## No DNS, so miner JS in Chrome cannot reach anything off-box. The
+    ## validator connects by IP:port and Chrome resolves the bait page itself,
+    ## so neither needs it. Not `internal: true`: that also kills the port.
+    dns:
+      - 0.0.0.0
     tty: true
 
 ## PROD DOES NOT READ THIS FILE. The validator starts the challenge itself, so

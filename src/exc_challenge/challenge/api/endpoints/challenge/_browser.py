@@ -14,6 +14,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -119,6 +120,32 @@ class BrowserSettings:
     headless: bool = True
     shm_fallback: bool = False
     page_load_timeout_sec: float = 30.0
+
+
+_LOOPBACK_NAMES = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def bait_page_args(page_url: str | None) -> list[str]:
+    """Chrome flags that let the bait page sit under a real-looking hostname.
+
+    Extensions often skip localhost, so the page is served under a hostname
+    instead (see `service._bait_page_url`). Two flags make that work:
+
+    - resolve the hostname to loopback inside Chrome, so it needs neither DNS
+      (the container has none) nor an /etc/hosts entry (prod ignores compose);
+    - keep the secure context `http://127.0.0.1` gets for free. Without it the
+      page loses `navigator.gpu`, `crypto.subtle` and `navigator.mediaDevices`,
+      and extensions that hook them look undetectable for a reason of ours.
+    """
+    if not page_url:
+        return []
+    parts = urlsplit(page_url)
+    if parts.hostname is None or parts.hostname in _LOOPBACK_NAMES:
+        return []
+    return [
+        f"--host-resolver-rules=MAP {parts.hostname} 127.0.0.1",
+        f"--unsafely-treat-insecure-origin-as-secure={parts.scheme}://{parts.netloc}",
+    ]
 
 
 def wrap_miner_script(budget_sec: float, groups: Mapping[str, Sequence[str]]) -> str:
@@ -253,14 +280,17 @@ class ChromeSession:
 
     # -- launch ------------------------------------------------------------
 
-    def launch(self, ext_ids: list[str]) -> None:
+    def launch(self, ext_ids: list[str], page_url: str | None = None) -> None:
         """Start Chrome with `ext_ids` loaded, and prove they loaded.
+
+        `page_url` is the page this session will open; pass it so a bait page
+        on a hostname resolves and stays a secure context (`bait_page_args`).
 
         Populates `self.loaded` so callers can report what enabled without a
         second round trip to chrome://extensions-internals/.
         """
         _staged = self._stage_extensions(ext_ids)
-        self._start_driver(self._build_options(list(_staged.values())))
+        self._start_driver(self._build_options(list(_staged.values()), page_url))
 
         # `fetch_extensions.py` deliberately does not inject `key`, so Chrome
         # derives each id from the staging path and every round produces a
@@ -323,11 +353,13 @@ class ChromeSession:
 
         return staged
 
-    def _build_options(self, ext_dirs: list[Path]) -> Options:
+    def _build_options(
+        self, ext_dirs: list[Path], page_url: str | None = None
+    ) -> Options:
         options = Options()
         options.binary_location = self.settings.chrome_bin
 
-        for arg in _BASE_ARGS:
+        for arg in (*_BASE_ARGS, *bait_page_args(page_url)):
             options.add_argument(arg)
 
         if self.settings.headless:
@@ -751,7 +783,7 @@ def run_round(
 
     tag = round_tag or uuid.uuid4().hex[:12]
     with ChromeSession(settings, tag) as session:
-        session.launch(sorted(id_map[_name] for _name in subset))
+        session.launch(sorted(id_map[_name] for _name in subset), page_url)
         session.open_page(page_url, settle_seconds, groups=list(groups))
         session.interact()
         time.sleep(_GESTURE_SETTLE_SEC)
@@ -763,6 +795,7 @@ __all__ = [
     "BrowserInfraError",
     "BrowserSettings",
     "ChromeSession",
+    "bait_page_args",
     "run_round",
     "wrap_miner_script",
     "normalize_predictions",

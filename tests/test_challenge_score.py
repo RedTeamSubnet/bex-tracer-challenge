@@ -517,11 +517,19 @@ def test_the_bait_page_is_not_served_to_a_remote_client(client):
     reach it at all. Covers the page route and the asset mount, which enforce
     this separately.
     """
-    for path in ("/_web", "/static/detections/blockers.js"):
+    # Derived from the pool, not hardcoded: a group name baked in here breaks
+    # this test every time the pool is recomposed, and the failure reads like
+    # the loopback gate broke rather than the fixture going stale.
+    from api.endpoints.challenge._pool import load_pool_groups
+
+    _group = next(iter(load_pool_groups()))
+    _paths = ("/_web", f"/static/detections/{_group}.js")
+
+    for path in _paths:
         assert client.get(path).status_code == 200, f"sanity: loopback allowed for {path}"
 
     remote = TestClient(app, client=("10.0.0.5", 51234))
-    for path in ("/_web", "/static/detections/blockers.js"):
+    for path in _paths:
         assert remote.get(path).status_code == 404, f"{path} leaked to a remote client"
 
 

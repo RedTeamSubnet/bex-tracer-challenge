@@ -54,6 +54,13 @@ def get_results() -> dict[str, Any] | None:
     return _last_report
 
 
+# Not 127.0.0.1: extensions often skip localhost (Random User-Agent ships a
+# default blacklist of exactly `localhost` and `127.0.0.1`), which made them
+# look undetectable. Chrome maps this name back to loopback itself - see
+# `_browser.bait_page_args`. Internal to the container; nothing to configure.
+_BAIT_HOST = "baitpage.test"
+
+
 def _bait_page_url() -> str:
     """The bait page is served by this very app, at `/_web`.
 
@@ -63,7 +70,7 @@ def _bait_page_url() -> str:
     No trailing slash: the page's asset paths are relative, and they only
     resolve onto the `/static` mount when the browser's base URL is `/`.
     """
-    return f"http://127.0.0.1:{config.api.port}/_web"
+    return f"http://{_BAIT_HOST}:{config.api.port}/_web"
 
 
 class RoundResult(NamedTuple):

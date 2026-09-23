@@ -21,6 +21,7 @@ from api.endpoints.challenge._browser import (  # noqa: E402
     BrowserSettings,
     ChromeSession,
     _BASE_ARGS,
+    bait_page_args,
     normalize_predictions,
     run_round,
     wrap_miner_script,
@@ -153,6 +154,25 @@ def test_build_options_omits_headless_when_disabled(settings, tmp_path):
             for a in session._build_options([]).arguments
             if a.startswith("--headless")
         ]
+
+
+def test_bait_page_on_a_hostname_resolves_to_loopback_and_stays_secure():
+    assert bait_page_args("http://baitpage.test:10001/_web") == [
+        "--host-resolver-rules=MAP baitpage.test 127.0.0.1",
+        "--unsafely-treat-insecure-origin-as-secure=http://baitpage.test:10001",
+    ]
+
+
+def test_bait_page_on_loopback_needs_no_extra_flags():
+    # 127.0.0.1 is already a secure context and needs no resolving.
+    for url in (None, "http://127.0.0.1:10001/_web", "http://localhost:10001/_web"):
+        assert bait_page_args(url) == []
+
+
+def test_launch_passes_the_bait_page_through_to_chrome(settings):
+    with ChromeSession(settings, "test") as session:
+        args = session._build_options([], "http://baitpage.test:10001/_web").arguments
+    assert "--host-resolver-rules=MAP baitpage.test 127.0.0.1" in args
 
 
 def test_each_round_gets_its_own_profile(settings):
@@ -373,7 +393,7 @@ def test_run_round_drives_the_page_before_sampling(settings, monkeypatch):
         def __exit__(self, *_exc):
             return False
 
-        def launch(self, ext_ids):
+        def launch(self, ext_ids, page_url=None):
             calls.append("launch")
 
         def open_page(self, page_url, settle, groups=None):

@@ -1,209 +1,223 @@
-chrome_for_testing_version: 152.0.7977.54
+chrome_for_testing_version: "152.0.7977.54"
+
+## Candidate pool: 25 privacy and fingerprinting extensions in 7 behavioral
+## families. Store IDs and MV3 packages were verified on 2026-09-22.
+##
+## This is intentionally a candidate pool, not a claim that every label is
+## already distinguishable in combinations. Run the activity audit against the
+## production HTTPS/network environment before treating it as score-ready.
+##
+## The originally supplied Canvas Blocker id
+## (gbkicngmnoedeajgodbbokjadbfbbpng) is not a valid current store package.
+## The verified listing uses nomnklagbgmgghhjidfhnoelnjfndfpd.
+##
+## Ryan Brown's Fingerprint Detector now has a Web Store package, so the pool
+## uses its signed store id rather than adding a second, GitHub-only fetch path.
 
 pool:
-  ## -- blockers --------------------------------------------------
-  - id: ddkjiahejlhfcafbddmgiahcphecmpfh
-    name: "uBlock Origin Lite"
-    group: blockers
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
-    name: "Privacy Badger"
-    group: blockers
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bkdgflcldnnnapblkhphbgpggdiikppg
-    name: "DuckDuckGo Privacy Essentials"
-    group: blockers
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: cfhdojbkjhnklbpkdaibdccddilifddb
-    name: "Adblock Plus"
-    group: blockers
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: jpkfgepcmmchgfbjblnodjhldacghenp
-    name: "Pie Adblock"
-    group: blockers
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  ## -- appearance_media ------------------------------------------
-  - id: eimadpbcbfnmbkopoojfekhnkhdbieeh
-    name: "Dark Reader"
-    group: appearance_media
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: agionbommeaifngbhincahgmoflcikhm
-    name: "Imageye"
-    group: appearance_media
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: nffaoalbilbmmfgbnbgppjihopabppdk
-    name: "Video Speed Controller"
-    group: appearance_media
+  ## -- canvas_api -------------------------------------------------
+  - id: nomnklagbgmgghhjidfhnoelnjfndfpd
+    name: "Canvas Blocker - Fingerprint Protect"
+    group: canvas_api
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: ejkiikneibegknkgimmihdpcbcedgmpo
-    name: "Volume Booster"
-    group: appearance_media
-    tier: subtle            # 1 content script, no DOM change
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  ## -- downloaders -----------------------------------------------
-  - id: elicpjhcidhpjomhibiffojpinpmmpil
-    name: "Video Downloader Professional"
-    group: downloaders
+  - id: lanfdkkpgfjfdikkncbnojekcppdebfp
+    name: "Canvas Fingerprint Defender"
+    group: canvas_api
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: ahmpjcflkgiildlgicmcieglgoilbfdp
-    name: "Free Download Manager"
-    group: downloaders
+  - id: pcbjiidheaempljdefbdplebgdgpjcbe
+    name: "AudioContext Fingerprint Defender"
+    group: canvas_api
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: lknmjhcajhfbbglglccadlfdjbaiifig
-    name: "Record and Transcribe"
-    group: downloaders
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  ## -- docs_pdf --------------------------------------------------
-  - id: efaidnbmnnnibpcajpcglclefindmkaj
-    name: "Adobe Acrobat"
-    group: docs_pdf
+  - id: fhkphphbadjkepgfljndicmgdlndmoke
+    name: "Font Fingerprint Defender"
+    group: canvas_api
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: ecnphlgnajanjnkcmbpancdjoidceilk
-    name: "Kami"
-    group: docs_pdf
+  - id: olnbjpaejebpnokblkepbphhembdicik
+    name: "WebGL Fingerprint Defender"
+    group: canvas_api
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: bcjindcccaagfpapjjmafapmmgkkhgoa
-    name: "JSON Formatter"
-    group: docs_pdf
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  ## -- writing_ai ------------------------------------------------
-  - id: camppjleccjaphfdbohjdohecfnoikec
-    name: "Merlin AI"
-    group: writing_ai
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: lmcngpkjkplipamgflhioabnhnopeabf
-    name: "Briskine"
-    group: writing_ai
+  - id: kadocklfjjaaekpjhmpbkbjkhloacing
+    name: "WebGPU Fingerprint Defender"
+    group: canvas_api
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: epbobagokhieoonfplomdklollconnkl
-    name: "Scribbr Citation Generator"
-    group: writing_ai
+  - id: meojnmfhjkahlfcecpdcdgjclcilmaij
+    name: "All Fingerprint Defender"
+    group: canvas_api
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: noaijdpnepcgjemiklgfkcfbkokogabh
-    name: "ImTranslator"
-    group: writing_ai
+  - id: lhnhapbalajnchknjmjlcpoiehjegbdm
+    name: "Fingerprint Protector"
+    group: canvas_api
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  ## -- productivity ----------------------------------------------
-  - id: laankejkbhbdhmipfmgcngdelahlfoji
-    name: "StayFocusd"
-    group: productivity
-    tier: active
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: nngceckbapebfimnlniiiahkandclblb
-    name: "Bitwarden"
-    group: productivity
+  ## -- identity ---------------------------------------------------
+  - id: einpaelgookohagofgnnkcfjbkkgepnp
+    name: "Random User-Agent (Switcher)"
+    group: identity
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: gpdjojdkbbmdfjfahjcgigfpmkopogic
-    name: "Save to Pinterest"
-    group: productivity
+  - id: kcabmhnajflfolhelachlflngdbfhboe
+    name: "Spoof Timezone"
+    group: identity
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: bfbameneiokkgbdmiekhjnmfkcnldhhm
-    name: "Web Developer"
-    group: productivity
+  - id: nbofeaabhknfdcpoddmfckpokmncimpj
+    name: "Change Timezone (Time Shift)"
+    group: identity
     tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: cnojnbdhbhnkbcieeekonklommdnndci
-    name: "Search by Image"
-    group: productivity
-    tier: subtle            # 1 content script, no DOM change
+  ## -- geolocation -----------------------------------------------
+  - id: dgdbdodafgaeifgajaajohkjjgobcgje
+    name: "GeoSpoof: Spoof Geolocation & Timezone"
+    group: geolocation
+    tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: iifmmpcbkkjplbamhfohikljoogdbadp
-    name: "ID.me Shop"
-    group: productivity
-    tier: subtle            # 2 content scripts, no DOM change
+  - id: hhnhplojcganfmfimkeboiipphklcbih
+    name: "Location Guard (V3)"
+    group: geolocation
+    tier: subtle
     version: null
     sha256: null
     time_to_stable_ms: null
 
+  - id: lejoknkbcogjceoniealiipllomkpioe
+    name: "Change Geolocation (Location Guard)"
+    group: geolocation
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: hcnefppgdgpncmkpecfbcoembcohpbja
+    name: "My Location Guard"
+    group: geolocation
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: agjoaoekknmldbojnpiobnfipljpopgm
+    name: "Location Changer: Spoof Geolocation"
+    group: geolocation
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- webrtc -----------------------------------------------------
+  - id: eiadekoaikejlgdbkbdfeijglgfdalml
+    name: "WebRTC Leak Prevent"
+    group: webrtc
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: bkmmlbllpjdpgcgdohbaghfaecnddhni
+    name: "WebRTC Protect"
+    group: webrtc
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: npeicpdbkakmehahjeeohfdhnlpdklia
+    name: "WebRTC Network Limiter"
+    group: webrtc
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: fjkmabmdepjfammlpliljpnbhleegehm
+    name: "WebRTC Control"
+    group: webrtc
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: ckdpobpfcmaimckielbjokndgdpelhef
+    name: "WebRTC Leak Shield"
+    group: webrtc
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- page_behavior ---------------------------------------------
+  - id: ehllkhjndgnlokhomdlhgbineffifcbj
+    name: "Always active Window - Always Visible"
+    group: page_behavior
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- browser_level ---------------------------------------------
+  - id: fcalilbnpkfikdppppppchmkdipibalb
+    name: "Cloaq - Location Guard & Locale Switcher"
+    group: browser_level
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- fingerprint_detectors -------------------------------------
+  - id: lnmplbdpfpnkikhdhcaonccbjgafahlj
+    name: "Canvas Fingerprint Detector"
+    group: fingerprint_detectors
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: gkoalhmofedekfdhmmjiemfjinkgijgc
+    name: "Fingerprint Detector"
+    group: fingerprint_detectors
+    tier: subtle
+    version: null
+    sha256: null
+    time_to_stable_ms: null
