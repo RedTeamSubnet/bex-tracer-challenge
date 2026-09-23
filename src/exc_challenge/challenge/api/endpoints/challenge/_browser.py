@@ -129,7 +129,7 @@ def bait_page_args(page_url: str | None) -> list[str]:
     """Chrome flags that let the bait page sit under a real-looking hostname.
 
     Extensions often skip localhost, so the page is served under a hostname
-    instead (see `service._bait_page_url`). Two flags make that work:
+    instead (see `service.bait_page_url`). Two flags make that work:
 
     - resolve the hostname to loopback inside Chrome, so it needs neither DNS
       (the container has none) nor an /etc/hosts entry (prod ignores compose);

@@ -61,7 +61,7 @@ def get_results() -> dict[str, Any] | None:
 _BAIT_HOST = "baitpage.test"
 
 
-def _bait_page_url() -> str:
+def bait_page_url() -> str:
     """The bait page is served by this very app, at `/_web`.
 
     Chrome runs in the same container, so it reaches the app over loopback
@@ -260,7 +260,7 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
             pool=_pool,
             groups=load_pool_groups(),
             id_map=load_name_to_id(),
-            page_url=_bait_page_url(),
+            page_url=bait_page_url(),
             settings=_browser_settings,
             request_id=request_id,
         )

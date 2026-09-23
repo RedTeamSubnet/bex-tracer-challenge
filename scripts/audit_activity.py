@@ -43,6 +43,7 @@ import yaml  # noqa: E402
 from api.config import config  # noqa: E402
 from api.endpoints.challenge._browser import BrowserSettings, ChromeSession  # noqa: E402
 from api.endpoints.challenge._pool import load_name_to_id  # noqa: E402
+from api.endpoints.challenge.service import bait_page_url  # noqa: E402
 
 # One host per known blocker fingerprint, plus a control nothing blocks. If the
 # control fails there is no egress and every "blocked" reading is meaningless.
@@ -162,7 +163,10 @@ def main() -> int:
     if args.only:
         pool = [i for i in pool if i in set(args.only)]
     settings = BrowserSettings(**config.challenge.browser.declared_dump())
-    page_url = f"http://127.0.0.1:{config.api.port}/_web/index.html"
+    # The exact page production scores on. Never hand-written here: a copy
+    # drifted to `/_web/index.html`, which renders empty, and every audit
+    # measured a blank page.
+    page_url = bait_page_url()
     names = {
         e["id"]: e["name"]
         for e in yaml.safe_load(Path(config.challenge.pool_path).read_text())["pool"]
@@ -171,7 +175,7 @@ def main() -> int:
     def run(ext_ids: list[str], tag: str) -> dict | None:
         try:
             with ChromeSession(settings, tag) as session:
-                session.launch(ext_ids)
+                session.launch(ext_ids, page_url)
                 return probe(session, page_url, args)
         except Exception as err:  # noqa: BLE001 - one bad extension must not stop the audit
             print(f"    FAILED: {str(err)[:100]}")
