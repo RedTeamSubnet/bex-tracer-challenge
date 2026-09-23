@@ -71,6 +71,62 @@ return {
 };
 """
 
+# What privacy and fingerprinting extensions change: browser APIs, not the
+# DOM. The DOM signature above cannot see any of this - it reported Random
+# User-Agent "inert" while it was rewriting navigator.userAgent. Reads only;
+# nothing here draws a canvas or samples audio, so every value is repeatable.
+_API_SIGNATURE = """
+const native = (f) => {
+  try { return Function.prototype.toString.call(f).includes('[native code]'); }
+  catch (e) { return 'err'; }
+};
+const getter = (proto, key) => {
+  const d = Object.getOwnPropertyDescriptor(proto, key);
+  return d && d.get ? native(d.get) : 'none';
+};
+const geo = navigator.geolocation;
+return {
+  ua: navigator.userAgent, platform: navigator.platform,
+  languages: String(navigator.languages),
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  tzOffset: new Date().getTimezoneOffset(),
+  hidden: String(document.hidden), visibility: document.visibilityState,
+  cores: navigator.hardwareConcurrency, memory: navigator.deviceMemory,
+  nativeCanvas: native(HTMLCanvasElement.prototype.toDataURL),
+  nativeCanvasRead: native(CanvasRenderingContext2D.prototype.getImageData),
+  nativeText: native(CanvasRenderingContext2D.prototype.measureText),
+  nativeAudio: native(AudioBuffer.prototype.getChannelData),
+  nativeWebgl: native(WebGLRenderingContext.prototype.getParameter),
+  nativeGpu: navigator.gpu ? native(navigator.gpu.requestAdapter) : 'none',
+  nativeGeo: geo ? native(geo.getCurrentPosition) : 'none',
+  geoProto: geo ? Object.getPrototypeOf(geo) === Geolocation.prototype : 'none',
+  nativeRtc: typeof RTCPeerConnection === 'function' ? native(RTCPeerConnection)
+             : typeof RTCPeerConnection,
+  nativeTz: native(Date.prototype.getTimezoneOffset),
+  nativeOffsetWidth: getter(HTMLElement.prototype, 'offsetWidth'),
+  nativeCores: getter(Navigator.prototype, 'hardwareConcurrency'),
+  nativeShadow: native(Element.prototype.attachShadow),
+  // Hooks disguised as native code only show in behaviour: a noise extension
+  // makes the same canvas read differently twice, and a silent buffer non-zero.
+  canvasRepeatable: (() => {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 16;
+    const g = c.getContext('2d'); g.fillStyle = '#f60'; g.fillRect(0, 0, 64, 16);
+    g.fillStyle = '#069'; g.font = '11px Arial'; g.fillText('exc-audit', 2, 12);
+    return c.toDataURL() === c.toDataURL();
+  })(),
+  audioSilent: new AudioBuffer({length: 256, sampleRate: 44100})
+    .getChannelData(0).every((v) => v === 0),
+  ownHidden: Object.getOwnPropertyNames(document)
+    .filter((k) => /hidden|visibility/i.test(k)).join(),
+  nativeHidden: getter(Document.prototype, 'hidden'),
+  nativeVisibility: getter(Document.prototype, 'visibilityState'),
+  nativeListener: native(EventTarget.prototype.addEventListener),
+  windowSymbols: Object.getOwnPropertySymbols(window).length,
+  dateProtoKeys: Object.getOwnPropertyNames(Date.prototype).length,
+  documentOwnKeys: Object.getOwnPropertyNames(document).length,
+};
+"""
+
 _FETCH_ALL = """
 const cb = arguments[arguments.length - 1];
 (async () => {
@@ -114,13 +170,19 @@ def probe(session, page_url: str, args) -> dict:
     return {
         "stable_ms": stable_ms,
         "sig": driver.execute_script(_SIGNATURE),
+        "api": driver.execute_script(_API_SIGNATURE),
         "blocked": driver.execute_async_script(_FETCH_ALL, _HOSTS),
     }
 
 
 def classify(base: dict, got: dict) -> tuple[str, list[str], list[str]]:
-    """Compare one extension's readings against the no-extension baseline."""
+    """Compare one extension's readings against the no-extension baseline.
+
+    `dom` covers both page content and browser APIs - an extension that
+    changes either is detectable. API differences are prefixed `api:`.
+    """
     dom = sorted(k for k in base["sig"] if base["sig"][k] != got["sig"][k])
+    dom += sorted(f"api:{k}" for k in base["api"] if base["api"][k] != got["api"][k])
     blocks = sorted(
         host
         for host, was_blocked in got["blocked"].items()
@@ -148,9 +210,8 @@ def report(results: dict, args) -> None:
     if stable:
         print(f"DOM settles: median={stable[len(stable) // 2]}ms max={stable[-1]}ms")
         print(
-            f"NOTE: this is DOM only. Blockers need ~{args.min_settle:.0f}s before their\n"
-            f"      rulesets bite - sampling at DOM-stable reports every blocker inert.\n"
-            f"      settle_seconds must cover the slower of the two."
+            f"NOTE: settle time is measured on the DOM only; every sample is taken\n"
+            f"      after at least {args.min_settle:.0f}s so slower changes are counted too."
         )
 
 
