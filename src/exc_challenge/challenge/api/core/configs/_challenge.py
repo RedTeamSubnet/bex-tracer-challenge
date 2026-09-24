@@ -32,8 +32,15 @@ class BrowserConfig(BaseConfig):
 class ChallengeConfig(BaseConfig):
     api_key: SecretStr = Field(default=SecretStr("challenge_api_key"))
     pool_path: str = Field(default="/app/rest-exc-challenge/extensions.yml")
+    # These defaults ARE the production values: prod starts the container without
+    # the compose-mounted config file, so anything set only in
+    # volumes/configs/.../challenge.yml silently does not apply there.
+    #
+    # 2 rounds of 10 over a 45-extension pool. One run is noisy - the same
+    # submission moves about +/-0.10 with which extensions are drawn - which is
+    # acceptable only because the validator averages many runs per miner.
     n_rounds: int = Field(
-        default=20, ge=1, le=200, description="T - rounds per /score call"
+        default=2, ge=1, le=200, description="T - rounds per /score call"
     )
     # Fixed across the run: every round enables exactly this many extensions,
     # drawn at random. The miner therefore knows |enabled| and can rank the pool
@@ -43,7 +50,7 @@ class ChallengeConfig(BaseConfig):
     # INVARIANT: must be < the pool size, or build_round_schedule() raises -
     # with everything enabled there is no negative class and even a perfect
     # prediction scores 0.0.
-    k: int = Field(default=5, ge=1, description="extensions enabled per round")
+    k: int = Field(default=10, ge=1, description="extensions enabled per round")
     coverage_bias: float = Field(
         default=2.0,
         ge=1.0,

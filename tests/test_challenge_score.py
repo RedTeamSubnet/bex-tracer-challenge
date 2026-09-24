@@ -99,7 +99,7 @@ def test_random_guessing_scores_near_zero(monkeypatch):
     The schedule comes from `secrets.SystemRandom()` and cannot be seeded, so
     this averages over enough rounds for the mean to settle. At the fixture's
     12 rounds the spread is wide enough to cross any useful bound by luck -
-    which is the same reason `n_rounds` defaults to 20 in production.
+    and production runs only 2, relying on the validator to average many runs.
     """
     monkeypatch.setattr(config.challenge, "n_rounds", 200)  # the config cap
     rng = random.Random(1234)  # nosec B311
