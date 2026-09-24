@@ -10,6 +10,8 @@ from potato_util.crypto import ssl as ssl_utils
 
 from api.__version__ import __version__
 from api.config import config
+from api.endpoints.challenge._pool import load_pool_groups
+from api.endpoints.challenge.utils import reset_detections_dir
 from api.logger import logger
 
 
@@ -91,7 +93,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             public_key_fname=config.api.security.asymmetric.public_key_fname,
         )
 
-    # Add startup code here...
+    # Start from clean detector stubs, whatever a crashed run or a hand-copied
+    # file left behind - see `reset_detections_dir`.
+    _changed = reset_detections_dir(list(load_pool_groups()))
+    if _changed:
+        logger.warning(f"Reset stale detection files at startup: {_changed}")
+
     logger.success("Finished preparation to startup.")
     logger.opt(colors=True).info(f"Version: <c>{__version__}</c>")
     logger.opt(colors=True).info(f"API version: <c>{config.api.version}</c>")

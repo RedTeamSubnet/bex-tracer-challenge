@@ -18,8 +18,10 @@ sys.path.insert(
 
 from api.endpoints.challenge.utils import (  # noqa: E402
     _safe_target,
+    reset_detections_dir,
     restore_stubs,
     stage_detection_files,
+    stub_source,
 )
 
 
@@ -94,3 +96,48 @@ def test_a_file_name_cannot_escape_the_detections_directory(detections, hostile)
 
 def test_a_plain_file_name_resolves_inside(detections):
     assert _safe_target(detections, "blockers.js").parent == detections.resolve()
+
+
+# -- startup reset -------------------------------------------------------------
+
+
+def test_reset_overwrites_a_solution_left_in_a_group_file(tmp_path):
+    """The 2026-09-21 incident: working detectors sat in the served, git-tracked
+    directory with no `.stub` beside them, so `restore_stubs` could not help."""
+    (tmp_path / "ad_blockers.js").write_text("window.detect_ad_blockers = () => SOLUTION")
+    changed = reset_detections_dir(["ad_blockers"], tmp_path)
+    assert (tmp_path / "ad_blockers.js").read_text() == stub_source("ad_blockers")
+    assert changed == ["ad_blockers.js"]
+
+
+def test_reset_creates_missing_stubs(tmp_path):
+    reset_detections_dir(["ad_blockers", "vpn_proxy"], tmp_path)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["ad_blockers.js", "vpn_proxy.js"]
+
+
+def test_reset_removes_old_groups_and_stub_backups(tmp_path):
+    (tmp_path / "canvas_api.js").write_text("old group")
+    (tmp_path / "canvas_api.js.stub").write_text("old backup")
+    (tmp_path / "ad_blockers.js.stub").write_text("backup that may hold miner code")
+    reset_detections_dir(["ad_blockers"], tmp_path)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["ad_blockers.js"]
+
+
+def test_reset_leaves_a_clean_directory_untouched(tmp_path):
+    """Startup must not rewrite committed files that are already correct."""
+    reset_detections_dir(["ad_blockers"], tmp_path)
+    assert reset_detections_dir(["ad_blockers"], tmp_path) == []
+
+
+def test_reset_ignores_files_that_are_not_detectors(tmp_path):
+    (tmp_path / "README.txt").write_text("notes")
+    reset_detections_dir(["ad_blockers"], tmp_path)
+    assert (tmp_path / "README.txt").exists()
+
+
+def test_committed_stubs_match_what_startup_writes():
+    """Otherwise every startup in a dev checkout would show up as a git diff."""
+    from api.endpoints.challenge.utils import DETECTIONS_DIR
+
+    for path in DETECTIONS_DIR.glob("*.js"):
+        assert path.read_text() == stub_source(path.stem), path.name

@@ -23,6 +23,27 @@ _SRC_DIR = Path(__file__).resolve().parents[3]
 DETECTIONS_DIR = _SRC_DIR / "templates" / "static" / "detections"
 _STUB_SUFFIX = ".stub"
 
+# The checked-in stub for one group. `reset_detections_dir` writes exactly this,
+# so the committed files and a freshly reset directory are byte-identical.
+_STUB_TEMPLATE = """\
+/**
+ * Detector stub for the "{group}" extension group.
+ *
+ * Overwritten by a miner's submission at score time; this checked-in stub
+ * keeps the bait page valid between rounds.
+ */
+function detect_{group}() {{
+  return {{}};
+}}
+
+if (typeof window !== 'undefined') window.detect_{group} = detect_{group};
+"""
+
+
+def stub_source(group: str) -> str:
+    """The clean stub for `group`."""
+    return _STUB_TEMPLATE.format(group=group)
+
 
 def _safe_target(detections_dir: Path, file_name: str) -> Path:
     """Resolve `file_name` inside `detections_dir`, or raise."""
@@ -75,8 +96,42 @@ def restore_stubs(
             logger.warning(f"Could not restore stub for {target.name}: {err}")
 
 
+def reset_detections_dir(
+    groups: list[str], detections_dir: Path = DETECTIONS_DIR
+) -> list[str]:
+    """Bring the served directory back to exactly one clean stub per group.
+
+    Run at startup. `restore_stubs` only undoes what a run staged, and only if
+    that run reached its `finally`. This covers everything else: a crash or a
+    kill mid-run, a submission copied in by hand, `.stub` backups that captured
+    the wrong content, files for groups the pool no longer has. All of those
+    have happened, and each leaves code in a directory that is both served to
+    Chrome and tracked in git. Returns the names it changed, for the log.
+    """
+    detections_dir.mkdir(parents=True, exist_ok=True)
+    changed: list[str] = []
+
+    for group in groups:
+        target = detections_dir / f"{group}.js"
+        clean = stub_source(group)
+        if not target.is_file() or target.read_text(encoding="utf-8") != clean:
+            target.write_text(clean, encoding="utf-8")
+            changed.append(target.name)
+
+    wanted = {f"{group}.js" for group in groups}
+    for path in sorted(detections_dir.iterdir()):
+        stale_js = path.suffix == ".js" and path.name not in wanted
+        if path.is_file() and (stale_js or path.name.endswith(".js" + _STUB_SUFFIX)):
+            path.unlink()
+            changed.append(path.name)
+
+    return changed
+
+
 __all__ = [
     "DETECTIONS_DIR",
-    "stage_detection_files",
+    "reset_detections_dir",
     "restore_stubs",
+    "stage_detection_files",
+    "stub_source",
 ]
