@@ -130,26 +130,37 @@ _LOOPBACK_NAMES = frozenset({"127.0.0.1", "localhost", "::1"})
 # undetectable. Chrome maps this name back to loopback - see `bait_page_args`.
 BAIT_HOST = "baitpage.test"
 
+# The bait page is served over https on this loopback-only port (lifespan
+# starts the listener). Real https, not just a secure context: extensions pick
+# the pages they run on by URL, and Microsoft SSO, Trust Wallet and Video
+# Downloader Professional match only `https://` - on http they never inject.
+BAIT_TLS_PORT = 10443
+
 
 def bait_page_args(page_url: str | None) -> list[str]:
     """Chrome flags that let the bait page sit under a real-looking hostname.
 
     Extensions often skip localhost, so the page is served under a hostname
-    instead (see `service.bait_page_url`). Two flags make that work:
+    instead (see `service.bait_page_url`). The hostname is resolved to loopback
+    inside Chrome, so it needs neither DNS (the container has none) nor an
+    /etc/hosts entry (prod ignores compose). Then, by scheme:
 
-    - resolve the hostname to loopback inside Chrome, so it needs neither DNS
-      (the container has none) nor an /etc/hosts entry (prod ignores compose);
-    - keep the secure context `http://127.0.0.1` gets for free. Without it the
-      page loses `navigator.gpu`, `crypto.subtle` and `navigator.mediaDevices`,
-      and extensions that hook them look undetectable for a reason of ours.
+    - https: accept the page's self-signed certificate. Nothing else is loaded
+      - the container has no network - so this trusts only our own page.
+    - http (dev tools): keep the secure context `http://127.0.0.1` gets for
+      free, or the page loses `navigator.gpu`, `crypto.subtle` and
+      `navigator.mediaDevices`. https-only extensions still will not run.
     """
     if not page_url:
         return []
     parts = urlsplit(page_url)
     if parts.hostname is None or parts.hostname in _LOOPBACK_NAMES:
         return []
+    resolve = f"--host-resolver-rules=MAP {parts.hostname} 127.0.0.1"
+    if parts.scheme == "https":
+        return [resolve, "--ignore-certificate-errors"]
     return [
-        f"--host-resolver-rules=MAP {parts.hostname} 127.0.0.1",
+        resolve,
         f"--unsafely-treat-insecure-origin-as-secure={parts.scheme}://{parts.netloc}",
     ]
 
@@ -798,6 +809,7 @@ def run_round(
 
 __all__ = [
     "BAIT_HOST",
+    "BAIT_TLS_PORT",
     "BrowserError",
     "BrowserInfraError",
     "BrowserSettings",

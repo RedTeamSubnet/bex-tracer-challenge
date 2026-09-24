@@ -17,7 +17,7 @@ from api.config import config
 from api.logger import logger
 
 from . import utils as ch_utils
-from ._browser import BAIT_HOST, BrowserSettings, BrowserInfraError, run_round
+from ._browser import BAIT_HOST, BAIT_TLS_PORT, BrowserSettings, BrowserInfraError, run_round
 from ._payload_manager import PayloadManager, RoundRecord
 from ._pool import load_name_to_id, load_pool_groups, load_pool_names
 from .schemas import MinerInput, MinerOutput
@@ -58,12 +58,13 @@ def bait_page_url() -> str:
     """The bait page is served by this very app, at `/_web`.
 
     Chrome runs in the same container, so it reaches the app over loopback
-    regardless of what `bind_host` is set to.
+    regardless of what `bind_host` is set to - on the https listener lifespan
+    starts, not the http port the validator uses.
 
     No trailing slash: the page's asset paths are relative, and they only
     resolve onto the `/static` mount when the browser's base URL is `/`.
     """
-    return f"http://{BAIT_HOST}:{config.api.port}/_web"
+    return f"https://{BAIT_HOST}:{BAIT_TLS_PORT}/_web"
 
 
 class RoundResult(NamedTuple):

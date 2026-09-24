@@ -163,6 +163,14 @@ def test_bait_page_on_a_hostname_resolves_to_loopback_and_stays_secure():
     ]
 
 
+def test_https_bait_page_resolves_to_loopback_and_trusts_its_own_certificate():
+    # Real https is already a secure context, so no secure-origin grant.
+    assert bait_page_args("https://baitpage.test:10443/_web") == [
+        "--host-resolver-rules=MAP baitpage.test 127.0.0.1",
+        "--ignore-certificate-errors",
+    ]
+
+
 def test_bait_page_on_loopback_needs_no_extra_flags():
     # 127.0.0.1 is already a secure context and needs no resolving.
     for url in (None, "http://127.0.0.1:10001/_web", "http://localhost:10001/_web"):

@@ -1,7 +1,11 @@
+import asyncio
+import contextlib
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+import uvicorn
 from fastapi import FastAPI
 
 from potato_util.io import async_create_dir
@@ -10,6 +14,7 @@ from potato_util.crypto import ssl as ssl_utils
 
 from api.__version__ import __version__
 from api.config import config
+from api.endpoints.challenge._browser import BAIT_HOST, BAIT_TLS_PORT
 from api.endpoints.challenge._pool import load_pool_groups
 from api.endpoints.challenge.utils import reset_detections_dir
 from api.logger import logger
@@ -74,6 +79,48 @@ async def _async_create_dirs() -> None:
     return
 
 
+class _BaitServer(uvicorn.Server):
+    """The https listener for the bait page. The main server owns process
+    signals; without this, a second `serve()` swaps the handlers out from
+    under it and Ctrl+C or a container stop no longer reaches the app."""
+
+    @contextlib.contextmanager
+    def capture_signals(self) -> Iterator[None]:
+        yield
+
+
+def _start_bait_server(app: FastAPI) -> tuple[_BaitServer, asyncio.Task]:
+    """Serve this same app over https on loopback, for Chrome only.
+
+    Loopback-only and never published, so the validator keeps its plain http
+    port and nothing about its contract changes. A fresh self-signed
+    certificate per start: Chrome is told to accept it, and it has no other
+    page to trust it for - the container has no network. `lifespan="off"`
+    because this app's lifespan is already running - it is what starts us.
+    """
+    _tls_dir = Path(config.challenge.browser.scratch_dir) / "tls"
+    ssl_utils.create_ssl_certs(
+        ssl_dir=str(_tls_dir),
+        key_fname="bait.key",
+        cert_fname="bait.crt",
+        key_size=2048,
+        x509_attrs={"CN": BAIT_HOST, "DNS": BAIT_HOST},
+        force=True,
+    )
+    _server = _BaitServer(
+        uvicorn.Config(
+            app,
+            host="127.0.0.1",
+            port=BAIT_TLS_PORT,
+            ssl_keyfile=str(_tls_dir / "bait.key"),
+            ssl_certfile=str(_tls_dir / "bait.crt"),
+            lifespan="off",
+            log_config=None,
+        )
+    )
+    return _server, asyncio.create_task(_server.serve())
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan context manager for FastAPI application.
@@ -99,6 +146,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if _changed:
         logger.warning(f"Reset stale detection files at startup: {_changed}")
 
+    _bait_server, _bait_task = _start_bait_server(app)
+    logger.info(f"Bait page served at https://{BAIT_HOST}:{BAIT_TLS_PORT} (loopback only)")
+
     logger.success("Finished preparation to startup.")
     logger.opt(colors=True).info(f"Version: <c>{__version__}</c>")
     logger.opt(colors=True).info(f"API version: <c>{config.api.version}</c>")
@@ -110,7 +160,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     logger.info("Praparing to shutdown...")
-    # Add shutdown code here...
+    _bait_server.should_exit = True
+    await _bait_task
     logger.success("Finished preparation to shutdown.")
 
 
