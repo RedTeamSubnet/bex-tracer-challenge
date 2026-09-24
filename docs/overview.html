@@ -101,7 +101,7 @@
 <h2>The round</h2>
 
 <figure>
-  <svg viewBox="0 0 820 200" role="img" aria-label="Four steps: pick 3 to 8 extensions at random from 27, launch Chrome with them enabled on a bait page, run the miner's script which returns 27 booleans, then score the guess against the truth.">
+  <svg viewBox="0 0 820 200" role="img" aria-label="Four steps: pick 10 extensions at random from 45, launch Chrome with them enabled on a bait page, run the miner's script which returns 45 booleans, then score the guess against the truth.">
     <defs>
       <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
         <path class="mka" d="M0,0 L10,5 L0,10 z"/>
@@ -110,7 +110,7 @@
     <rect class="boxa" x="10" y="46" width="170" height="86" rx="8"/>
     <text class="step" x="26" y="72">1</text>
     <text class="lbl"  x="26" y="96">Draw a subset</text>
-    <text class="sub"  x="26" y="116">3–8 of the 27,</text>
+    <text class="sub"  x="26" y="116">10 of the 45,</text>
     <text class="sub"  x="26" y="132">cryptographic RNG</text>
 
     <path class="linea" d="M182 89 L 210 89" marker-end="url(#a1)"/>
@@ -125,13 +125,13 @@
     <text class="step" x="434" y="72">3</text>
     <text class="lbl"  x="434" y="96">Run their script</text>
     <text class="sub"  x="434" y="116">on the bait page,</text>
-    <text class="sub"  x="434" y="132">returns 27 booleans</text>
+    <text class="sub"  x="434" y="132">returns 45 booleans</text>
 
     <path class="linea" d="M590 89 L 618 89" marker-end="url(#a1)"/>
     <rect class="boxa" x="622" y="46" width="188" height="86" rx="8"/>
     <text class="step" x="638" y="72">4</text>
     <text class="lbl"  x="638" y="96">Score</text>
-    <text class="sub"  x="638" y="116">MCC over all 27,</text>
+    <text class="sub"  x="638" y="116">MCC over all 45,</text>
     <text class="sub"  x="638" y="132">clamped to [0,1]</text>
 
     <text class="sub" x="10" y="176">20 rounds per submission, fresh subset each time. Run score is the mean.</text>
@@ -143,13 +143,14 @@
 <div class="tblwrap">
 <table>
   <tbody>
-    <tr><td>Pool</td><td class="n">27 extensions</td></tr>
-    <tr><td>Enabled per round</td><td class="n">3–8, redrawn each round</td></tr>
-    <tr><td>Rounds per submission</td><td class="n">20</td></tr>
-    <tr><td>Concurrent browsers</td><td class="n">4</td></tr>
-    <tr><td>Settle before sampling</td><td class="n">4s + 1.5s after gestures</td></tr>
+    <tr><td>Pool</td><td class="n">45 extensions in 6 groups</td></tr>
+    <tr><td>Enabled per round</td><td class="n">10, redrawn each round</td></tr>
+    <tr><td>Rounds per submission</td><td class="n">2</td></tr>
+    <tr><td>Concurrent browsers</td><td class="n">1</td></tr>
+    <tr><td>Settle before sampling</td><td class="n">6s + 1.5s after gestures</td></tr>
+    <tr><td>Network</td><td class="n">none (no DNS)</td></tr>
     <tr><td>Script budget</td><td class="n">10s</td></tr>
-    <tr><td>Submission</td><td class="n">one file, solution.js, ≤500 lines</td></tr>
+    <tr><td>Submission</td><td class="n">one file per published group, &lt;group&gt;.js, ≤750 lines each</td></tr>
     <tr><td>Chrome</td><td class="n">Chrome for Testing 152.0.7977.54</td></tr>
   </tbody>
 </table>
@@ -157,15 +158,16 @@
 
 <h2>The submission</h2>
 
-<p>One file defining one function, loaded by the page:</p>
+<p>One file per group, each defining its own function, all loaded by the page:</p>
 
 <div class="tblwrap">
 <table>
   <tbody>
-    <tr><td class="c">window.detect_extensions</td><td>async, returns <code>{ id: boolean }</code></td></tr>
+    <tr><td class="c">window.detect_&lt;group&gt;</td><td>async, returns <code>{ name: boolean }</code> for that group's names</td></tr>
     <tr><td class="c">missing key</td><td>counted as <code>false</code></td></tr>
     <tr><td class="c">key outside the pool</td><td>dropped</td></tr>
-    <tr><td class="c">throws / exceeds 10s</td><td>round scores 0</td></tr>
+    <tr><td class="c">one group throws</td><td>only that group's names count as <code>false</code></td></tr>
+    <tr><td class="c">exceeds 10s</td><td>round scores 0</td></tr>
   </tbody>
 </table>
 </div>
@@ -199,7 +201,7 @@
 
 <h2>Scoring</h2>
 
-<p>MCC over all 27 per round, clamped to [0,1], averaged over the 20 rounds.</p>
+<p>MCC over all 45 per round, clamped to [0,1], averaged over the 2 rounds.</p>
 
 <div class="tblwrap">
 <table>
@@ -225,10 +227,10 @@
 <table>
   <thead><tr><th>Signal</th><th>Mechanism</th><th>Reach</th></tr></thead>
   <tbody>
-    <tr><td>Web-accessible resources</td><td class="c">fetch chrome-extension://&lt;id&gt;/file</td><td class="n">17 / 27</td></tr>
-    <tr><td>Page footprint</td><td>injected styles, stamped attributes</td><td class="n">1 confirmed</td></tr>
-    <tr><td>Request blocking</td><td>which tracker hosts die</td><td class="n">3 of 4 blockers</td></tr>
-    <tr><td>Gesture-triggered</td><td>inject only after click + keystroke</td><td class="n">5 candidates</td></tr>
+    <tr><td>Web-accessible resources</td><td class="c">fetch chrome-extension://&lt;id&gt;/file</td><td class="n">closed: ids rotate every round</td></tr>
+    <tr><td>Changed APIs and values</td><td>browser settings and behaviour an extension alters</td><td class="n">most of the pool</td></tr>
+    <tr><td>Replaced functions</td><td>native functions wrapped by the extension</td><td class="n">several</td></tr>
+    <tr><td>Page footprint</td><td>injected nodes, stamped attributes</td><td class="n">a few</td></tr>
   </tbody>
 </table>
 </div>
@@ -256,7 +258,7 @@
 <div class="tblwrap">
 <table>
   <tbody>
-    <tr><td class="c">GET /task</td><td>returns the 27 ids</td></tr>
+    <tr><td class="c">GET /task</td><td>returns the 45 names and their groups</td></tr>
     <tr><td class="c">POST /score</td><td>takes <code>{miner_input, miner_output}</code>, returns a float</td></tr>
     <tr><td class="c">X-API-Key</td><td>required on <code>/score</code> only</td></tr>
     <tr><td class="c">concurrency</td><td>one scoring run at a time, else 429</td></tr>
@@ -278,8 +280,8 @@
 <div class="open">
   <h3>The pool is fixed</h3>
   <p>
-    Same 27 every time, so the resource paths are fixed and every miner converges
-    on the same lookup table. The validator zeroes submissions that are too
+    Same 20 every time, so a detection table built once keeps working and every
+    miner converges on it. The validator zeroes submissions that are too
     similar to each other.
   </p>
 </div>

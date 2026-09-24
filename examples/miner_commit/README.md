@@ -20,10 +20,10 @@ The pool is split into **groups** by category. You submit **one file per group**
 in a single response - named `<group>.js`, each defining `window.detect_<group>`:
 
 ```
-groups = { "blockers": [...], "developer": [...], ... }   from GET /task
+groups = { "ad_blockers": [...], "vpn_proxy": [...], ... }   from GET /task
             |
-            +--> blockers.js   defining window.detect_blockers
-            +--> developer.js  defining window.detect_developer
+            +--> ad_blockers.js  defining window.detect_ad_blockers
+            +--> vpn_proxy.js    defining window.detect_vpn_proxy
                  ... one file per group, all of them, in one response
 ```
 
@@ -32,21 +32,21 @@ challenge's pool at runtime and change whenever the pool does, so anything hardc
 in this file - goes stale. `src/app.py` builds its file list from `miner_input.groups` for
 exactly that reason; a group with no detector gets an empty stub so the submission stays valid.
 
-`src/commit/` holds a runnable stub per group. They return all-`false`: a valid submission that
-scores 0. Finding the signals is the challenge.
+Put your per-group files in `src/commit/`. Any group without a file gets an empty stub that
+returns `false` for every name - a valid submission that scores 0, so you can start from nothing.
 
 ```json
 {
-  "extension_names": ["Adblock Plus", "..."],
-  "groups": { "blockers": ["Adblock Plus", "Privacy Badger", "DuckDuckGo"], "...": [] }
+  "extension_names": ["FoxyProxy", "..."],
+  "groups": { "vpn_proxy": ["FoxyProxy", "Free VPN Proxy - 1VPN", "..."], "...": [] }
 }
 ```
 
 Each entrypoint may be `async`, and returns names for **its own group only**:
 
 ```js
-window.detect_blockers = async function () {
-  return { "Adblock Plus": true, /* ... */ };
+window.detect_vpn_proxy = async function () {
+  return { "FoxyProxy": true, /* ... */ };
 };
 ```
 
@@ -62,7 +62,7 @@ tables are worthless here. Detect what the extension *does* to the page instead.
 
 - **Every group needs a file.** A missing or unexpected filename is rejected outright -
   the whole submission, not just that group.
-- **≤ 500 lines per file.**
+- **≤ 750 lines per file.**
 - **Every file runs every round**, in parallel, each in its own `try`/`catch`. A throw costs
   only that group's names; the rest still score. The round is lost only if they all fail.
 - **A missing key counts as `false`**, as does a throw.
@@ -71,24 +71,32 @@ tables are worthless here. Detect what the extension *does* to the page instead.
 - **You are not told how many are enabled**, or which.
 - Your script runs under a fixed per-round time budget; overrunning it loses the round.
 
+### The environment
+
+- **No internet.** The challenge container has no DNS, so any request to another host fails -
+  for every extension and for your code alike. Only the bait page's own server answers.
+- **The bait page is served under a hostname, not `127.0.0.1`,** and is a secure context, so
+  secure-only APIs such as `crypto.subtle` are available.
+
 ### Where to look
 
-Not at ids - see above; that route is closed. What is left is what the extension *does*:
+Not at ids - see above; that route is closed. What is left is what the extension *does*. Most of
+the pool changes **browser APIs** rather than the page, so DOM diffing alone will not get you far:
 
-- **Page footprint** - injected nodes, shadow roots, stylesheets, changed computed styles,
-  attributes stamped on `<html>` or `<body>`.
-- **Blocked requests** - an extension that cancels a request leaves a different `performance`
-  resource timeline than one that does not. Use a control request, or a page where everything is
-  blocked looks the same as a page with no blocker at all.
-- **Post-gesture behaviour** - some extensions inject nothing until a real interaction with the
-  element they care about.
-- **Tampered natives** - `fetch`, `XMLHttpRequest`, `addEventListener` and friends are not always
-  the originals once a content script has run.
-- **Timing** - an extension can run a content script on every page and still change nothing you
-  can see. It is not invisible: it costs time. A pool deliberately contains extensions that only
-  show up this way, so DOM diffing alone will not get you a high score.
+- **Changed values** - what the browser reports about itself can differ from a clean browser.
+- **Replaced functions** - a native function an extension has wrapped is no longer the original,
+  even when it tries to look like one.
+- **Changed behaviour** - calling the same API twice does not always give the same answer.
+- **Page footprint** - injected nodes, stylesheets, attributes stamped on `<html>` or `<body>`.
+- **Post-gesture behaviour** - some extensions do nothing until a real interaction.
 
-The stubs in `src/commit/` carry more detail per group.
+### What is allowed
+
+Anything a normal web page can do. Calling an API repeatedly, reading a function's source,
+inspecting prototypes and descriptors, triggering an error on purpose, dispatching events - all
+fair: detecting what an extension did *is* the challenge. Not allowed: reading or inferring the
+enabled set from anywhere but the page, disabling or undoing an extension, tampering with the
+harness (timers, wrapper, scoring, staged files), and answering `true` without evidence.
 
 ---
 

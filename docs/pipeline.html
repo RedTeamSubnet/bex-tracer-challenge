@@ -221,6 +221,14 @@
     installed right now?</em> &mdash; into a number between 0 and 1. The idea
     first, then every mechanism behind it.
   </p>
+  <p class="standfirst" style="border-left:3px solid var(--warn, #A0522A); padding-left:12px;">
+    <strong>Out of date (describes the 2026-09-01 design).</strong> The diagrams below show a
+    27-extension pool, a single <code>solution.js</code>, detection by extension id, 4 parallel
+    browsers and 20 rounds. All of that has changed: the pool is 45 extensions in 6 groups
+    and published by name, ids rotate every round, a submission is one file per group, and
+    the container has no internet. The flow itself is still accurate. For current facts see
+    <code>docs/README.md</code>.
+  </p>
   <ul class="key">
     <li><span class="swatch sw-build"></span> build time &mdash; once, inside <code>docker build</code></li>
     <li><span class="swatch sw-run"></span> request time &mdash; per <code>POST /score</code></li>

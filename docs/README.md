@@ -11,7 +11,8 @@ accurately it identified what was installed.
 
 | Document | What's in it |
 |---|---|
-| [`pipeline.html`](./pipeline.html) | Pool-to-score pipeline diagram — open in a browser |
+| [`overview.html`](./overview.html) | One-page summary with current numbers — open in a browser |
+| [`pipeline.html`](./pipeline.html) | Pool-to-score pipeline diagram — **diagrams predate the current pool**, flow still accurate |
 | [`architecture.excalidraw`](./architecture.excalidraw) | Flow diagram — open at [excalidraw.com](https://excalidraw.com) |
 | [`release-notes.md`](./release-notes.md) | Release notes |
 
@@ -23,6 +24,7 @@ accurately it identified what was installed.
 | Browser | Chrome for Testing — headless in prod, headful under Xvfb for dev |
 | Extension pool | Chrome Web Store extensions, published to miners **by name** — ids are never sent |
 | Enabled per round | Fixed `k` (config), drawn per round and never revealed |
+| Network | None - the container has no DNS; the bait page is served locally |
 | Miner output | One file per group, each `{extensionName: true\|false}` for that group's names |
 | Metric | MCC over all N binary decisions, `max(0, mcc)` → `[0,1]` |
 
@@ -105,13 +107,13 @@ grouping is generated from `extensions.yml` at runtime, so the set of files chan
 pool — read it from `/task` rather than from any table, this one included.
 
 ```js
-// blockers.js - returns this group's names and nothing else
-window.detect_blockers = async function () {
+// vpn_proxy.js - returns this group's names and nothing else
+window.detect_vpn_proxy = async function () {
   // ... probe the page ...
   return {
-    "Adblock Plus": true,
-    "Privacy Badger": false,
-    "DuckDuckGo": false,
+    "FoxyProxy": true,
+    "Browsec VPN - Free VPN for Chrome": false,
+    "Free VPN Proxy - 1VPN": false,
   };
 };
 ```
@@ -125,8 +127,16 @@ directory. Consequences:
 - The id an extension has in one round is gone in the next, and it is **never** its store id.
 - `fetch("chrome-extension://<store-id>/<path>")` always fails. Every published id-keyed
   lookup table is dead weight here.
-- Detection has to come from what the extension *does* to the page: injected nodes and
-  stylesheets, computed style, blocked requests, tampered natives, post-gesture injection.
+- Detection has to come from what the extension *does*: changed browser APIs and values,
+  replaced native functions, injected nodes and stylesheets, post-gesture injection.
+
+### The environment
+
+- **No internet.** The container has no DNS (`dns: 0.0.0.0` in `compose.yml`), so requests to any
+  other host fail, for extensions and miner code alike.
+- **The bait page is served as `http://baitpage.test`, not `127.0.0.1`.** Some extensions
+  deliberately do nothing on localhost. Chrome maps the name back to loopback and treats the
+  page as a secure context, so secure-only APIs stay available.
 
 Take the names from `GET /task`, never from a doc - **the grouping is generated from
 `extensions.yml` at runtime and changes when the pool changes.** Only the names `/task`
