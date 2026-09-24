@@ -84,12 +84,20 @@ def restore_stubs(
     staged: list[Path], detections_dir: Path = DETECTIONS_DIR
 ) -> None:
     """Put the checked-in stubs back. Never raises - it runs in a `finally`,
-    where an exception would mask the real failure."""
+    where an exception would mask the real failure.
+
+    The backup is removed only once it has been copied back. A backup that
+    outlived its run was copied into every image built from a dev checkout,
+    where the startup reset then deleted it - with a warning on each boot. If
+    the copy fails, the backup stays, so the next run cannot snapshot miner
+    code as "the stub".
+    """
     for target in staged:
         backup = target.with_suffix(target.suffix + _STUB_SUFFIX)
         try:
             if backup.is_file():
                 shutil.copy2(backup, target)
+                backup.unlink()
             else:
                 target.unlink(missing_ok=True)
         except Exception as err:  # noqa: BLE001

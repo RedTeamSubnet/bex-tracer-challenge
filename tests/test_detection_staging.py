@@ -58,6 +58,13 @@ def test_restore_puts_the_stub_back(detections):
     assert (detections / "blockers.js").read_text() == "// stub\n"
 
 
+def test_restore_leaves_no_backup_behind(detections):
+    """A leftover `.stub` was copied into every image built from a dev checkout."""
+    staged = stage_detection_files(_Output(_File("blockers.js", "// miner\n")), detections)
+    restore_stubs(staged, detections)
+    assert not list(detections.glob("*.stub"))
+
+
 def test_a_second_run_still_restores_the_original_stub(detections):
     """The backup is written once per target. Without that, run 2 would snapshot
     run 1's miner code and 'restore' one miner's submission over another's."""
