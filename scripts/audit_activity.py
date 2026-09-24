@@ -31,6 +31,13 @@ _ap.add_argument("--min-settle", type=float, default=5.0, metavar="SEC")
 _ap.add_argument("--poll", type=float, default=0.5, metavar="SEC")
 _ap.add_argument("--gesture-settle", type=float, default=2.0, metavar="SEC")
 _ap.add_argument("--only", nargs="+", metavar="ID")
+_ap.add_argument(
+    "--pool",
+    metavar="YML",
+    help="audit this candidate list instead of the shipped pool. The config "
+    "file's pool_path outranks the environment, so this is the only way to "
+    "audit candidates without editing extensions.yml",
+)
 _ap.add_argument("--out", default="/tmp/activity_audit.json")
 ARGS = _ap.parse_args()
 # `api.config` builds a pydantic CliSettingsSource with cli_parse_args=True, so
@@ -217,6 +224,9 @@ def report(results: dict, args) -> None:
 
 def main() -> int:
     args = ARGS
+    if args.pool:
+        # Before anything reads the pool: the loaders are cached on first use.
+        config.challenge.pool_path = args.pool
 
     # Curation tool: it launches real extensions, so it works in store ids
     # (the directory names under /opt/extensions), not published names.
