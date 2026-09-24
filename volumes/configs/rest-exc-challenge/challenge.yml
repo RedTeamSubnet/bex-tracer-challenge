@@ -2,8 +2,8 @@ challenge:
   pool_path: "/app/rest-exc-challenge/extensions.yml"
 
 
-  n_rounds: 5
-  k: 5
+  n_rounds: 2
+  k: 10
   ## Weight each draw toward least-used extensions; 1.0 = uniform.
   ## Uniform leaves ~2.7 of 25 never enabled per run.
   coverage_bias: 2.0

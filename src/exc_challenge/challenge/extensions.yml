@@ -1,223 +1,382 @@
 chrome_for_testing_version: "152.0.7977.54"
 
-## Candidate pool: 25 privacy and fingerprinting extensions in 7 behavioral
-## families. Store IDs and MV3 packages were verified on 2026-09-22.
+## 45 extensions in 6 groups, from a list of 89 popular store extensions
+## (2026-09-24). Kept: every extension that can possibly leave a trace on the
+## bait page - 42 whose manifest lets them run on it, plus 3 that change a
+## browser-wide setting a page may observe (1clickVPN, Privacy Test, Clear Cache).
 ##
-## This is intentionally a candidate pool, not a claim that every label is
-## already distinguishable in combinations. Run the activity audit against the
-## production HTTPS/network environment before treating it as score-ready.
+## Left out on purpose:
+##   - 34 with no page access and nothing browser-wide: no trace, ever.
+##   - 10 whose only trace is opening a tab on install: identical to each
+##     other, so they cannot be told apart.
 ##
-## The originally supplied Canvas Blocker id
-## (gbkicngmnoedeajgodbbokjadbfbbpng) is not a valid current store package.
-## The verified listing uses nomnklagbgmgghhjidfhnoelnjfndfpd.
-##
-## Ryan Brown's Fingerprint Detector now has a Web Store package, so the pool
-## uses its signed store id rather than adding a second, GitHub-only fetch path.
+## NOT YET CALIBRATED. The audit tool is weaker than a real solver, so which of
+## these are detectable is decided by a solver run, not assumed. Drop whatever
+## a serious attempt cannot detect. `tier` is unset until then.
 
 pool:
-  ## -- canvas_api -------------------------------------------------
-  - id: nomnklagbgmgghhjidfhnoelnjfndfpd
-    name: "Canvas Blocker - Fingerprint Protect"
-    group: canvas_api
-    tier: subtle
+  ## -- ad_blockers -----------------------------------------------
+  - id: ddkjiahejlhfcafbddmgiahcphecmpfh
+    name: "uBlock Origin Lite"
+    group: ad_blockers
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: lanfdkkpgfjfdikkncbnojekcppdebfp
-    name: "Canvas Fingerprint Defender"
-    group: canvas_api
-    tier: subtle
+  - id: cfhdojbkjhnklbpkdaibdccddilifddb
+    name: "Adblock Plus - free ad blocker"
+    group: ad_blockers
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: pcbjiidheaempljdefbdplebgdgpjcbe
-    name: "AudioContext Fingerprint Defender"
-    group: canvas_api
-    tier: subtle
+  - id: bgnkhhnnamicmpeenaelnjfhikgbkllg
+    name: "AdGuard AdBlocker"
+    group: ad_blockers
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: fhkphphbadjkepgfljndicmgdlndmoke
-    name: "Font Fingerprint Defender"
-    group: canvas_api
-    tier: subtle
+  - id: ohahllgiabjaoigichmmfljhkcfikeof
+    name: "AdBlocker Ultimate"
+    group: ad_blockers
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: olnbjpaejebpnokblkepbphhembdicik
-    name: "WebGL Fingerprint Defender"
-    group: canvas_api
-    tier: subtle
+  - id: cmedhionkhpnakcndndgjdbohmhepckk
+    name: "Adblock for Youtube"
+    group: ad_blockers
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: kadocklfjjaaekpjhmpbkbjkhloacing
-    name: "WebGPU Fingerprint Defender"
-    group: canvas_api
-    tier: subtle
+  - id: jpkfgepcmmchgfbjblnodjhldacghenp
+    name: "Pie Adblock - A Powerful Free Ad Blocker"
+    group: ad_blockers
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: meojnmfhjkahlfcecpdcdgjclcilmaij
-    name: "All Fingerprint Defender"
-    group: canvas_api
-    tier: subtle
+  - id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
+    name: "Privacy Badger"
+    group: ad_blockers
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: lhnhapbalajnchknjmjlcpoiehjegbdm
-    name: "Fingerprint Protector"
-    group: canvas_api
-    tier: subtle
+  ## -- developer_tools -------------------------------------------
+  - id: bfbameneiokkgbdmiekhjnmfkcnldhhm
+    name: "Web Developer"
+    group: developer_tools
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  ## -- identity ---------------------------------------------------
-  - id: einpaelgookohagofgnnkcfjbkkgepnp
-    name: "Random User-Agent (Switcher)"
-    group: identity
-    tier: subtle
+  - id: bnjjngeaknajbdcgpfkgnonkmififhfo
+    name: "Fake Filler"
+    group: developer_tools
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: kcabmhnajflfolhelachlflngdbfhboe
-    name: "Spoof Timezone"
-    group: identity
-    tier: subtle
+  - id: ndgimibanhlabgdgjcpbbndiehljcpfh
+    name: "SelectorsHub"
+    group: developer_tools
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: nbofeaabhknfdcpoddmfckpokmncimpj
-    name: "Change Timezone (Time Shift)"
-    group: identity
-    tier: subtle
+  - id: akdgnmcogleenhbclghghlkkdndkjdjc
+    name: "SEOquake: On-Page SEO Checker"
+    group: developer_tools
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  ## -- geolocation -----------------------------------------------
-  - id: dgdbdodafgaeifgajaajohkjjgobcgje
-    name: "GeoSpoof: Spoof Geolocation & Timezone"
-    group: geolocation
-    tier: subtle
+  - id: bcjindcccaagfpapjjmafapmmgkkhgoa
+    name: "JSON Formatter"
+    group: developer_tools
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: hhnhplojcganfmfimkeboiipphklcbih
-    name: "Location Guard (V3)"
-    group: geolocation
-    tier: subtle
+  - id: lhobafahddgcelffkeicbaginigeejlf
+    name: "Allow CORS: Access-Control-Allow-Origin"
+    group: developer_tools
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: lejoknkbcogjceoniealiipllomkpioe
-    name: "Change Geolocation (Location Guard)"
-    group: geolocation
-    tier: subtle
+  - id: jnkmfdileelhofjcijamephohjechhna
+    name: "Google Analytics Debugger"
+    group: developer_tools
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: hcnefppgdgpncmkpecfbcoembcohpbja
-    name: "My Location Guard"
-    group: geolocation
-    tier: subtle
+  - id: djflhoibgkdhkhhcedjiklpkjnoahfmg
+    name: "User-Agent Switcher for Chrome"
+    group: developer_tools
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: agjoaoekknmldbojnpiobnfipljpopgm
-    name: "Location Changer: Spoof Geolocation"
-    group: geolocation
-    tier: subtle
+  - id: bhchdcejhohfmigjafbampogmaanbfkg
+    name: "User-Agent Switcher and Manager"
+    group: developer_tools
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  ## -- webrtc -----------------------------------------------------
-  - id: eiadekoaikejlgdbkbdfeijglgfdalml
-    name: "WebRTC Leak Prevent"
-    group: webrtc
-    tier: subtle
+  ## -- media_downloads -------------------------------------------
+  - id: elicpjhcidhpjomhibiffojpinpmmpil
+    name: "Video Downloader Professional"
+    group: media_downloads
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: bkmmlbllpjdpgcgdohbaghfaecnddhni
-    name: "WebRTC Protect"
-    group: webrtc
-    tier: subtle
+  - id: hkdmdpdhfaamhgaojpelccmeehpfljgf
+    name: "Video Downloader Plus"
+    group: media_downloads
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: npeicpdbkakmehahjeeohfdhnlpdklia
-    name: "WebRTC Network Limiter"
-    group: webrtc
-    tier: subtle
+  - id: lmjnegcaeklhafolokijcfjliaokphfk
+    name: "Video Download Helper"
+    group: media_downloads
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: fjkmabmdepjfammlpliljpnbhleegehm
-    name: "WebRTC Control"
-    group: webrtc
-    tier: subtle
+  - id: ahmpjcflkgiildlgicmcieglgoilbfdp
+    name: "Free Download Manager"
+    group: media_downloads
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: ckdpobpfcmaimckielbjokndgdpelhef
-    name: "WebRTC Leak Shield"
-    group: webrtc
-    tier: subtle
+  - id: ejkiikneibegknkgimmihdpcbcedgmpo
+    name: "Volume Booster"
+    group: media_downloads
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  ## -- page_behavior ---------------------------------------------
-  - id: ehllkhjndgnlokhomdlhgbineffifcbj
-    name: "Always active Window - Always Visible"
-    group: page_behavior
-    tier: subtle
+  - id: hkgfoiooedgoejojocmhlaklaeopbecg
+    name: "Picture-in-Picture Extension (by Google)"
+    group: media_downloads
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  ## -- browser_level ---------------------------------------------
-  - id: fcalilbnpkfikdppppppchmkdipibalb
-    name: "Cloaq - Location Guard & Locale Switcher"
-    group: browser_level
-    tier: subtle
+  - id: ejfmffkmeigkphomnpabpdabfddeadcb
+    name: "Vimeo Record - Screen & Webcam Recorder"
+    group: media_downloads
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  ## -- fingerprint_detectors -------------------------------------
-  - id: lnmplbdpfpnkikhdhcaonccbjgafahlj
-    name: "Canvas Fingerprint Detector"
-    group: fingerprint_detectors
-    tier: subtle
+  - id: dpacanjfikmhoddligfbehkpomnbgblf
+    name: "AHA Music - Song Finder for Browser"
+    group: media_downloads
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null
 
-  - id: gkoalhmofedekfdhmmjiemfjinkgijgc
-    name: "Fingerprint Detector"
-    group: fingerprint_detectors
-    tier: subtle
+  ## -- save_productivity -----------------------------------------
+  - id: gpdjojdkbbmdfjfahjcgigfpmkopogic
+    name: "Save to Pinterest"
+    group: save_productivity
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: gmbmikajjgmnabiglmofipeabaddhgne
+    name: "Save to Google Drive"
+    group: save_productivity
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: gojbdfnpnhogfdgjbigejoaolejmgdhk
+    name: "OneNote Web Clipper"
+    group: save_productivity
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: pgphcomnlaojlmmcjmiddhdapjpbgeoc
+    name: "Send from Gmail (by Google)"
+    group: save_productivity
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: aabcgdmkeabbnleenpncegpcngjpnjkc
+    name: "Easy Auto Refresh"
+    group: save_productivity
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: mjbepbhonbojpoaenhckjocchgfiaofo
+    name: "Ace Script"
+    group: save_productivity
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: ojplelelocihfchkdaebocpankipadmp
+    name: "Scopus Document Download Manager"
+    group: save_productivity
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- vpn_proxy -------------------------------------------------
+  - id: omghfjlpggmjjaagoclmmobgdodcjboh
+    name: "Browsec VPN - Free VPN for Chrome"
+    group: vpn_proxy
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: akcocjjpkmlniicdeemdceeajlmoabhg
+    name: "Free VPN Proxy - 1VPN"
+    group: vpn_proxy
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: jaoafpkngncfpfggjefnekilbkcpjdgp
+    name: "Free VPN Proxy - VPN for Chrome uVPN"
+    group: vpn_proxy
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: gcknhkkoolaabfmlnjonogaaifnjlfnp
+    name: "FoxyProxy"
+    group: vpn_proxy
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: pdnfnkhpgegpcingjbfihlkjeighnddk
+    name: "Unblock Youku"
+    group: vpn_proxy
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: fcfhplploccackoneaefokcmbjfbkenj
+    name: "Free VPN for Chrome - VPN Proxy 1clickVPN"
+    group: vpn_proxy
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  ## -- identity_security -----------------------------------------
+  - id: noondiphcddnnabmjcihcjfbhfklnnep
+    name: "Password Alert"
+    group: identity_security
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: ppnbnpeolgkicgegkbkbjmhlideopiji
+    name: "Microsoft Single Sign On"
+    group: identity_security
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: egjidjbpglichdcondbcbdnbeeppgdph
+    name: "Trust Wallet"
+    group: identity_security
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: fihnjjcciajhdojfnbdddfaoknhalnja
+    name: "I don't care about cookies"
+    group: identity_security
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: ecnphlgnajanjnkcmbpancdjoidceilk
+    name: "Kami for Google Chrome"
+    group: identity_security
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: epbobagokhieoonfplomdklollconnkl
+    name: "Scribbr Citation Generator"
+    group: identity_security
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: pdabfienifkbhoihedcgeogidfmibmhp
+    name: "Privacy Test"
+    group: identity_security
+    tier: unverified
+    version: null
+    sha256: null
+    time_to_stable_ms: null
+
+  - id: cppjkneekbjaeellbfkmgnhonkkjfpdn
+    name: "Clear Cache"
+    group: identity_security
+    tier: unverified
     version: null
     sha256: null
     time_to_stable_ms: null

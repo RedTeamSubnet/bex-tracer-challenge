@@ -3,12 +3,12 @@ challenge:
   pool_path: "/app/rest-exc-challenge/extensions.yml"
 
   # T - rounds per /score call. Each round is one browser launch.
-  n_rounds: 5
+  n_rounds: 2
 
   # Extensions enabled per round, drawn with `secrets`, never revealed.
   # INVARIANT: k must be < the number of entries in pool_path, or
   # build_round_schedule() raises. Today's pool has 27 entries.
-  k: 5
+  k: 10
   ## Weight each draw toward least-used extensions; 1.0 = uniform.
   ## Uniform leaves ~2.7 of 25 never enabled per run.
   coverage_bias: 2.0
