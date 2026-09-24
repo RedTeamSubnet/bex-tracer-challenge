@@ -124,6 +124,12 @@ class BrowserSettings:
 
 _LOOPBACK_NAMES = frozenset({"127.0.0.1", "localhost", "::1"})
 
+# Where the bait page is served, for scoring and for every dev tool. Not
+# 127.0.0.1: extensions often skip localhost (Random User-Agent ships a default
+# blacklist of exactly `localhost` and `127.0.0.1`), which made them look
+# undetectable. Chrome maps this name back to loopback - see `bait_page_args`.
+BAIT_HOST = "baitpage.test"
+
 
 def bait_page_args(page_url: str | None) -> list[str]:
     """Chrome flags that let the bait page sit under a real-looking hostname.
@@ -791,6 +797,7 @@ def run_round(
 
 
 __all__ = [
+    "BAIT_HOST",
     "BrowserError",
     "BrowserInfraError",
     "BrowserSettings",

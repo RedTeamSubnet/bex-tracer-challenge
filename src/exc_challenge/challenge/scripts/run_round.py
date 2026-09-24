@@ -46,6 +46,7 @@ for _candidate in (_API_DIR, _REPO / "src/exc_challenge/challenge"):
         break
 
 from api.endpoints.challenge._browser import (  # noqa: E402
+    BAIT_HOST,
     BrowserError,
     BrowserSettings,
     ChromeSession,
@@ -287,9 +288,10 @@ class _QuietHandler(SimpleHTTPRequestHandler):
 def bait_server(bait_dir: Path) -> Iterator[str]:
     """Serve the bait page on an ephemeral port; yield its url.
 
-    http, not file:// - web_accessible_resources declare
-    `matches: ["http://*/*", "https://*/*"]`, so from a file:// page every WAR
-    probe is a false negative no matter what is loaded.
+    Under the same hostname scoring uses (`BAIT_HOST`), so extensions that
+    skip localhost behave here exactly as they do when scored. Chrome maps the
+    name to this server - `launch(..., page_url)` passes it through. http, not
+    file://: many extensions' content scripts only match http(s) pages.
     """
     if not bait_dir.is_dir():
         sys.exit(f"bait page directory missing: {bait_dir}")
@@ -298,7 +300,7 @@ def bait_server(bait_dir: Path) -> Iterator[str]:
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
-        yield f"http://127.0.0.1:{server.server_port}/index.html"
+        yield f"http://{BAIT_HOST}:{server.server_port}/index.html"
     finally:
         server.shutdown()
         server.server_close()
@@ -316,7 +318,7 @@ def chrome_on_bait_page(
     """Launch with `enabled` loaded, open the bait page, settle, optionally
     drive it - the part both modes do identically."""
     with ChromeSession(settings, tag) as session:
-        session.launch(sorted(enabled))
+        session.launch(sorted(enabled), page_url)
         session.open_page(page_url, args.settle)
         if args.interact:
             for step in session.interact(pause=args.slow):
