@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -62,14 +64,20 @@ class MinerOutput(BaseModel):
         description="List of Commit files for the challenge.",
     )
 
+    # Mirror of the challenge's `submission_max_lines`. Keep them equal: set
+    # lower and this rejects submissions the challenge would accept; set higher
+    # and a file passes here only to 422 remotely.
+    MAX_LINES: ClassVar[int] = 750
+
     @field_validator("commit_files", mode="after")
     @classmethod
     def _check_commit_files(cls, val: list[CommitFilePM]) -> list[CommitFilePM]:
         for _miner_file_pm in val:
             _content_lines = _miner_file_pm.content.splitlines()
-            if len(_content_lines) > 500:
+            if len(_content_lines) > MinerOutput.MAX_LINES:
                 raise ValueError(
-                    f"`{_miner_file_pm.file_name}` file contains too many lines, should be <= 500 lines!"
+                    f"`{_miner_file_pm.file_name}` file contains too many lines, "
+                    f"should be <= {MinerOutput.MAX_LINES} lines!"
                 )
 
         return val

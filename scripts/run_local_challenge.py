@@ -3,7 +3,7 @@
 
 Three hops, no shortcuts:
 
-    1. GET  challenge/task    -> the published pool (27 extension ids)
+    1. GET  challenge/task    -> the published pool (extension names + groups)
     2. POST miner/solve       -> the miner returns one <group>.js commit file per group
     3. POST challenge/score   -> real Chrome rounds, one float back
 
@@ -81,8 +81,8 @@ def wait_for_health(base: str, label: str, attempts: int = 30) -> None:
 
 def get_task(base: str) -> dict[str, Any]:
     task = _request(f"{base}/task")
-    ids = task.get("extension_ids") or []
-    if not ids:
+    names = task.get("extension_names") or []
+    if not names:
         raise StepFailed(f"{base}/task returned an empty pool")
     return task
 
@@ -196,7 +196,7 @@ def main() -> int:
         print(f"[1/3] task     {args.challenge}/task")
         wait_for_health(args.challenge, "challenge")
         task = get_task(args.challenge)
-        print(f"      pool of {len(task['extension_ids'])} extension(s)")
+        print(f"      pool of {len(task['extension_names'])} extension(s)")
 
         if args.solution:
             print(f"[2/3] solution {', '.join(str(p) for p in args.solution)}")

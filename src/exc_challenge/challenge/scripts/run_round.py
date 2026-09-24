@@ -141,15 +141,15 @@ def load_pool(pool_file: Path) -> list[Extension]:
 
 
 def groups_of(pool: list[Extension]) -> dict[str, list[str]]:
-    """group name -> ids it owns, in first-seen order.
+    """group name -> published names it owns, in first-seen order.
 
     Same shape as `_pool.load_pool_groups()`, which is what `run_script` wants:
-    it filters each group's answer down to the ids that group owns. Callers
+    it filters each group's answer down to the names that group owns. Callers
     that only need the names iterate the keys.
     """
     groups: dict[str, list[str]] = {}
     for ext in pool:
-        groups.setdefault(ext.group, []).append(ext.id)
+        groups.setdefault(ext.group, []).append(ext.name)
     return groups
 
 
@@ -253,18 +253,20 @@ def war_probe_miner(pool: list[Extension], probes: dict[str, str]) -> str:
     functions = []
     for group in groups_of(pool):
         group_probes = {
-            ext.id: probes[ext.id] for ext in pool if ext.group == group and ext.id in probes
+            ext.name: [ext.id, probes[ext.id]]
+            for ext in pool if ext.group == group and ext.id in probes
         }
         functions.append(f"""
         window.detect_{group} = async function () {{
             const found = {{}};
             const PROBES = {json.dumps(group_probes)};
-            await Promise.all(Object.entries(PROBES).map(async ([id, path]) => {{
+            await Promise.all(Object.entries(PROBES).map(async ([name, probe]) => {{
+                const [id, path] = probe;
                 try {{
                     const res = await fetch(`chrome-extension://${{id}}/${{path}}`);
-                    found[id] = res.ok;
+                    found[name] = res.ok;
                 }} catch (_err) {{
-                    found[id] = false;
+                    found[name] = false;
                 }}
             }}));
             return found;
@@ -514,7 +516,14 @@ def _score_rounds(
     elif args.miner == "war-probe":
         miner_js = war_probe_miner(pool, probes)
     else:
-        miner_js = Path(args.miner).read_text(encoding="utf-8")
+        miner_path = Path(args.miner)
+        if miner_path.is_dir():
+            miner_js = "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in sorted(miner_path.glob("*.js"))
+            )
+        else:
+            miner_js = miner_path.read_text(encoding="utf-8")
     groups = groups_of(pool)
     # The miner's code is no longer injected at sample time - the bait page
     # loads it with a <script src>, so it has to be on disk before Chrome
@@ -535,7 +544,13 @@ def _score_rounds(
                 with chrome_on_bait_page(
                     settings, f"run-{rec.index}", sorted(rec.enabled), page_url, args
                 ) as session:
-                    predicted = session.run_script(ids, groups, args.budget)
+                    predicted_by_name = session.run_script(
+                        [ext.name for ext in pool], groups, args.budget
+                    )
+                    predicted = {
+                        ext.id: predicted_by_name.get(ext.name, False)
+                        for ext in pool
+                    }
             except BrowserError as err:
                 manager.record(rec.index, None, error=str(err))
                 print(f"    -> FAILED after {time.monotonic() - started:.1f}s: {err}\n")
