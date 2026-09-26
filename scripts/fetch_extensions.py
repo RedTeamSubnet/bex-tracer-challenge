@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Download, verify and unpack the extension pool. BUILD TIME ONLY.
 
-Reads `extensions.yml`, and per extension:
+Reads `extensions.yml` (names) and `extensions.lock.yml` beside it (store id,
+version and sha256 per name - private, not in the public repository), and per
+extension:
     download .crx -> verify sha256 -> parse CRX3 -> assert the signature id
     matches the pin -> unzip
 
@@ -260,6 +262,7 @@ def _parse_args() -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parent.parent
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--pool", default=str(repo_root / "src/exc_challenge/challenge/extensions.yml"))
+    ap.add_argument("--lock", help="default: extensions.lock.yml beside --pool")
     ap.add_argument("--out", required=True, help="output dir, e.g. /opt/extensions")
     ap.add_argument(
         "--allow-sha-mismatch",
@@ -275,10 +278,22 @@ def main() -> int:
 
     spec = yaml.safe_load(Path(args.pool).read_text())
     cft_version = spec.get("chrome_for_testing_version", _DEFAULT_CFT_VERSION)
-    pool = spec.get("pool") or []
-    if not pool:
+    names = [e["name"] for e in spec.get("pool") or []]
+    if not names:
         print("ERROR: extensions.yml has an empty pool", file=sys.stderr)
         return 1
+
+    lock_path = Path(args.lock) if args.lock else Path(args.pool).with_name("extensions.lock.yml")
+    if not lock_path.is_file():
+        print(f"ERROR: {lock_path} not found - it is private, not in the public "
+              f"repository; use the published image", file=sys.stderr)
+        return 1
+    lock = yaml.safe_load(lock_path.read_text()) or {}
+    missing = [n for n in names if not (lock.get(n) or {}).get("id")]
+    if missing:
+        print(f"ERROR: {lock_path} has no id for: {missing}", file=sys.stderr)
+        return 1
+    pool = [{"name": n, **lock[n]} for n in names]
 
     out_root = Path(args.out)
     out_root.mkdir(parents=True, exist_ok=True)

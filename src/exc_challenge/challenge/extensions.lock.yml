@@ -1,0 +1,367 @@
+## PRIVATE - never in the public repository. The image carries it.
+##
+## Store id and pinned build for every extension in extensions.yml, by name.
+## The id is only used at build time and to find the unpacked directory: Chrome
+## gives each extension a new id every round.
+##
+## version/sha256 pin what the published image contains (2026-09-26). The store
+## serves only the newest version, so a build fails once one is re-published:
+## run scripts/fetch_extensions.py --allow-sha-mismatch to see what moved,
+## review it, and update the pins.
+
+"uBlock Origin Lite":
+  id: ddkjiahejlhfcafbddmgiahcphecmpfh
+  version: "2026.920.1710"
+  sha256: "f08f8543bf5d6f2eb39c149f03b71194d85809354e90bb087611cd7ab1a1846a"
+"Adblock Plus - free ad blocker":
+  id: cfhdojbkjhnklbpkdaibdccddilifddb
+  version: "4.44.1"
+  sha256: "2aa1c4ee48f261f2ea7ebca9e6025e4f2391e15cefd3e24fb75abc02ddf5a283"
+"AdGuard AdBlocker":
+  id: bgnkhhnnamicmpeenaelnjfhikgbkllg
+  version: "5.5.2.48"
+  sha256: "333041e44b8a194a2c882a97d21269ae12b9a9fb1f43ea06c3ab2cc413a2ba2e"
+"AdBlocker Ultimate":
+  id: ohahllgiabjaoigichmmfljhkcfikeof
+  version: "4.4.0"
+  sha256: "82c6d91a7a648e354e593df4dc3385d07a59ad0722eb1c58744a867563757db4"
+"Adblock for Youtube":
+  id: cmedhionkhpnakcndndgjdbohmhepckk
+  version: "7.2.6"
+  sha256: "cb025b64fb635fb939302ef22e7d7c98291835a3e4a6d28536eacdce49b3e183"
+"Pie Adblock - A Powerful Free Ad Blocker":
+  id: jpkfgepcmmchgfbjblnodjhldacghenp
+  version: "1.33.9"
+  sha256: "7ba1ab6266b643c8200945d4d6933f3637500c79e0903beb41c10fa3a4255e50"
+"Privacy Badger":
+  id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
+  version: "2026.9.15"
+  sha256: "d0040c70a07691128713dcf692e83b35dc6cb7993d96ed2b12bab7545fe1fb8a"
+"I don't care about cookies":
+  id: fihnjjcciajhdojfnbdddfaoknhalnja
+  version: "3.5.1"
+  sha256: "72a9a0b99f3255b9e637ecb5a4489cd8233e91a04fe131517a1ec445061b5089"
+"SponsorBlock":
+  id: mnjggcdmjocbbbhaepdhchncahnbgone
+  version: "6.1.6"
+  sha256: "5587fe2b6a9946101ca0dde7c6efe76a755c5ee5b6d6e63dfc48c7f736cdb4ff"
+"1clickVPN":
+  id: fcfhplploccackoneaefokcmbjfbkenj
+  version: "2.1.0"
+  sha256: "413dafaf45c1abc5c5d52296e011f9d9a03562b35f117d619b85ec0d4bda5c99"
+"1VPN":
+  id: akcocjjpkmlniicdeemdceeajlmoabhg
+  version: "4.1.6"
+  sha256: "48fdf71dee75b87799f097b3d5e221cd118f10d60ff8212a1513d2c386927aed"
+"uVPN":
+  id: jaoafpkngncfpfggjefnekilbkcpjdgp
+  version: "8.0.10"
+  sha256: "44df3940ac59f018717ac3acc15d4c8e8d813ce4e28a51c60eed49c935930a4f"
+"Browsec VPN - Free VPN for Chrome":
+  id: omghfjlpggmjjaagoclmmobgdodcjboh
+  version: "3.93.7"
+  sha256: "6808984fb7ad893d3e2270d7c7e638cac854dbd7e6749044769d67e7cb0602eb"
+"Unblock Youku":
+  id: pdnfnkhpgegpcingjbfihlkjeighnddk
+  version: "6.3.1"
+  sha256: "a333cb305f16cbf970c681a04dcfe2d425e48d8c72b69148e49ecac20d2e3b0f"
+"FoxyProxy":
+  id: gcknhkkoolaabfmlnjonogaaifnjlfnp
+  version: "9.7"
+  sha256: "4c69dd6c1307726115ed6c9786461de76c77cde47133e7d97837da2b4c9cfa20"
+"Allow CORS":
+  id: lhobafahddgcelffkeicbaginigeejlf
+  version: "0.2.3"
+  sha256: "c044437fb4b5441140ba9c914424fefa6f425be8a599b7a469ea940c29fa6a75"
+"User-Agent Switcher for Chrome":
+  id: djflhoibgkdhkhhcedjiklpkjnoahfmg
+  version: "2.0.2"
+  sha256: "f7576f9019b16b1981b5c50f22b735b5cc8dfc3024c9eca96816b266bc716344"
+"User-Agent Switcher and Manager":
+  id: bhchdcejhohfmigjafbampogmaanbfkg
+  version: "0.7.1"
+  sha256: "2ad59a563b034b1ff81c86dee074c1dbb6f8a301f8e5b37b87a3a44f9028ce81"
+"Postman Interceptor":
+  id: aicmkgpgakddgnaphhhpliifpcfhicfo
+  version: "3.2.1"
+  sha256: "31d6be5b5852de2b91b7f77db040eee014b534d209dfb2260ce8c30c6a79581b"
+"Web Developer":
+  id: bfbameneiokkgbdmiekhjnmfkcnldhhm
+  version: "3.0.1"
+  sha256: "15c464158e8bc176ef659af07592abfc46a75b24f3f706a105f0d1ba4ccaa1ed"
+"Fake Filler":
+  id: bnjjngeaknajbdcgpfkgnonkmififhfo
+  version: "4.1.0"
+  sha256: "9d6a15f4740f27b46569aee02e9e2afb565202a154fc37bd2922d21728830932"
+"SelectorsHub":
+  id: ndgimibanhlabgdgjcpbbndiehljcpfh
+  version: "5.8.4"
+  sha256: "0b611577bb87b13e099d7746fc5277c3a5a5603a1bc48104cebb2094205e208c"
+"SEOquake: On-Page SEO Checker":
+  id: akdgnmcogleenhbclghghlkkdndkjdjc
+  version: "4.2.0"
+  sha256: "f54b7ccebf65b1aa3313a9bb0f31736b614ba47ea32c681f707e00b7e71ac30f"
+"JSON Formatter":
+  id: bcjindcccaagfpapjjmafapmmgkkhgoa
+  version: "0.10.2"
+  sha256: "5e0ebde71ee60f997a9f5fc0850e6ae4a9f67006dbf662f00507f99e957c2b21"
+"Lighthouse":
+  id: blipmdconlkpinefehnmjammfjpmpbjk
+  version: "100.0.0.5"
+  sha256: "a2f4b8cb9abbfab0be1deadfffd7de6a318382fab207597059834231c8b95e65"
+"Google Analytics Debugger":
+  id: jnkmfdileelhofjcijamephohjechhna
+  version: "3.0"
+  sha256: "478e89a6b6d9dfdfbae393a776390877ec6d582129710996bd71cb38fab337e1"
+"SEO META in 1 CLICK":
+  id: bjogjfinolnhfhkbipphpdlldadpnmhc
+  version: "2.67"
+  sha256: "61f4a59ece7a8b9018eda4f026874cf1a83bef78452401132785ed6d6c5b3e8c"
+"html.to.design":
+  id: ldnheaepmnmbjjjahokphckbpgciiaed
+  version: "0.0.207"
+  sha256: "9a5ce610f40b659a65f532f428356e5f8037080ed73cca3402b9c49ddc63f1c6"
+"Clear Cache":
+  id: cppjkneekbjaeellbfkmgnhonkkjfpdn
+  version: "2.4.5.2"
+  sha256: "aa0743726956c7a31817215fbae49e0918b4f9d42c015edd7a7de492530c803f"
+"Ace Script":
+  id: mjbepbhonbojpoaenhckjocchgfiaofo
+  version: "1.2.6"
+  sha256: "79b245e1a743c9425e870f2a36b1f9bb07493392572d18be749463373c903fb8"
+"Cookie-Editor":
+  id: hlkenndednhfkekhgcdicdfddnkalmdm
+  version: "1.13.0"
+  sha256: "754a072a5b6327d27a0d4d6e299a8e28b2a5fafbd595ccb6bfcd4090ae8eb038"
+"Video Downloader Professional":
+  id: elicpjhcidhpjomhibiffojpinpmmpil
+  version: "2.1.7"
+  sha256: "95b494062862dd0f8bdd71cb9b07d50303c2f8344735f9b9c89997c3c48c5c92"
+"Video Downloader Plus":
+  id: hkdmdpdhfaamhgaojpelccmeehpfljgf
+  version: "4.0.0"
+  sha256: "0b9e0746dff3f352f3caa406f81efe77fa2eb10f1ffe198fb264855f8bb0e985"
+"Free Download Manager":
+  id: ahmpjcflkgiildlgicmcieglgoilbfdp
+  version: "3.3.1"
+  sha256: "fe2568aa528ba12ca34ee33d2a70ff77ed49da181ebc92a1fb4321a0d2f15917"
+"Video Download Helper":
+  id: lmjnegcaeklhafolokijcfjliaokphfk
+  version: "10.5.49.2"
+  sha256: "e393ee7c7e0c1c19b1a9b8f6c26840803a0af8f2764134f04b7dfe096a09c0da"
+"Picture-in-Picture Extension":
+  id: hkgfoiooedgoejojocmhlaklaeopbecg
+  version: "1.14"
+  sha256: "35a58d7c01fdcf22c856998ae7e71bef63d4677c2153937009bfbd040e396867"
+"h264ify":
+  id: aleakchihdccplidncghkekgioiakgal
+  version: "2.0.1"
+  sha256: "2007b59ca6741d4e9552b51f25a19010041a7e775020cd0add78607d75f8deec"
+"Volume Booster":
+  id: ejkiikneibegknkgimmihdpcbcedgmpo
+  version: "1.0.7"
+  sha256: "d92ea0a1ff9780a163e732b92ea0acd739473ec00674f80c4d5a217e6de084b0"
+"Volume Master":
+  id: jghecgabfgfdldnmbfkhmffcabddioke
+  version: "2.4.0"
+  sha256: "7522d2eca9bfe606dbd3bc446000803acf4405fbdb24696ac78ab0164295f795"
+"AHA Music - Song Finder for Browser":
+  id: dpacanjfikmhoddligfbehkpomnbgblf
+  version: "2.0.6"
+  sha256: "016701b93b625b9888924cf376bddb53a567e7c0ebd117fee8766f240c8c87f3"
+"Vimeo Record - Screen & Webcam Recorder":
+  id: ejfmffkmeigkphomnpabpdabfddeadcb
+  version: "2.0.8"
+  sha256: "ff52134ef3e12be7fc26aabbad16f58dcb9a057efac0d9d042ae687143208379"
+"Screen Recorder":
+  id: hniebljpgcogalllopnjokppmgbhaden
+  version: "3.3.1"
+  sha256: "64e7134ed91499681e26b3ed10e3b4973a434774d828fd4a3774397386cfd164"
+"Screen Recorder for Google Chrome":
+  id: eclbecdgdoahkliaijlpkigldlkojjdn
+  version: "4.3.11"
+  sha256: "4589fbcd3436d1608ab9cb01d202f1ea8ac481ad39713fbada888d2da3874ec3"
+"Lightshot":
+  id: mbniclmhobmnbdlbpiphghaielnnpgdp
+  version: "7.0.1"
+  sha256: "4b6df74a3ed3a0656b1de26becc4a8428a2f777e07930424ea1bb14db6cca09f"
+"Read Aloud":
+  id: hdhinadidafjejdhmfkjgnolgimiaplp
+  version: "2.24.0"
+  sha256: "94fb6a139a423e32e385868c310b72db4763366f2112627ca2e078bfb9eebac1"
+"Fathom AI Note Taker":
+  id: nhocmlminaplaendbabmoemehbpgdemn
+  version: "0.2.13.0"
+  sha256: "abbfe038f776c0d3128f9be582c3e7080dbfc52d6b1089afdfa635eb72cfcf0c"
+"ProctorExam Activity Sharing":
+  id: digojkgonhgmnohbapdfjllpnmjmdhpg
+  version: "1.8.1"
+  sha256: "0800d3672cc727bc7e789b95e1ce75b4affc6eddd9fc1deb335dd7f090a39e39"
+"Save to Pinterest":
+  id: gpdjojdkbbmdfjfahjcgigfpmkopogic
+  version: "6.16.2"
+  sha256: "05e6aff5abe3cf4febab588ab17796d47ad08a7a40325ddb28992fe2c84b8686"
+"Send from Gmail (by Google)":
+  id: pgphcomnlaojlmmcjmiddhdapjpbgeoc
+  version: "1.17"
+  sha256: "2571f2cb8d836a5514ae395f8442fb548f44777d8c83f3d3581e010db78d8cb1"
+"Scopus Document Download Manager":
+  id: ojplelelocihfchkdaebocpankipadmp
+  version: "4.00"
+  sha256: "e219ce867b97ba31aaf17fffc453d70ee43752b9b42fee343605178236b99f52"
+"Save to Google Drive":
+  id: gmbmikajjgmnabiglmofipeabaddhgne
+  version: "3.0.9"
+  sha256: "958036004cc28d1fa6fa29bb83eac721aa70ea7236974ccb257eb154e37f5dc2"
+"OneNote Web Clipper":
+  id: gojbdfnpnhogfdgjbigejoaolejmgdhk
+  version: "3.11.3"
+  sha256: "f79a97bd252e4c2ea73b23d7ddd2119d58f2d8c5c4f8fe391e06e6e55bbc98d3"
+"Notion Web Clipper":
+  id: knheggckgoiihginacbkhaalnibhilkk
+  version: "0.2.19"
+  sha256: "daea47142fc88151ff0ad3f37f793ab2250b61ef2205d3f4ff777d6cfa5b31b9"
+"PrintFriendly":
+  id: ohlencieiipommannpdfcmfdpjjmeolj
+  version: "7.2.10"
+  sha256: "9b90428fa0fec35a3df582f0cf911ba122d6ff7129b10e47d81d22419e246f2b"
+"Kami for Google Chrome":
+  id: ecnphlgnajanjnkcmbpancdjoidceilk
+  version: "2.0.25381"
+  sha256: "dc22339bba79690941db8213b8f1f03b64d3cec9348b4ea4de8c1497e544231f"
+"Scribbr Citation Generator":
+  id: epbobagokhieoonfplomdklollconnkl
+  version: "43.22"
+  sha256: "1ee2fd89571ba9e92a8fc70267b4a43de73fbf4d44056c94f61319e5ac89bfd4"
+"The Camelizer":
+  id: ghnomdcacenbmilgjigehppbamfndblo
+  version: "3.0.16"
+  sha256: "1835875342cf8c40e6ce6989d4c79278a75cf42bc00095d6fde88e7c4cc1fad3"
+"QR Code Generator":
+  id: afpbjjgbdimpioenaedcjgkaigggcdpp
+  version: "11.3.2"
+  sha256: "5264c3abbdbf2d713b910bf578feaea1cc4cdd87939355f8c7e5ff31ae98ddf5"
+"The QR Code Generator":
+  id: oijdcdmnjjgnnhgljmhkjlablaejfeeb
+  version: "2.2.1"
+  sha256: "2fd7ec73500ccbe5f8b12f08ade1a1b33f8749edab1bd0a4218ae3c7df95e8e1"
+"Exporter for Followers":
+  id: nmnhoiehpdfllknopjkhjgoddkpnmfpa
+  version: "2.3.2"
+  sha256: "959434d02af6da6a47c4c45682616ab9b43ac7c8bf2ce42cc648a6920ada1054"
+"GMass":
+  id: ehomdgjhgmbidokdgicgmdiedadncbgf
+  version: "6.0.45"
+  sha256: "c887b25f9b26658764f2b5d341ebc42e9eeb6e8207556e0bda3a1e90ba887e08"
+"Easy Auto Refresh":
+  id: aabcgdmkeabbnleenpncegpcngjpnjkc
+  version: "6.5"
+  sha256: "90fa845e1822d1e64e6285d667cb07aa421bb28cbbf9b2330bdd51abf8afaf62"
+"Auto Refresh Plus":
+  id: hgeljhfekpckiiplhkigfehkdpldcggm
+  version: "9.1.8"
+  sha256: "f3e492f3d401c6a1d4b4ee7ceab362e755be645ebd542c28b7cc242cc1fcd057"
+"OneTab":
+  id: chphlpgkkbolifaimnlloiipkdnihall
+  version: "2.21"
+  sha256: "8c28cfa9f4a7e6cbb727b00448ae580fba3723a5fa612b46f8f9429a9d10776a"
+"Session Buddy":
+  id: edacconmaakjimmfgnblocblbcdcpbko
+  version: "4.1.2"
+  sha256: "5d94b0257dd24bc5df058d6edc91513d5482c26d6c300e9434e72a965ed272aa"
+"Open Multiple URLs":
+  id: oifijhaokejakekmnjmphonojcfkpbbh
+  version: "1.7.5"
+  sha256: "46730253444f5c2e9c11112ba83109d0aaf48d1dfe410de8f607326cd1c5e5dd"
+"New Tab Redirect":
+  id: icpgjfneehieebagbmdbhnlpiopdcmna
+  version: "3.1.6"
+  sha256: "669846885c35e94806c9304fdeb2ceab3e2c4ed6ca0ed612ef982dafa5f111f6"
+"Dualless":
+  id: bgdpkilkheacbboffppjgceiplijhfpd
+  version: "0.4.1"
+  sha256: "73b632ce07dfd7628bdb07fa7e66dfa9f83ad129362978ca75d951b3d30b296d"
+"Desktop app for Google Tasks":
+  id: lpofefdiokgmcdnnaigddelnfamkkghi
+  version: "0.5.4"
+  sha256: "318828c34c25db77c75bb34f65d9b90146cc8c7b7223f397394d693858fba166"
+"Focus To-Do":
+  id: ngceodoilcgpmkijopinlkmohnfifjfb
+  version: "7.1.1"
+  sha256: "8f2661d9ddaefc0c8124a022b776186a9e89b66aad5561d6985f1cba49182d92"
+"Keep Awake":
+  id: bijihlabcfdnabacffofojgmehjdielb
+  version: "1.9"
+  sha256: "5e868cf3053a2b3266c71761758b42b328a5b57c1d2c09bcb9267b4d51b17493"
+"Keep Awake your System or Display":
+  id: kioaomfokioenhackhaijiebhhkkcojo
+  version: "1.2.32"
+  sha256: "2d3dbad2123556d7823e8966cc1cb8cf039b35dcf7172d362f8162f1256c31b1"
+"iCloud Bookmarks":
+  id: fkepacicchenbjecpbpbclokcabebhah
+  version: "2.3.40"
+  sha256: "d8aa059c22f896a137a9a0fac2fb00f30ff4cbe4fa6e098f17dd8bd73e8b7458"
+"Ecosia":
+  id: eedlgdlajadkbbjoobobefphmfkcchfk
+  version: "7.7.0"
+  sha256: "743df79b13898c86302ee2b956cccaed15a95f517b1945a3364ddf92feba0e66"
+"Morpheon Dark":
+  id: mafbdhjdkjnoafhfelkjpchpaepjknad
+  version: "6.3"
+  sha256: "146a9fe2ccd144110fe927ff1906a9509b567a5a43ea34c69618af4fa123eedd"
+"Dark Theme for Google Chrome":
+  id: annfbnbieaamhaimclajlajpijgkdblo
+  version: "1.0.8"
+  sha256: "82ada569b398dd34828e313a2bd04774736bd60143832a51c6d18eee5c1c70c4"
+"Snake":
+  id: oppflpnigmhkldmdmmbnopidlhahanji
+  version: "2.2.40"
+  sha256: "e79e3117ede0d8f76bfe1ee2c7c9cb6d992dc4f43a419ccd55dc4fd2a50a523d"
+"Ultimate Car Driving Game":
+  id: aomkpefnllinimbhddlfhelelngakbbn
+  version: "3.0"
+  sha256: "72369ceff78c46f963e72df444993ce3d549848e7a3b34a6f395e2dd24dd7af5"
+"Password Alert":
+  id: noondiphcddnnabmjcihcjfbhfklnnep
+  version: "1.38.4"
+  sha256: "541da858794b5314f228d53f38bc92404ec7070580b41165fd1881940605f7a0"
+"Microsoft Single Sign On":
+  id: ppnbnpeolgkicgegkbkbjmhlideopiji
+  version: "1.0.11"
+  sha256: "ac38efde7d1126b0715db1cd7e799b5ab785aa1d90a39dc0661fee547e50424a"
+"Trust Wallet":
+  id: egjidjbpglichdcondbcbdnbeeppgdph
+  version: "26.39.3"
+  sha256: "958e2b9162dd7c06090f51c79332596b2a0a9fcb4a03d4aa9327fb0543b907f8"
+"Authenticator":
+  id: bhghoamapcdpbohphigoooaddinpkbai
+  version: "8.0.1"
+  sha256: "cf21d578ba3bb30af6c4ca2cb495e89a13296aca0a3e1467d957351d7940bbb2"
+"Microsoft Defender Browser Protection":
+  id: bkbeeeffjjeopflfhgeknacdieedcoml
+  version: "1.664"
+  sha256: "42bf7dc86da9385a34d654fac7235f6167c3c82d24bb547c6a028a8f512444fb"
+"eID Chrome Extension":
+  id: bkbdaodnaecdijpajecpncpdomgcoakc
+  version: "1.0.3"
+  sha256: "e0a3e89e7873206c16b18b14f1fed24738c51696b192f1e704fb4157c927dbd1"
+"Privacy Test":
+  id: pdabfienifkbhoihedcgeogidfmibmhp
+  version: "10.7"
+  sha256: "b32f80ff7183d57a522e46191add5cd2cab192ef54bc6a2ebbeb302eb1353d90"
+"Chrome Remote Desktop":
+  id: inomeogfingihgjfjlpeplalcfajhgai
+  version: "2.1"
+  sha256: "389981305efeff65a5e2dbe3b2c91cd89a68f29260e70b1c8a5a315864fe8da2"
+"Chromebook Recovery Utility":
+  id: pocpnlppkickgojjlmhdmidojbmbodfm
+  version: "0.2.3"
+  sha256: "2f62e68d5619cb9081998bcb0884cd0d88545ce18369443c5ee5a233182594c3"
+"Mobility Print":
+  id: ndakideadaglgpbblmppfonobpdgggin
+  version: "1.4.5"
+  sha256: "9f0a664d6fe05ee198e9d2d66c12de783de97e2cbe08cb4606cc5090277bf559"
+"LINE":
+  id: ophjlpahpchlmihnnnihgmmeilfjmjjc
+  version: "3.7.2"
+  sha256: "3722ab02edb0aba49c229399ee8df5b4b5a38c60b76efadadfbae395015eb859"

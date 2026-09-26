@@ -25,7 +25,7 @@ from pathlib import Path
 CHROME_BIN = Path("/opt/chrome/browser/chrome")
 DRIVER_BIN = Path("/opt/chrome/driver/chromedriver")
 EXT_ROOT = Path("/opt/extensions")
-POOL_PATH = Path("/app/rest-exc-challenge/extensions.yml")
+LOCK_PATH = Path("/app/rest-exc-challenge/extensions.lock.yml")
 
 
 class GateFailed(Exception):
@@ -91,13 +91,13 @@ def gate_pool_is_unpacked() -> str:
     """Every id the API will publish must have been unpacked into the image."""
     import yaml  # available: PyYAML is in requirements.txt
 
-    if not POOL_PATH.is_file():
-        raise GateFailed(f"{POOL_PATH} is missing - the API cannot publish a pool")
+    if not LOCK_PATH.is_file():
+        raise GateFailed(f"{LOCK_PATH} is missing - the API cannot stage a round")
 
-    spec = yaml.safe_load(POOL_PATH.read_text(encoding="utf-8")) or {}
-    pool = [e["id"] for e in (spec.get("pool") or []) if e.get("id")]
+    lock = yaml.safe_load(LOCK_PATH.read_text(encoding="utf-8")) or {}
+    pool = [e["id"] for e in lock.values() if isinstance(e, dict) and e.get("id")]
     if not pool:
-        raise GateFailed(f"{POOL_PATH} has an empty pool")
+        raise GateFailed(f"{LOCK_PATH} has no ids")
 
     on_disk = set(unpacked_ids())
     absent = [ext_id for ext_id in pool if ext_id not in on_disk]

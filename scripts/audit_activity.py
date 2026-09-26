@@ -45,7 +45,6 @@ ARGS = _ap.parse_args()
 # are taken above, then argv is hidden from it.
 sys.argv = sys.argv[:1]
 
-import yaml  # noqa: E402
 
 from api.config import config  # noqa: E402
 from api.endpoints.challenge._browser import BrowserSettings, ChromeSession  # noqa: E402
@@ -238,10 +237,7 @@ def main() -> int:
     # drifted to `/_web/index.html`, which renders empty, and every audit
     # measured a blank page.
     page_url = bait_page_url()
-    names = {
-        e["id"]: e["name"]
-        for e in yaml.safe_load(Path(config.challenge.pool_path).read_text())["pool"]
-    }
+    names = {_id: _name for _name, _id in load_name_to_id().items()}
 
     def run(ext_ids: list[str], tag: str) -> dict | None:
         try:

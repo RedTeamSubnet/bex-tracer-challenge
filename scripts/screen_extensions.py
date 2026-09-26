@@ -132,13 +132,13 @@ def format_row(r: dict) -> str:
 def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--pool", default=str(repo_root / "src/exc_challenge/challenge/extensions.yml"))
+    ap.add_argument("--lock", default=str(repo_root / "src/exc_challenge/challenge/extensions.lock.yml"))
     ap.add_argument("--json", action="store_true", help="emit raw json instead")
     args = ap.parse_args()
 
-    spec = yaml.safe_load(Path(args.pool).read_text())
-    cft_version = spec.get("chrome_for_testing_version", _DEFAULT_CFT_VERSION)
-    pool = spec.get("pool") or []
+    lock = yaml.safe_load(Path(args.lock).read_text()) or {}
+    cft_version = _DEFAULT_CFT_VERSION
+    pool = [{"name": name, **entry} for name, entry in lock.items()]
     if not pool:
         print("ERROR: empty pool", file=sys.stderr)
         return 1

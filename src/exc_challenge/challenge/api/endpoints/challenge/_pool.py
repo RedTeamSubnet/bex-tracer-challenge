@@ -6,8 +6,10 @@ are not stable at run time either: `fetch_extensions.py` does not inject
 The name is the answer key - it is what `GET /task` publishes and what a
 miner's `detect_<group>()` returns booleans for.
 
-Ids still exist here, but only to tell `_browser.py` which unpacked directory
-to stage. They stop at that boundary.
+`extensions.yml` is public and holds only names and groups. The store ids
+live in `extensions.lock.yml` beside it, which is private: it is not in the
+public repository, only in the image. They are needed for one thing - telling
+`_browser.py` which unpacked directory to stage - and stop at that boundary.
 
 Only the `pool:` block is published. `rejected:` entries stay in the file so
 nobody re-adds them, and must never reach a miner or a round.
@@ -45,6 +47,9 @@ _UNSAFE_JS_KEYS = frozenset({"__proto__"})
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
+LOCK_FILE_NAME = "extensions.lock.yml"
+
+
 def _read_pool_entries() -> list[dict[str, Any]]:
     """The `pool:` block, raw. Shared by every loader so there is one place
     that knows where `extensions.yml` lives and what "empty" means."""
@@ -59,7 +64,7 @@ def _read_pool_entries() -> list[dict[str, Any]]:
     _entries = [
         _entry
         for _entry in (_spec.get("pool") or [])
-        if isinstance(_entry, dict) and _entry.get("id")
+        if isinstance(_entry, dict)
     ]
 
     if not _entries:
@@ -81,7 +86,7 @@ def load_pool_names() -> tuple[str, ...]:
         _name = _entry.get("name")
         if not _name or not str(_name).strip():
             raise RuntimeError(
-                f"{config.challenge.pool_path}: pool entry '{_entry['id']}' "
+                f"{config.challenge.pool_path}: pool entry {_entry!r} "
                 f"has no name - the name is the published answer key"
             )
         _name = str(_name)
@@ -93,16 +98,15 @@ def load_pool_names() -> tuple[str, ...]:
             )
         if _CONTROL_CHARS.search(_name):
             raise RuntimeError(
-                f"{config.challenge.pool_path}: name for '{_entry['id']}' has a "
-                f"control character; a name is published to miners and has to be "
-                f"typeable"
+                f"{config.challenge.pool_path}: name {_name!r} has a control "
+                f"character; a name is published to miners and has to be typeable"
             )
         if _name != _name.strip():
             # Leading/trailing space is invisible in yaml and in the published
             # JSON, but the miner's key would have to match it exactly.
             raise RuntimeError(
-                f"{config.challenge.pool_path}: name for '{_entry['id']}' has "
-                f"leading or trailing whitespace: {_name!r}"
+                f"{config.challenge.pool_path}: name {_name!r} has leading or "
+                f"trailing whitespace"
             )
         _names.append(_name)
 
@@ -119,31 +123,33 @@ def load_pool_names() -> tuple[str, ...]:
 
 @functools.lru_cache(maxsize=1)
 def load_name_to_id() -> dict[str, str]:
-    """name -> store id, for staging only.
+    """name -> store id, for staging only, from the private lock file.
 
     The one place the mapping is needed is `_browser.run_round`, which has to
     know which unpacked directory under `/opt/extensions` a name refers to.
     Nothing else should call this, and the result must never reach a response
     body or the bait page.
     """
-    # Validate before building, not after. Names are the keys of the dict
-    # below, so a duplicate would collapse two entries into one and the
-    # surviving id would look perfectly unique afterwards - the check further
-    # down cannot see what the dict already swallowed. `load_pool_names()`
-    # raises on duplicates, so calling it first makes this safe no matter which
-    # loader a caller reaches for first. Both are cached, so it costs nothing.
-    load_pool_names()
+    # Validates the names first, so every key below is a unique, published name.
+    _names = load_pool_names()
 
-    _by_name = {}
-    for _entry in _read_pool_entries():
-        _by_name[str(_entry["name"])] = _entry["id"]
+    _lock_path = Path(config.challenge.pool_path).with_name(LOCK_FILE_NAME)
+    if not _lock_path.is_file():
+        raise RuntimeError(
+            f"{_lock_path} not found - it is private and not in the public "
+            f"repository. Use the published image, which carries it."
+        )
+    _lock = yaml.safe_load(_lock_path.read_text(encoding="utf-8")) or {}
+
+    _missing = [_n for _n in _names if not (_lock.get(_n) or {}).get("id")]
+    if _missing:
+        raise RuntimeError(f"{_lock_path} has no id for: {_missing}")
+    _by_name = {_n: str(_lock[_n]["id"]) for _n in _names}
 
     _ids = list(_by_name.values())
     _duplicates = [_i for _i, _c in Counter(_ids).items() if _c > 1]
     if _duplicates:
-        raise RuntimeError(
-            f"{config.challenge.pool_path} has duplicate ids: {sorted(_duplicates)}"
-        )
+        raise RuntimeError(f"{_lock_path} has duplicate ids: {sorted(_duplicates)}")
 
     return _by_name
 
@@ -163,8 +169,7 @@ def load_pool_groups() -> dict[str, tuple[str, ...]]:
         _group = _entry.get("group")
         if not _group:
             raise RuntimeError(
-                f"{config.challenge.pool_path}: pool entry '{_entry['id']}' "
-                f"has no group"
+                f"{config.challenge.pool_path}: '{_entry.get('name')}' has no group"
             )
         if not _VALID_GROUP_NAME.match(_group):
             raise RuntimeError(
@@ -176,4 +181,4 @@ def load_pool_groups() -> dict[str, tuple[str, ...]]:
     return {_name: tuple(_ids) for _name, _ids in _groups.items()}
 
 
-__all__ = ["load_pool_names", "load_name_to_id", "load_pool_groups"]
+__all__ = ["LOCK_FILE_NAME", "load_pool_names", "load_name_to_id", "load_pool_groups"]

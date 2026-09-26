@@ -7,726 +7,104 @@ chrome_for_testing_version: "152.0.7977.54"
 ## or act only from the toolbar. Finding what is findable is the miner's job,
 ## and scores are relative, so the ones nobody can find cost everyone equally.
 ##
-## IDs are public by design: Chrome assigns every extension a new ID each
-## round, so a store ID cannot be used for detection.
+## Names and groups only. The store ids and version pins are in
+## extensions.lock.yml, which is not public - use the published image.
 
 pool:
   ## -- ad_blockers -----------------------------------------
-  - id: ddkjiahejlhfcafbddmgiahcphecmpfh
-    name: "uBlock Origin Lite"
-    group: ad_blockers
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: cfhdojbkjhnklbpkdaibdccddilifddb
-    name: "Adblock Plus - free ad blocker"
-    group: ad_blockers
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bgnkhhnnamicmpeenaelnjfhikgbkllg
-    name: "AdGuard AdBlocker"
-    group: ad_blockers
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ohahllgiabjaoigichmmfljhkcfikeof
-    name: "AdBlocker Ultimate"
-    group: ad_blockers
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: cmedhionkhpnakcndndgjdbohmhepckk
-    name: "Adblock for Youtube"
-    group: ad_blockers
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: jpkfgepcmmchgfbjblnodjhldacghenp
-    name: "Pie Adblock - A Powerful Free Ad Blocker"
-    group: ad_blockers
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
-    name: "Privacy Badger"
-    group: ad_blockers
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: fihnjjcciajhdojfnbdddfaoknhalnja
-    name: "I don't care about cookies"
-    group: ad_blockers
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: mnjggcdmjocbbbhaepdhchncahnbgone
-    name: "SponsorBlock"
-    group: ad_blockers
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
+  - { name: "uBlock Origin Lite", group: ad_blockers }
+  - { name: "Adblock Plus - free ad blocker", group: ad_blockers }
+  - { name: "AdGuard AdBlocker", group: ad_blockers }
+  - { name: "AdBlocker Ultimate", group: ad_blockers }
+  - { name: "Adblock for Youtube", group: ad_blockers }
+  - { name: "Pie Adblock - A Powerful Free Ad Blocker", group: ad_blockers }
+  - { name: "Privacy Badger", group: ad_blockers }
+  - { name: "I don't care about cookies", group: ad_blockers }
+  - { name: "SponsorBlock", group: ad_blockers }
   ## -- network_vpn -----------------------------------------
-  - id: fcfhplploccackoneaefokcmbjfbkenj
-    name: "1clickVPN"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: akcocjjpkmlniicdeemdceeajlmoabhg
-    name: "1VPN"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: jaoafpkngncfpfggjefnekilbkcpjdgp
-    name: "uVPN"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: omghfjlpggmjjaagoclmmobgdodcjboh
-    name: "Browsec VPN - Free VPN for Chrome"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: pdnfnkhpgegpcingjbfihlkjeighnddk
-    name: "Unblock Youku"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: gcknhkkoolaabfmlnjonogaaifnjlfnp
-    name: "FoxyProxy"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: lhobafahddgcelffkeicbaginigeejlf
-    name: "Allow CORS"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: djflhoibgkdhkhhcedjiklpkjnoahfmg
-    name: "User-Agent Switcher for Chrome"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bhchdcejhohfmigjafbampogmaanbfkg
-    name: "User-Agent Switcher and Manager"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: aicmkgpgakddgnaphhhpliifpcfhicfo
-    name: "Postman Interceptor"
-    group: network_vpn
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
+  - { name: "1clickVPN", group: network_vpn }
+  - { name: "1VPN", group: network_vpn }
+  - { name: "uVPN", group: network_vpn }
+  - { name: "Browsec VPN - Free VPN for Chrome", group: network_vpn }
+  - { name: "Unblock Youku", group: network_vpn }
+  - { name: "FoxyProxy", group: network_vpn }
+  - { name: "Allow CORS", group: network_vpn }
+  - { name: "User-Agent Switcher for Chrome", group: network_vpn }
+  - { name: "User-Agent Switcher and Manager", group: network_vpn }
+  - { name: "Postman Interceptor", group: network_vpn }
   ## -- developer_tools -------------------------------------
-  - id: bfbameneiokkgbdmiekhjnmfkcnldhhm
-    name: "Web Developer"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bnjjngeaknajbdcgpfkgnonkmififhfo
-    name: "Fake Filler"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ndgimibanhlabgdgjcpbbndiehljcpfh
-    name: "SelectorsHub"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: akdgnmcogleenhbclghghlkkdndkjdjc
-    name: "SEOquake: On-Page SEO Checker"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bcjindcccaagfpapjjmafapmmgkkhgoa
-    name: "JSON Formatter"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: blipmdconlkpinefehnmjammfjpmpbjk
-    name: "Lighthouse"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: jnkmfdileelhofjcijamephohjechhna
-    name: "Google Analytics Debugger"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bjogjfinolnhfhkbipphpdlldadpnmhc
-    name: "SEO META in 1 CLICK"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ldnheaepmnmbjjjahokphckbpgciiaed
-    name: "html.to.design"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: cppjkneekbjaeellbfkmgnhonkkjfpdn
-    name: "Clear Cache"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: mjbepbhonbojpoaenhckjocchgfiaofo
-    name: "Ace Script"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: hlkenndednhfkekhgcdicdfddnkalmdm
-    name: "Cookie-Editor"
-    group: developer_tools
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
+  - { name: "Web Developer", group: developer_tools }
+  - { name: "Fake Filler", group: developer_tools }
+  - { name: "SelectorsHub", group: developer_tools }
+  - { name: "SEOquake: On-Page SEO Checker", group: developer_tools }
+  - { name: "JSON Formatter", group: developer_tools }
+  - { name: "Lighthouse", group: developer_tools }
+  - { name: "Google Analytics Debugger", group: developer_tools }
+  - { name: "SEO META in 1 CLICK", group: developer_tools }
+  - { name: "html.to.design", group: developer_tools }
+  - { name: "Clear Cache", group: developer_tools }
+  - { name: "Ace Script", group: developer_tools }
+  - { name: "Cookie-Editor", group: developer_tools }
   ## -- media_video -----------------------------------------
-  - id: elicpjhcidhpjomhibiffojpinpmmpil
-    name: "Video Downloader Professional"
-    group: media_video
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: hkdmdpdhfaamhgaojpelccmeehpfljgf
-    name: "Video Downloader Plus"
-    group: media_video
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ahmpjcflkgiildlgicmcieglgoilbfdp
-    name: "Free Download Manager"
-    group: media_video
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: lmjnegcaeklhafolokijcfjliaokphfk
-    name: "Video Download Helper"
-    group: media_video
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: hkgfoiooedgoejojocmhlaklaeopbecg
-    name: "Picture-in-Picture Extension"
-    group: media_video
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: aleakchihdccplidncghkekgioiakgal
-    name: "h264ify"
-    group: media_video
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ejkiikneibegknkgimmihdpcbcedgmpo
-    name: "Volume Booster"
-    group: media_video
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: jghecgabfgfdldnmbfkhmffcabddioke
-    name: "Volume Master"
-    group: media_video
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: dpacanjfikmhoddligfbehkpomnbgblf
-    name: "AHA Music - Song Finder for Browser"
-    group: media_video
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
+  - { name: "Video Downloader Professional", group: media_video }
+  - { name: "Video Downloader Plus", group: media_video }
+  - { name: "Free Download Manager", group: media_video }
+  - { name: "Video Download Helper", group: media_video }
+  - { name: "Picture-in-Picture Extension", group: media_video }
+  - { name: "h264ify", group: media_video }
+  - { name: "Volume Booster", group: media_video }
+  - { name: "Volume Master", group: media_video }
+  - { name: "AHA Music - Song Finder for Browser", group: media_video }
   ## -- capture_recording -----------------------------------
-  - id: ejfmffkmeigkphomnpabpdabfddeadcb
-    name: "Vimeo Record - Screen & Webcam Recorder"
-    group: capture_recording
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: hniebljpgcogalllopnjokppmgbhaden
-    name: "Screen Recorder"
-    group: capture_recording
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: eclbecdgdoahkliaijlpkigldlkojjdn
-    name: "Screen Recorder for Google Chrome"
-    group: capture_recording
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: mbniclmhobmnbdlbpiphghaielnnpgdp
-    name: "Lightshot"
-    group: capture_recording
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: hdhinadidafjejdhmfkjgnolgimiaplp
-    name: "Read Aloud"
-    group: capture_recording
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: nhocmlminaplaendbabmoemehbpgdemn
-    name: "Fathom AI Note Taker"
-    group: capture_recording
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: digojkgonhgmnohbapdfjllpnmjmdhpg
-    name: "ProctorExam Activity Sharing"
-    group: capture_recording
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
+  - { name: "Vimeo Record - Screen & Webcam Recorder", group: capture_recording }
+  - { name: "Screen Recorder", group: capture_recording }
+  - { name: "Screen Recorder for Google Chrome", group: capture_recording }
+  - { name: "Lightshot", group: capture_recording }
+  - { name: "Read Aloud", group: capture_recording }
+  - { name: "Fathom AI Note Taker", group: capture_recording }
+  - { name: "ProctorExam Activity Sharing", group: capture_recording }
   ## -- save_research ---------------------------------------
-  - id: gpdjojdkbbmdfjfahjcgigfpmkopogic
-    name: "Save to Pinterest"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: pgphcomnlaojlmmcjmiddhdapjpbgeoc
-    name: "Send from Gmail (by Google)"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ojplelelocihfchkdaebocpankipadmp
-    name: "Scopus Document Download Manager"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: gmbmikajjgmnabiglmofipeabaddhgne
-    name: "Save to Google Drive"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: gojbdfnpnhogfdgjbigejoaolejmgdhk
-    name: "OneNote Web Clipper"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: knheggckgoiihginacbkhaalnibhilkk
-    name: "Notion Web Clipper"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ohlencieiipommannpdfcmfdpjjmeolj
-    name: "PrintFriendly"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ecnphlgnajanjnkcmbpancdjoidceilk
-    name: "Kami for Google Chrome"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: epbobagokhieoonfplomdklollconnkl
-    name: "Scribbr Citation Generator"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ghnomdcacenbmilgjigehppbamfndblo
-    name: "The Camelizer"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: afpbjjgbdimpioenaedcjgkaigggcdpp
-    name: "QR Code Generator"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: oijdcdmnjjgnnhgljmhkjlablaejfeeb
-    name: "The QR Code Generator"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: nmnhoiehpdfllknopjkhjgoddkpnmfpa
-    name: "Exporter for Followers"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ehomdgjhgmbidokdgicgmdiedadncbgf
-    name: "GMass"
-    group: save_research
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
+  - { name: "Save to Pinterest", group: save_research }
+  - { name: "Send from Gmail (by Google)", group: save_research }
+  - { name: "Scopus Document Download Manager", group: save_research }
+  - { name: "Save to Google Drive", group: save_research }
+  - { name: "OneNote Web Clipper", group: save_research }
+  - { name: "Notion Web Clipper", group: save_research }
+  - { name: "PrintFriendly", group: save_research }
+  - { name: "Kami for Google Chrome", group: save_research }
+  - { name: "Scribbr Citation Generator", group: save_research }
+  - { name: "The Camelizer", group: save_research }
+  - { name: "QR Code Generator", group: save_research }
+  - { name: "The QR Code Generator", group: save_research }
+  - { name: "Exporter for Followers", group: save_research }
+  - { name: "GMass", group: save_research }
   ## -- tabs_workflow ---------------------------------------
-  - id: aabcgdmkeabbnleenpncegpcngjpnjkc
-    name: "Easy Auto Refresh"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: hgeljhfekpckiiplhkigfehkdpldcggm
-    name: "Auto Refresh Plus"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: chphlpgkkbolifaimnlloiipkdnihall
-    name: "OneTab"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: edacconmaakjimmfgnblocblbcdcpbko
-    name: "Session Buddy"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: oifijhaokejakekmnjmphonojcfkpbbh
-    name: "Open Multiple URLs"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: icpgjfneehieebagbmdbhnlpiopdcmna
-    name: "New Tab Redirect"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bgdpkilkheacbboffppjgceiplijhfpd
-    name: "Dualless"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: lpofefdiokgmcdnnaigddelnfamkkghi
-    name: "Desktop app for Google Tasks"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ngceodoilcgpmkijopinlkmohnfifjfb
-    name: "Focus To-Do"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bijihlabcfdnabacffofojgmehjdielb
-    name: "Keep Awake"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: kioaomfokioenhackhaijiebhhkkcojo
-    name: "Keep Awake your System or Display"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: fkepacicchenbjecpbpbclokcabebhah
-    name: "iCloud Bookmarks"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: eedlgdlajadkbbjoobobefphmfkcchfk
-    name: "Ecosia"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: mafbdhjdkjnoafhfelkjpchpaepjknad
-    name: "Morpheon Dark"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: annfbnbieaamhaimclajlajpijgkdblo
-    name: "Dark Theme for Google Chrome"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: oppflpnigmhkldmdmmbnopidlhahanji
-    name: "Snake"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: aomkpefnllinimbhddlfhelelngakbbn
-    name: "Ultimate Car Driving Game"
-    group: tabs_workflow
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
+  - { name: "Easy Auto Refresh", group: tabs_workflow }
+  - { name: "Auto Refresh Plus", group: tabs_workflow }
+  - { name: "OneTab", group: tabs_workflow }
+  - { name: "Session Buddy", group: tabs_workflow }
+  - { name: "Open Multiple URLs", group: tabs_workflow }
+  - { name: "New Tab Redirect", group: tabs_workflow }
+  - { name: "Dualless", group: tabs_workflow }
+  - { name: "Desktop app for Google Tasks", group: tabs_workflow }
+  - { name: "Focus To-Do", group: tabs_workflow }
+  - { name: "Keep Awake", group: tabs_workflow }
+  - { name: "Keep Awake your System or Display", group: tabs_workflow }
+  - { name: "iCloud Bookmarks", group: tabs_workflow }
+  - { name: "Ecosia", group: tabs_workflow }
+  - { name: "Morpheon Dark", group: tabs_workflow }
+  - { name: "Dark Theme for Google Chrome", group: tabs_workflow }
+  - { name: "Snake", group: tabs_workflow }
+  - { name: "Ultimate Car Driving Game", group: tabs_workflow }
   ## -- identity_security -----------------------------------
-  - id: noondiphcddnnabmjcihcjfbhfklnnep
-    name: "Password Alert"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ppnbnpeolgkicgegkbkbjmhlideopiji
-    name: "Microsoft Single Sign On"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: egjidjbpglichdcondbcbdnbeeppgdph
-    name: "Trust Wallet"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bhghoamapcdpbohphigoooaddinpkbai
-    name: "Authenticator"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bkbeeeffjjeopflfhgeknacdieedcoml
-    name: "Microsoft Defender Browser Protection"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: bkbdaodnaecdijpajecpncpdomgcoakc
-    name: "eID Chrome Extension"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: pdabfienifkbhoihedcgeogidfmibmhp
-    name: "Privacy Test"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: inomeogfingihgjfjlpeplalcfajhgai
-    name: "Chrome Remote Desktop"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: pocpnlppkickgojjlmhdmidojbmbodfm
-    name: "Chromebook Recovery Utility"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ndakideadaglgpbblmppfonobpdgggin
-    name: "Mobility Print"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
-
-  - id: ophjlpahpchlmihnnnihgmmeilfjmjjc
-    name: "LINE"
-    group: identity_security
-    tier: unverified
-    version: null
-    sha256: null
-    time_to_stable_ms: null
+  - { name: "Password Alert", group: identity_security }
+  - { name: "Microsoft Single Sign On", group: identity_security }
+  - { name: "Trust Wallet", group: identity_security }
+  - { name: "Authenticator", group: identity_security }
+  - { name: "Microsoft Defender Browser Protection", group: identity_security }
+  - { name: "eID Chrome Extension", group: identity_security }
+  - { name: "Privacy Test", group: identity_security }
+  - { name: "Chrome Remote Desktop", group: identity_security }
+  - { name: "Chromebook Recovery Utility", group: identity_security }
+  - { name: "Mobility Print", group: identity_security }
+  - { name: "LINE", group: identity_security }

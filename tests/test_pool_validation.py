@@ -15,12 +15,14 @@ import textwrap
 from pathlib import Path
 
 import pytest
+import yaml
 
 _CHALLENGE = Path(__file__).resolve().parent.parent / "src/exc_challenge/challenge"
 sys.path.insert(0, str(_CHALLENGE))
 
 from api.config import config  # noqa: E402
 from api.endpoints.challenge._pool import (  # noqa: E402
+    LOCK_FILE_NAME,
     load_name_to_id,
     load_pool_groups,
     load_pool_names,
@@ -31,9 +33,15 @@ _OTHER_ID = "b" * 32
 
 
 def _pool(tmp_path, monkeypatch, entries: str) -> None:
-    """Point the loaders at a synthetic pool file."""
+    """Point the loaders at a synthetic pool file. Entries are written the old
+    single-file way for readability; their ids are split out into the lock
+    file beside it, the way the real pool is stored."""
     path = tmp_path / "pool.yml"
     path.write_text("pool:\n" + textwrap.dedent(entries))
+    _entries = yaml.safe_load(path.read_text())["pool"]
+    (tmp_path / LOCK_FILE_NAME).write_text(yaml.safe_dump(
+        {e["name"]: {"id": e["id"]} for e in _entries if "id" in e and "name" in e}
+    ))
     monkeypatch.setattr(config.challenge, "pool_path", str(path))
     for loader in (load_pool_names, load_pool_groups, load_name_to_id):
         loader.cache_clear()
@@ -62,6 +70,20 @@ def test_a_valid_pool_loads(tmp_path, monkeypatch):
         "blockers": ("Adblock Plus",),
     }
     assert load_name_to_id() == {"Dark Reader": _VALID_ID, "Adblock Plus": _OTHER_ID}
+
+
+def test_a_missing_lock_file_names_the_published_image(tmp_path, monkeypatch):
+    """The public repository has no lock file. /task must still work from a
+    checkout; only staging needs the ids, and its error says where they are."""
+    _pool(tmp_path, monkeypatch, f"""
+        - id: {_VALID_ID}
+          name: "Dark Reader"
+          group: appearance_media
+    """)
+    (tmp_path / LOCK_FILE_NAME).unlink()
+    assert load_pool_names() == ("Dark Reader",)
+    with pytest.raises(RuntimeError, match="published image"):
+        load_name_to_id()
 
 
 def test_a_proto_name_is_rejected(tmp_path, monkeypatch):
@@ -220,8 +242,8 @@ def test_the_round_tag_is_not_derived_from_the_request_id(monkeypatch):
     """The staging path decides the id Chrome gives each extension.
 
     `<scratch_dir>/round-<tag>/ext/<store id>` has exactly one secret in it:
-    the tag. `scratch_dir` ships in the published config, the store ids ship in
-    `extensions.yml`, and the derivation is in `_browser.derive_unpacked_id`.
+    the tag. `scratch_dir` ships in the published config, the store ids are one
+    Web Store search away, and the derivation is in `_browser.derive_unpacked_id`.
 
     `request_id` is NOT a secret - `beans_logging_fastapi` honours a
     client-supplied `X-Request-ID` header, so whoever calls /score can choose

@@ -20,7 +20,9 @@ import functools
 import json
 import os
 import re
+import ssl
 import sys
+import tempfile
 import threading
 import time
 from collections.abc import Mapping, Sequence
@@ -31,6 +33,7 @@ from pathlib import Path
 from typing import Iterator
 
 import yaml
+from potato_util.crypto import ssl as ssl_utils
 
 # In the image this script is copied to /usr/local/bin, which has no repo above
 # it - so this is only meaningful in a checkout, and must not blow up elsewhere.
@@ -131,13 +134,22 @@ class Extension:
 
 
 def load_pool(pool_file: Path) -> list[Extension]:
+    """Names and groups from `extensions.yml`, ids from the private
+    `extensions.lock.yml` beside it - which the image carries."""
     entries = (yaml.safe_load(pool_file.read_text(encoding="utf-8")) or {}).get("pool")
     if not entries:
         sys.exit(f"{pool_file} has an empty pool")
-    missing_group = [e["id"] for e in entries if not e.get("group")]
+    missing_group = [e["name"] for e in entries if not e.get("group")]
     if missing_group:
         sys.exit(f"{pool_file}: pool entries with no group: {missing_group}")
-    return [Extension(e["id"], e.get("name") or e["id"], e["group"]) for e in entries]
+    lock_file = pool_file.with_name("extensions.lock.yml")
+    if not lock_file.is_file():
+        sys.exit(f"{lock_file} not found - it is private; run this in the published image")
+    lock = yaml.safe_load(lock_file.read_text(encoding="utf-8")) or {}
+    missing_id = [e["name"] for e in entries if not (lock.get(e["name"]) or {}).get("id")]
+    if missing_id:
+        sys.exit(f"{lock_file}: no id for {missing_id}")
+    return [Extension(lock[e["name"]]["id"], e["name"], e["group"]) for e in entries]
 
 
 def groups_of(pool: list[Extension]) -> dict[str, list[str]]:
@@ -285,21 +297,33 @@ class _QuietHandler(SimpleHTTPRequestHandler):
 
 @contextmanager
 def bait_server(bait_dir: Path) -> Iterator[str]:
-    """Serve the bait page on an ephemeral port; yield its url.
+    """Serve the bait page over https on an ephemeral port; yield its url.
 
-    Under the same hostname scoring uses (`BAIT_HOST`), so extensions that
-    skip localhost behave here exactly as they do when scored. Chrome maps the
-    name to this server - `launch(..., page_url)` passes it through. http, not
-    file://: many extensions' content scripts only match http(s) pages.
+    Same hostname and scheme scoring uses (`BAIT_HOST`, https), so extensions
+    behave here exactly as they do when scored: some skip localhost, and some
+    only match `https://` pages - on http their code never runs. Chrome maps
+    the name to this server and accepts the throwaway certificate; both come
+    from `bait_page_args(page_url)` via `launch(..., page_url)`.
     """
     if not bait_dir.is_dir():
         sys.exit(f"bait page directory missing: {bait_dir}")
 
     handler = functools.partial(_QuietHandler, directory=str(bait_dir))
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    with tempfile.TemporaryDirectory() as tls_dir:
+        ssl_utils.create_ssl_certs(
+            ssl_dir=tls_dir,
+            key_fname="bait.key",
+            cert_fname="bait.crt",
+            key_size=2048,
+            x509_attrs={"CN": BAIT_HOST, "DNS": BAIT_HOST},
+        )
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(f"{tls_dir}/bait.crt", f"{tls_dir}/bait.key")
+    server.socket = context.wrap_socket(server.socket, server_side=True)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
-        yield f"http://{BAIT_HOST}:{server.server_port}/index.html"
+        yield f"https://{BAIT_HOST}:{server.server_port}/index.html"
     finally:
         server.shutdown()
         server.server_close()
