@@ -62,7 +62,7 @@ tables are worthless here. Detect what the extension *does* to the page instead.
 
 - **Every group needs a file.** A missing or unexpected filename is rejected outright -
   the whole submission, not just that group.
-- **≤ 750 lines per file.**
+- **≤ 750 lines and ≤ 256 KB per file.**
 - **Every file runs every round**, in parallel, each in its own `try`/`catch`. A throw costs
   only that group's names; the rest still score. The round is lost only if they all fail.
 - **A missing key counts as `false`**, as does a throw.

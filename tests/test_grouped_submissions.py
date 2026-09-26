@@ -148,6 +148,23 @@ def test_the_line_cap_is_still_enforced_per_file():
         _build(_files(**{first: "\n".join("//" for _ in range(cap + 1))}))
 
 
+def test_the_byte_cap_is_enforced_per_file():
+    """The line cap alone let one line be any size."""
+    cap = config.challenge.submission_max_bytes
+    first = next(iter(load_pool_groups()))
+    one_line = f"window.detect_{first} = async () => ({{}}); //" + "x" * cap
+    assert "\n" not in one_line
+    with pytest.raises(Exception, match="bytes"):
+        _build(_files(**{first: one_line}))
+
+
+def test_a_file_at_the_byte_cap_is_accepted():
+    cap = config.challenge.submission_max_bytes
+    first = next(iter(load_pool_groups()))
+    head = f"window.detect_{first} = async () => ({{}}); //"
+    assert _build(_files(**{first: head + "x" * (cap - len(head))}))
+
+
 # -- failure isolation: the reason this change exists ------------------------
 
 

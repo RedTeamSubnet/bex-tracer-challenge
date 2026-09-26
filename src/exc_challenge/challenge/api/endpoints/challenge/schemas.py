@@ -88,6 +88,7 @@ class MinerOutput(BaseModel):
     @classmethod
     def _check_commit_files(cls, val: list[CommitFilePM]) -> list[CommitFilePM]:
         _max_lines: int = config.challenge.submission_max_lines
+        _max_bytes: int = config.challenge.submission_max_bytes
         _expected_names = {f"{_group}.js" for _group in load_pool_groups()}
 
         _file_names = [_miner_file_pm.file_name for _miner_file_pm in val]
@@ -102,6 +103,11 @@ class MinerOutput(BaseModel):
             if len(_content_lines) > _max_lines:
                 raise ValueError(
                     f"`{_miner_file_pm.file_name}` file contains too many lines, should be <= {_max_lines} lines!"
+                )
+            _size = len(_miner_file_pm.content.encode("utf-8"))
+            if _size > _max_bytes:
+                raise ValueError(
+                    f"`{_miner_file_pm.file_name}` is {_size} bytes, should be <= {_max_bytes} bytes!"
                 )
 
         return val

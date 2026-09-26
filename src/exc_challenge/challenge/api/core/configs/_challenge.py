@@ -88,6 +88,9 @@ class ChallengeConfig(BaseConfig):
         default=10.0, gt=0, description="Hard cap on the miner script"
     )
     submission_max_lines: int = Field(default=750, ge=1)
+    # Per file. The line cap alone let one line be any size; every file is
+    # parsed, written to disk and loaded by Chrome on each of the 6 rounds.
+    submission_max_bytes: int = Field(default=262144, ge=1)
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
 
     model_config = SettingsConfigDict(env_prefix=ENV_PREFIX_CHALLENGE)

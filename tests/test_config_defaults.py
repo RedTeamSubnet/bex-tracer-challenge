@@ -28,6 +28,7 @@ _ROUND_SETTINGS = (
     "settle_seconds",
     "script_budget_sec",
     "submission_max_lines",
+    "submission_max_bytes",
 )
 
 

@@ -68,6 +68,8 @@ class MinerOutput(BaseModel):
     # lower and this rejects submissions the challenge would accept; set higher
     # and a file passes here only to 422 remotely.
     MAX_LINES: ClassVar[int] = 750
+    # Mirror of `submission_max_bytes`, same rule.
+    MAX_BYTES: ClassVar[int] = 262144
 
     @field_validator("commit_files", mode="after")
     @classmethod
@@ -78,6 +80,12 @@ class MinerOutput(BaseModel):
                 raise ValueError(
                     f"`{_miner_file_pm.file_name}` file contains too many lines, "
                     f"should be <= {MinerOutput.MAX_LINES} lines!"
+                )
+            _size = len(_miner_file_pm.content.encode("utf-8"))
+            if _size > MinerOutput.MAX_BYTES:
+                raise ValueError(
+                    f"`{_miner_file_pm.file_name}` is {_size} bytes, "
+                    f"should be <= {MinerOutput.MAX_BYTES} bytes!"
                 )
 
         return val
