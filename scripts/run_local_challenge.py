@@ -12,7 +12,7 @@ score it prints is the score a real validator would have given.
 
     scripts/run_local_challenge.py
     scripts/run_local_challenge.py --solution examples/miner_commit/src/commit/solution.js
-    scripts/run_local_challenge.py --api-key "$BEX_TRACKER_CHALLENGE_API_KEY"
+    scripts/run_local_challenge.py --api-key "$BEX_CHALLENGE_API_KEY"
 
 Round count is server-side config (challenge.yml: n_rounds), not a flag here.
 
@@ -112,7 +112,7 @@ def score(base: str, task: dict[str, Any], output: dict[str, Any], key: str) -> 
     return float(result)
 
 
-_KEY_VAR = "BEX_TRACKER_CHALLENGE_API_KEY"
+_KEY_VAR = "BEX_CHALLENGE_API_KEY"
 
 
 def resolve_api_key(repo_root: Path) -> tuple[str, str]:

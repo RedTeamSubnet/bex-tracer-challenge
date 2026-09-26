@@ -3,9 +3,9 @@ import logging
 # import pytest
 
 # try:
-#     from bex_tracker import MyController
+#     from bex_tracer import MyController
 # except ImportError:
-#     from src.bex_tracker import MyController
+#     from src.bex_tracer import MyController
 
 
 logger = logging.getLogger(__name__)

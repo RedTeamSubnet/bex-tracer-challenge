@@ -6,7 +6,7 @@
 ## Context
 
 `challenges/extension-classification/` is a fresh cookiecutter render of `challenge-template`
-(`module_name=bex_tracker`, `api_slug=rest-exc-challenge`, `env_prefix=BEX_TRACKER_`).
+(`module_name=bex_tracer`, `api_slug=rest-exc-challenge`, `env_prefix=BEX_`).
 Everything is boilerplate — `service.py` currently returns `random.random()`.
 
 We are building a RedTeam Subnet challenge where **miners submit JavaScript that fingerprints
@@ -124,7 +124,7 @@ extension-classification/
 │   └── fetch_extensions.py             NEW  build-time: download CRX, unpack, inject key
 ├── examples/miner_commit/
 │   └── src/commit/solution.js          EDIT reference baseline detector
-└── src/bex_tracker/
+└── src/bex_tracer/
     │   # controller.py / challenge_manager.py deliberately untouched — see below
     └── challenge/
         ├── Dockerfile                  EDIT + Chrome for Testing + chromedriver + extensions
@@ -252,7 +252,7 @@ extension pool has to live somewhere miners can read.
 
 ### 2. Container — Chrome for Testing
 
-`src/bex_tracker/challenge/Dockerfile`, extending the existing 3-stage build:
+`src/bex_tracer/challenge/Dockerfile`, extending the existing 3-stage build:
 
 - Pin **Chrome for Testing** + matching chromedriver by version _and_ sha256, from
   `https://storage.googleapis.com/chrome-for-testing-public/{VERSION}/{PLATFORM}/{BINARY}-{PLATFORM}.zip`.
@@ -388,7 +388,7 @@ For the record, what's in them and when it will matter:
 | `_score_miner_with_new_inputs` loops over inputs but only writes `scoring_logs[0]` | **Latent, never fires for us.** `num_tasks` defaults to `N_CHALLENGES_PER_EPOCH = 1`, so there's exactly one input. We run T trials inside a single `/score`, so we want `num_tasks: 1` regardless |
 | `_exclude_output_keys` is a no-op (`return`)                                       | Only affects the anti-plagiarism comparison payload. ADA3 and flowprint null `commit_files`/`telemetry`/`scoring_results`. Decide at registration                                                  |
 | Class names `MyController` / `MyChallengeManager`                                  | Cosmetic. The yaml points at whatever path we write                                                                                                                                                |
-| Not exported from `src/bex_tracker/__init__.py`                                    | Only needed to re-enable `tests/test_module.py`, which is 100% commented out                                                                                                                       |
+| Not exported from `src/bex_tracer/__init__.py`                                     | Only needed to re-enable `tests/test_module.py`, which is 100% commented out                                                                                                                       |
 | `min_score` / `reward_temperature` in the manager                                  | **Can't be chosen yet.** Needs the real MCC distribution from working baselines. Genuinely a later decision                                                                                        |
 | `commit_timestamp + 1 + 24 + 60 + 60` (meant to be `1*24*60*60`)                   | Inherited template bug, upstream's problem, doesn't affect scoring correctness here                                                                                                                |
 

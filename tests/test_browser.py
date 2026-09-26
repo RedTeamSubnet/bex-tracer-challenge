@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(
-    0, str(Path(__file__).resolve().parent.parent / "src/bex_tracker/challenge")
+    0, str(Path(__file__).resolve().parent.parent / "src/bex_tracer/challenge")
 )
 
 from api.endpoints.challenge._browser import (  # noqa: E402

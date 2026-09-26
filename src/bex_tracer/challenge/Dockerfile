@@ -14,7 +14,7 @@ ARG PYTHON_VERSION=3.10
 ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-trixie
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG BEX_TRACKER_API_SLUG="rest-exc-challenge"
+ARG BEX_API_SLUG="rest-exc-challenge"
 
 ## Keep in lockstep with `chrome_for_testing_version` in extensions.yml: that
 ## value is sent as the CRX `prodversion`, so a mismatch means the extensions
@@ -72,13 +72,13 @@ RUN	--mount=type=bind,source=extensions.yml,target=/tmp/extensions.yml \
 FROM ${BASE_IMAGE} AS builder
 
 ARG DEBIAN_FRONTEND
-ARG BEX_TRACKER_API_SLUG
+ARG BEX_API_SLUG
 
 ENV	UV_LINK_MODE=copy
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-WORKDIR "/usr/src/${BEX_TRACKER_API_SLUG}"
+WORKDIR "/usr/src/${BEX_API_SLUG}"
 
 RUN --mount=type=cache,target=/root/.cache,sharing=locked \
 	_BUILD_TARGET_ARCH=$(uname -m) && \
@@ -87,7 +87,7 @@ RUN --mount=type=cache,target=/root/.cache,sharing=locked \
 	python3 -m pip install --timeout 60 -U pip uv
 
 RUN	--mount=type=cache,target=/root/.cache,sharing=locked \
-	--mount=type=bind,source=src/bex_tracker/challenge/requirements.txt,target=requirements.txt \
+	--mount=type=bind,source=src/bex_tracer/challenge/requirements.txt,target=requirements.txt \
 	python3 -m uv pip install --prefix=/install -r ./requirements.txt
 
 
@@ -95,36 +95,36 @@ RUN	--mount=type=cache,target=/root/.cache,sharing=locked \
 FROM ${BASE_IMAGE} AS base
 
 ARG DEBIAN_FRONTEND
-ARG BEX_TRACKER_API_SLUG
+ARG BEX_API_SLUG
 
-ARG BEX_TRACKER_HOME_DIR="/app"
-ARG BEX_TRACKER_API_DIR="${BEX_TRACKER_HOME_DIR}/${BEX_TRACKER_API_SLUG}"
-ARG BEX_TRACKER_API_CONFIGS_DIR="/etc/${BEX_TRACKER_API_SLUG}"
-ARG BEX_TRACKER_API_DATA_DIR="/var/lib/${BEX_TRACKER_API_SLUG}"
-ARG BEX_TRACKER_API_LOGS_DIR="/var/log/${BEX_TRACKER_API_SLUG}"
-ARG BEX_TRACKER_API_TMP_DIR="/tmp/${BEX_TRACKER_API_SLUG}"
-ARG BEX_TRACKER_API_PORT=10001
-ARG BEX_TRACKER_API_DOCS_ENABLED=true
+ARG BEX_HOME_DIR="/app"
+ARG BEX_API_DIR="${BEX_HOME_DIR}/${BEX_API_SLUG}"
+ARG BEX_API_CONFIGS_DIR="/etc/${BEX_API_SLUG}"
+ARG BEX_API_DATA_DIR="/var/lib/${BEX_API_SLUG}"
+ARG BEX_API_LOGS_DIR="/var/log/${BEX_API_SLUG}"
+ARG BEX_API_TMP_DIR="/tmp/${BEX_API_SLUG}"
+ARG BEX_API_PORT=10001
+ARG BEX_API_DOCS_ENABLED=true
 ## Per-round Chrome profiles and extension copies. compose mounts a tmpfs here;
 ## Chrome rewrites `_metadata/` on every unpacked load, so it cannot be read-only.
-ARG BEX_TRACKER_SCRATCH_DIR="/run/exc"
-## echo "BEX_TRACKER_USER_PASSWORD123" | openssl passwd -6 -stdin
+ARG BEX_SCRATCH_DIR="/run/exc"
+## echo "BEX_USER_PASSWORD123" | openssl passwd -6 -stdin
 ARG HASH_PASSWORD="\$6\$Ex9TNhjjLMtBMG.j\$X4psLehOPZ2Q0GOnzqjShmzcUg4SvjNV663a6wBQA78/sk5JjDzDPOurHBjPCTem2IwM4lbO/c1jkUJYMouOu/"
 ARG UID=1000
 ARG GID=11000
 ARG USER=EXC-user
 ARG GROUP=EXC-group
 
-ENV BEX_TRACKER_API_SLUG="${BEX_TRACKER_API_SLUG}" \
-	BEX_TRACKER_HOME_DIR="${BEX_TRACKER_HOME_DIR}" \
-	BEX_TRACKER_API_DIR="${BEX_TRACKER_API_DIR}" \
-	BEX_TRACKER_API_CONFIGS_DIR="${BEX_TRACKER_API_CONFIGS_DIR}" \
-	BEX_TRACKER_API_DATA_DIR="${BEX_TRACKER_API_DATA_DIR}" \
-	BEX_TRACKER_API_LOGS_DIR="${BEX_TRACKER_API_LOGS_DIR}" \
-	BEX_TRACKER_API_TMP_DIR="${BEX_TRACKER_API_TMP_DIR}" \
-	BEX_TRACKER_API_PORT=${BEX_TRACKER_API_PORT} \
-	BEX_TRACKER_API_DOCS_ENABLED=${BEX_TRACKER_API_DOCS_ENABLED} \
-	BEX_TRACKER_CHALLENGE_BROWSER_SCRATCH_DIR="${BEX_TRACKER_SCRATCH_DIR}" \
+ENV BEX_API_SLUG="${BEX_API_SLUG}" \
+	BEX_HOME_DIR="${BEX_HOME_DIR}" \
+	BEX_API_DIR="${BEX_API_DIR}" \
+	BEX_API_CONFIGS_DIR="${BEX_API_CONFIGS_DIR}" \
+	BEX_API_DATA_DIR="${BEX_API_DATA_DIR}" \
+	BEX_API_LOGS_DIR="${BEX_API_LOGS_DIR}" \
+	BEX_API_TMP_DIR="${BEX_API_TMP_DIR}" \
+	BEX_API_PORT=${BEX_API_PORT} \
+	BEX_API_DOCS_ENABLED=${BEX_API_DOCS_ENABLED} \
+	BEX_CHALLENGE_BROWSER_SCRATCH_DIR="${BEX_SCRATCH_DIR}" \
 	UID=${UID} \
 	GID=${GID} \
 	USER=${USER} \
@@ -206,23 +206,23 @@ RUN --mount=type=secret,id=HASH_PASSWORD \
 	echo "alias ls='ls -aF --group-directories-first --color=auto'" >> "/home/${USER}/.bashrc" && \
 	echo -e "alias ll='ls -alhF --group-directories-first --color=auto'\n" >> "/home/${USER}/.bashrc" && \
 	rm -rfv /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/* /root/.cache/* "/home/${USER}/.cache/*" && \
-	mkdir -pv "${BEX_TRACKER_API_DIR}" \
-		"${BEX_TRACKER_API_CONFIGS_DIR}" \
-		"${BEX_TRACKER_API_DATA_DIR}" \
-		"${BEX_TRACKER_API_LOGS_DIR}" \
-		"${BEX_TRACKER_API_TMP_DIR}" \
-		"${BEX_TRACKER_SCRATCH_DIR}" && \
+	mkdir -pv "${BEX_API_DIR}" \
+		"${BEX_API_CONFIGS_DIR}" \
+		"${BEX_API_DATA_DIR}" \
+		"${BEX_API_LOGS_DIR}" \
+		"${BEX_API_TMP_DIR}" \
+		"${BEX_SCRATCH_DIR}" && \
 	chown -Rc "${USER}:${GROUP}" \
-		"${BEX_TRACKER_HOME_DIR}" \
-		"${BEX_TRACKER_API_CONFIGS_DIR}" \
-		"${BEX_TRACKER_API_DATA_DIR}" \
-		"${BEX_TRACKER_API_LOGS_DIR}" \
-		"${BEX_TRACKER_API_TMP_DIR}" \
-		"${BEX_TRACKER_SCRATCH_DIR}" && \
-	find "${BEX_TRACKER_API_DIR}" "${BEX_TRACKER_API_CONFIGS_DIR}" "${BEX_TRACKER_API_DATA_DIR}" -type d -exec chmod -c 770 {} + && \
-	find "${BEX_TRACKER_API_DIR}" "${BEX_TRACKER_API_CONFIGS_DIR}" "${BEX_TRACKER_API_DATA_DIR}" -type d -exec chmod -c ug+s {} + && \
-	find "${BEX_TRACKER_API_LOGS_DIR}" "${BEX_TRACKER_API_TMP_DIR}" "${BEX_TRACKER_SCRATCH_DIR}" -type d -exec chmod -c 775 {} + && \
-	find "${BEX_TRACKER_API_LOGS_DIR}" "${BEX_TRACKER_API_TMP_DIR}" -type d -exec chmod -c +s {} +
+		"${BEX_HOME_DIR}" \
+		"${BEX_API_CONFIGS_DIR}" \
+		"${BEX_API_DATA_DIR}" \
+		"${BEX_API_LOGS_DIR}" \
+		"${BEX_API_TMP_DIR}" \
+		"${BEX_SCRATCH_DIR}" && \
+	find "${BEX_API_DIR}" "${BEX_API_CONFIGS_DIR}" "${BEX_API_DATA_DIR}" -type d -exec chmod -c 770 {} + && \
+	find "${BEX_API_DIR}" "${BEX_API_CONFIGS_DIR}" "${BEX_API_DATA_DIR}" -type d -exec chmod -c ug+s {} + && \
+	find "${BEX_API_LOGS_DIR}" "${BEX_API_TMP_DIR}" "${BEX_SCRATCH_DIR}" -type d -exec chmod -c 775 {} + && \
+	find "${BEX_API_LOGS_DIR}" "${BEX_API_TMP_DIR}" -type d -exec chmod -c +s {} +
 
 ENV LANG=en_US.UTF-8 \
 	LANGUAGE=en_US.UTF-8 \
@@ -241,31 +241,31 @@ ARG CFT_VERSION
 COPY --from=chrome --chown=${UID}:${GID} /opt/chrome /opt/chrome
 COPY --from=extensions --chown=${UID}:${GID} /opt/extensions /opt/extensions
 
-WORKDIR "${BEX_TRACKER_API_DIR}"
-COPY --chown=${UID}:${GID} ./src/bex_tracker/challenge/api ${BEX_TRACKER_API_DIR}/api
+WORKDIR "${BEX_API_DIR}"
+COPY --chown=${UID}:${GID} ./src/bex_tracer/challenge/api ${BEX_API_DIR}/api
 ## The bait page. `api/mount.py` resolves it as <api_dir>/../templates, so this
 ## path is load-bearing: StaticFiles raises at import time if it is missing and
 ## the app never starts.
-COPY --chown=${UID}:${GID} ./src/bex_tracker/challenge/templates ${BEX_TRACKER_API_DIR}/templates
+COPY --chown=${UID}:${GID} ./src/bex_tracer/challenge/templates ${BEX_API_DIR}/templates
 ## `config.challenge.pool_path` defaults to /app/extensions.yml.
-COPY --chown=${UID}:${GID} ./extensions.yml ${BEX_TRACKER_HOME_DIR}/extensions.yml
-COPY --chown=${UID}:${GID} --chmod=770 ./src/bex_tracker/challenge/scripts/*.sh /usr/local/bin/
-COPY --chown=${UID}:${GID} --chmod=775 ./src/bex_tracker/challenge/scripts/run_round.py /usr/local/bin/
+COPY --chown=${UID}:${GID} ./extensions.yml ${BEX_HOME_DIR}/extensions.yml
+COPY --chown=${UID}:${GID} --chmod=770 ./src/bex_tracer/challenge/scripts/*.sh /usr/local/bin/
+COPY --chown=${UID}:${GID} --chmod=775 ./src/bex_tracer/challenge/scripts/run_round.py /usr/local/bin/
 
 ## Build-time gates. These fail the IMAGE rather than the first /score call:
 ## a broken Chrome otherwise scores every miner 0.0 and looks like it works.
 RUN	--mount=type=bind,source=scripts/verify_chrome_build.py,target=/tmp/verify_chrome_build.py \
 	python3 /tmp/verify_chrome_build.py --expect-version "${CFT_VERSION}"
 
-# VOLUME ["${BEX_TRACKER_API_DATA_DIR}"]
-# EXPOSE ${BEX_TRACKER_API_PORT}
+# VOLUME ["${BEX_API_DATA_DIR}"]
+# EXPOSE ${BEX_API_PORT}
 
 # USER ${UID}:${GID}
 # HEALTHCHECK --start-period=30s --start-interval=1s --interval=5m --timeout=5s --retries=3 \
-# 	CMD curl -f http://localhost:${BEX_TRACKER_API_PORT}/ping || exit 1
+# 	CMD curl -f http://localhost:${BEX_API_PORT}/ping || exit 1
 
 ## tini as PID 1: Chrome forks a zygote process and orphans grandchildren on
 ## every round. Without a reaper those accumulate as zombies until the container
 ## hits pids_limit and rounds start failing for no visible reason.
 ENTRYPOINT ["/usr/bin/tini", "--", "docker-entrypoint.sh"]
-# CMD ["-b", "uvicorn api.main:app --host=0.0.0.0 --port=${BEX_TRACKER_API_PORT:-10001} --no-access-log --no-server-header --proxy-headers --forwarded-allow-ips='*'"]
+# CMD ["-b", "uvicorn api.main:app --host=0.0.0.0 --port=${BEX_API_PORT:-10001} --no-access-log --no-server-header --proxy-headers --forwarded-allow-ips='*'"]
