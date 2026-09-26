@@ -12,7 +12,7 @@ accurately it identified what was installed.
 | Document | What's in it |
 |---|---|
 | [`overview.html`](./overview.html) | One-page summary with current numbers — open in a browser |
-| [`pipeline.html`](./pipeline.html) | Pool-to-score pipeline diagram — **diagrams predate the current pool**, flow still accurate |
+| [`pipeline.html`](./pipeline.html) | Pool-to-score pipeline diagram |
 | [`architecture.excalidraw`](./architecture.excalidraw) | Flow diagram — open at [excalidraw.com](https://excalidraw.com) |
 | [`release-notes.md`](./release-notes.md) | Release notes |
 
@@ -20,17 +20,19 @@ accurately it identified what was installed.
 
 | | |
 |---|---|
-| Threat model | Page-context JS, injected post-load via `execute_async_script` |
-| Browser | Chrome for Testing — headless in prod, headful under Xvfb for dev |
+| Threat model | Page-context JS served by the bait page; entrypoints invoked via `execute_async_script` |
+| Browser | Chrome for Testing 152.0.7977.54 — headless in prod, headful for local inspection |
 | Extension pool | Chrome Web Store extensions, published to miners **by name** — ids are never sent |
-| Enabled per round | Fixed `k` (config), drawn per round and never revealed |
-| Network | None - the container has no DNS; the bait page is served locally |
-| Miner output | One file per group, each `{extensionName: true\|false}` for that group's names |
-| Metric | MCC over all N binary decisions, `max(0, mcc)` → `[0,1]` |
+| Current defaults | 89 extensions · 8 groups · 12 enabled · 6 sequential rounds |
+| Selection | Fixed `k`, redrawn w/ coverage weighting and never revealed |
+| Network | Not restricted by Compose; the bait page itself uses private loopback HTTPS |
+| Miner output | Exactly one file per group, each `{extensionName: true\|false}` for that group's names |
+| Metric | Mean of per-round MCC over all 89 labels, `max(0, mcc)` → `[0,1]` |
 
 ## Running it locally
 
-Selenium lives in `api/endpoints/challenge/_browser.py`. `challenge/scripts/run_round.py` drives it
+Selenium lives in `src/bex_tracer/challenge/api/endpoints/challenge/_browser.py`.
+`src/bex_tracer/challenge/scripts/run_round.py` drives it
 end-to-end without Docker or the API — this is the loop to use while curating the pool.
 
 ```sh
@@ -132,11 +134,12 @@ directory. Consequences:
 
 ### The environment
 
-- **No internet.** The container has no DNS (`dns: 0.0.0.0` in `compose.yml`), so requests to any
-  other host fail, for extensions and miner code alike.
-- **The bait page is served as `http://baitpage.test`, not `127.0.0.1`.** Some extensions
-  deliberately do nothing on localhost. Chrome maps the name back to loopback and treats the
-  page as a secure context, so secure-only APIs stay available.
+- **Compose does not restrict egress.** Production deployments that require network isolation must
+  enforce it outside this compose file. Miner JavaScript and extensions otherwise inherit the
+  container's available network access.
+- **The bait page is served as `https://baitpage.test:10443/_web`, not `127.0.0.1`.** Some
+  extensions deliberately do nothing on localhost. Chrome maps the name to loopback and accepts
+  the challenge's self-signed certificate, preserving a realistic secure context.
 
 Take the names from `GET /task`, never from a doc - **the grouping is generated from
 `extensions.yml` at runtime and changes when the pool changes.** Only the names `/task`
@@ -159,3 +162,7 @@ were enabled?* — returning a single float in `[0,1]`.
 Everything downstream of that number — similarity penalties, time decay, softmax normalisation
 across miners, sybil collapse, on-chain weights — belongs to `redteam_core` / `scoring-api` in
 `stack-redteam`, not here.
+
+`GET /results` exposes the most recent run's statuses, timings, detected names, and aggregate score
+without exposing ground truth. `POST /score` and `GET /results` require `X-API-Key`; `GET /task`
+does not. Scoring is single-flight, so an overlapping request receives HTTP 429.

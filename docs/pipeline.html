@@ -221,13 +221,10 @@
     installed right now?</em> &mdash; into a number between 0 and 1. The idea
     first, then every mechanism behind it.
   </p>
-  <p class="standfirst" style="border-left:3px solid var(--warn, #A0522A); padding-left:12px;">
-    <strong>Out of date (describes the 2026-09-01 design).</strong> The diagrams below show a
-    27-extension pool, a single <code>solution.js</code>, detection by extension id and 20 rounds.
-    All of that has changed: rounds now run sequentially, the pool is 45 extensions in 6 groups
-    and published by name, ids rotate every round, a submission is one file per group, and the
-    container has no internet. The flow itself is still accurate. For current facts see
-    <code>docs/README.md</code>.
+  <p class="standfirst" style="border-left:3px solid var(--run, #237B58); padding-left:12px;">
+    <strong>Current implementation (2026-09-26).</strong> The pool contains 89 names in 8 groups.
+    Each score runs 6 sequential rounds with 12 enabled extensions, rotates unpacked-extension IDs
+    per round, and evaluates one JavaScript file per group.
   </p>
   <ul class="key">
     <li><span class="swatch sw-build"></span> build time &mdash; once, inside <code>docker build</code></li>
@@ -248,9 +245,9 @@
 
   <div class="prose">
     <p>
-      We publish a fixed list of <strong>27 real Chrome extensions</strong> &mdash; ad
-      blockers, password managers, translators, shopping helpers. Every one is
-      downloaded from the actual Web Store and loaded under its real store ID.
+      We publish a fixed list of <strong>89 real Chrome extensions in 8 groups</strong> &mdash;
+      ad blockers, developer tools, password managers, media tools, VPNs and workflow helpers.
+      Every one is downloaded from the Chrome Web Store, but its store ID is never used at runtime.
     </p>
     <p>
       Each round we secretly enable a random handful of them in a fresh Chrome,
@@ -266,7 +263,7 @@
   </div>
 
   <figure>
-    <svg viewBox="0 0 900 420" role="img" aria-label="Each round the challenge secretly draws a subset of the 27-extension pool, launches Chrome with those extensions on a bait page, runs the miner's JavaScript which returns one boolean per extension, and compares the guess to the hidden truth using MCC.">
+    <svg viewBox="0 0 900 420" role="img" aria-label="Each round the challenge secretly draws 12 names from the 89-extension pool, launches Chrome with those extensions on a bait page, runs eight grouped miner scripts which return one boolean per name, and compares the guess to the hidden truth using MCC.">
       <defs>
         <marker id="g-run" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-run" d="M0,0 L10,5 L0,10 z"/></marker>
         <marker id="g-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-fail" d="M0,0 L10,5 L0,10 z"/></marker>
@@ -276,11 +273,11 @@
 
       <rect class="n-box" x="20" y="44" width="176" height="72" rx="6"/>
       <text class="t t-b" x="108" y="70" text-anchor="middle">the pool</text>
-      <text class="t-sm" x="108" y="89" text-anchor="middle">27 real extensions</text>
+      <text class="t-sm" x="108" y="89" text-anchor="middle">89 extension names</text>
       <text class="t-sm" x="108" y="105" text-anchor="middle">published to miners</text>
 
       <path class="r-line" d="M196 80 L 246 80" marker-end="url(#g-run)"/>
-      <text class="t-sm t-run" x="200" y="68">draw 3&ndash;8</text>
+      <text class="t-sm t-run" x="200" y="68">draw 12</text>
 
       <rect class="r-box" x="250" y="44" width="190" height="72" rx="6"/>
       <text class="t t-b" x="345" y="70" text-anchor="middle">secret subset</text>
@@ -308,7 +305,7 @@
       <rect class="r-box" x="170" y="160" width="224" height="80" rx="6"/>
       <text class="t t-b" x="282" y="186" text-anchor="middle">the miner's JavaScript</text>
       <text class="t-sm" x="282" y="207" text-anchor="middle">observes the page,</text>
-      <text class="t-sm" x="282" y="223" text-anchor="middle">returns 27 booleans</text>
+      <text class="t-sm" x="282" y="223" text-anchor="middle">returns 89 booleans</text>
 
       <path class="r-line" d="M282 240 L 282 288" marker-end="url(#g-run)"/>
       <path class="r-line" d="M345 116 C 345 140, 610 250, 610 288" marker-end="url(#g-run)"/>
@@ -316,7 +313,7 @@
 
       <rect class="r-box" x="170" y="292" width="560" height="62" rx="6"/>
       <text class="t t-b" x="450" y="318" text-anchor="middle">compare guess against truth &rarr; MCC, clamped to [0, 1]</text>
-      <text class="t-sm" x="450" y="338" text-anchor="middle">scored over all 27, not just the enabled ones &mdash; a false positive costs you</text>
+      <text class="t-sm" x="450" y="338" text-anchor="middle">scored over all 89, not just the enabled 12 &mdash; a false positive costs you</text>
 
       <path class="r-line" d="M450 354 L 450 386" marker-end="url(#g-run)"/>
       <text class="t t-b t-run" x="450" y="404" text-anchor="middle">one score per round &middot; averaged over the run</text>
@@ -344,7 +341,8 @@
     <p>
       We don't run this loop ourselves. A <strong>subnet validator</strong> does, on
       its own schedule, against every miner competing on the challenge. Our
-      container answers two HTTP endpoints and nothing else.
+      container exposes <code>GET /task</code>, authenticated <code>POST /score</code>, and an
+      authenticated <code>GET /results</code> report for the most recent run.
     </p>
   </div>
 
@@ -362,26 +360,26 @@
       <rect class="r-box" x="20" y="150" width="250" height="86" rx="6"/>
       <text class="t t-b" x="145" y="176" text-anchor="middle">our challenge container</text>
       <text class="t-sm" x="145" y="196" text-anchor="middle">:10001</text>
-      <text class="t-sm" x="145" y="214" text-anchor="middle">GET /task &middot; POST /score</text>
-      <text class="t-sm" x="145" y="230" text-anchor="middle">Chrome + the 27 extensions</text>
+      <text class="t-sm" x="145" y="214" text-anchor="middle">GET task &middot; POST score &middot; GET results</text>
+      <text class="t-sm" x="145" y="230" text-anchor="middle">Chrome + 89-extension pool</text>
 
       <rect class="n-box" x="630" y="150" width="250" height="86" rx="6"/>
       <text class="t t-b" x="755" y="176" text-anchor="middle">the miner's container</text>
       <text class="t-sm" x="755" y="196" text-anchor="middle">:10002</text>
       <text class="t-sm" x="755" y="214" text-anchor="middle">POST /solve</text>
-      <text class="t-sm" x="755" y="230" text-anchor="middle">returns solution.js</text>
+      <text class="t-sm" x="755" y="230" text-anchor="middle">returns 8 grouped JS files</text>
 
       <path class="r-line" d="M370 88 C 300 110, 200 120, 160 146" marker-end="url(#s-run)"/>
       <text class="t-sm t-run" x="196" y="116">1. GET /task</text>
-      <text class="t-sm" x="196" y="132">&rarr; 27 ids</text>
+      <text class="t-sm" x="196" y="132">&rarr; 89 names + groups</text>
 
       <path class="r-line" d="M530 88 C 600 110, 700 120, 740 146" marker-end="url(#s-run)"/>
       <text class="t-sm t-run" x="600" y="116">2. POST /solve</text>
-      <text class="t-sm" x="600" y="132">&rarr; solution.js</text>
+      <text class="t-sm" x="600" y="132">&rarr; grouped JS files</text>
 
       <path class="r-line" d="M270 200 L 620 200" marker-end="url(#s-run)" stroke-dasharray="0"/>
       <text class="t-sm t-run t-b" x="445" y="192" text-anchor="middle">3. POST /score &nbsp;{miner_input, miner_output}</text>
-      <text class="t-sm" x="445" y="218" text-anchor="middle">&larr; one float, after 20 real browser rounds</text>
+      <text class="t-sm" x="445" y="218" text-anchor="middle">&larr; one float, after 6 sequential browser rounds</text>
 
       <path class="f-line" d="M755 236 C 755 280, 640 292, 590 292" marker-end="url(#s-fail)"/>
       <rect class="f-box" x="230" y="266" width="356" height="54" rx="6"/>
@@ -400,9 +398,10 @@
   <table>
     <thead><tr><th>Setting</th><th class="num">Shipped</th><th>Means</th></tr></thead>
     <tbody>
-      <tr><td class="fn">n_rounds</td><td class="num">20</td><td>browser launches per <code>/score</code></td></tr>
-      <tr><td class="fn">k_min / k_max</td><td class="num">3 / 8</td><td>extensions enabled per round, redrawn each time</td></tr>
-      <tr><td class="fn">settle_seconds</td><td class="num">4.0</td><td>pause after load before sampling</td></tr>
+      <tr><td class="fn">n_rounds</td><td class="num">6</td><td>sequential browser launches per <code>/score</code></td></tr>
+      <tr><td class="fn">k</td><td class="num">12</td><td>extensions enabled per round, redrawn each time</td></tr>
+      <tr><td class="fn">coverage_bias</td><td class="num">2.0</td><td>favours names used less often in this run</td></tr>
+      <tr><td class="fn">settle_seconds</td><td class="num">6.0</td><td>pause after load before gestures and sampling</td></tr>
       <tr><td class="fn">script_budget_sec</td><td class="num">10.0</td><td>hard cap on the miner's JavaScript</td></tr>
     </tbody>
   </table>
@@ -438,56 +437,56 @@
     <thead><tr><th>Signal</th><th>How it works</th><th class="num">Reach</th></tr></thead>
     <tbody>
       <tr>
-        <td class="fn">web-accessible<br>resources</td>
-        <td>Fetch <code>chrome-extension://&lt;id&gt;/some/file.css</code>. Resolves if installed, rejects if not. Deterministic.</td>
-        <td class="num">17 / 27</td>
+        <td class="fn">changed APIs<br>and values</td>
+        <td>Read browser settings and behavior modified by an extension.</td>
+        <td class="num">broad</td>
       </tr>
       <tr>
         <td class="fn">page footprint</td>
-        <td>Injected stylesheets, rewritten colours, stamped attributes, shadow roots.</td>
-        <td class="num">1 confirmed</td>
+        <td>Injected nodes, stylesheets, rewritten colours, stamped attributes, and shadow roots.</td>
+        <td class="num">pool-dependent</td>
       </tr>
       <tr>
         <td class="fn">request blocking</td>
-        <td>Blockers kill tracker requests before the network. <em>Which</em> hosts die is a fingerprint.</td>
-        <td class="num">3 of 4 blockers</td>
+        <td>Observe tracker-like requests or page resources blocked by declarative rules.</td>
+        <td class="num">blockers</td>
       </tr>
       <tr>
         <td class="fn">gesture-triggered</td>
         <td>Password managers inject only after a real click and keystroke on the field they watch.</td>
-        <td class="num">5 candidates</td>
+        <td class="num">interactive tools</td>
+      </tr>
+      <tr>
+        <td class="fn">web-accessible<br>resources</td>
+        <td>Static store-ID probes do not work because unpacked IDs rotate every round.</td>
+        <td class="num">closed</td>
       </tr>
     </tbody>
   </table>
   </div>
 
   <div class="note trap">
-    <span class="lbl">Open risk 1 &mdash; installed is not running</span>
+    <span class="lbl">Open risk &mdash; installed is not observable</span>
     <p>
-      A <code>chrome-extension://</code> fetch succeeds because the extension is
-      <strong>installed</strong>. It succeeds just as well when the extension's logic
-      never executes. So 17 of 27 labels are answerable with the extension completely
-      idle.
+      Some extensions stay idle until onboarding, account login, a toolbar action, or a visit to a
+      specific site. If they leave no page-visible behavior on the bait page, their labels cannot be
+      earned directly. This affects all miners equally, but lowers the measurable ceiling.
     </p>
     <p style="margin-bottom:0">
-      At least two are idle by construction: Ghostery ships all 33 of its blocking
-      rulesets with <code>enabled=False</code> until a human completes onboarding, and
-      Bitwarden has no page footprint without an unlocked vault. An extension that
-      never acts is a label no miner can earn.
+      The pool intentionally remains a competitive target rather than a promise that every label is
+      detectable. Use <code>screen_extensions.py</code> and visible local rounds when curating it.
     </p>
   </div>
 
   <div class="note trap">
-    <span class="lbl">Open risk 2 &mdash; everyone writes the same file</span>
+    <span class="lbl">Resolved shortcut &mdash; static resource tables</span>
     <p>
-      The pool is fixed, so the web-accessible-resource paths are fixed too. There is
-      one sensible way to write that lookup table, and every competent miner writes it.
+      Store IDs and resource paths may be public, but they do not identify the unpacked extension:
+      each round's secret staging path produces a fresh Chrome ID.
     </p>
     <p style="margin-bottom:0">
-      The validator similarity-checks submissions against each other and
-      <strong>zeroes</strong> anything above the threshold. Two honest miners doing the
-      correct thing independently produce near-identical files and both score nothing.
-      Rotating the pool, or removing the shortcut entirely, is what fixes this.
+      Miners therefore need behavioral detection instead of one shared
+      <code>chrome-extension://</code> lookup table.
     </p>
   </div>
 </section>
@@ -509,12 +508,12 @@
       same time and share nothing but a directory on disk. At build time
       <code>fetch_extensions.py</code> uses <code>id</code>, <code>sha256</code> and
       <code>version</code> to fetch and verify real signed extensions. At request time
-      <code>_pool.py</code> reads <strong>only the <code>id</code></strong>.
+      <code>_pool.py</code> reads each entry's <strong>name, group, and store ID</strong>.
     </p>
   </div>
 
   <figure>
-    <svg viewBox="0 0 900 470" role="img" aria-label="extensions.yml feeds two disjoint pipelines: a build-time one that downloads, verifies and unpacks extensions into /opt/extensions, and a request-time one that reads only the id list to pick a ground-truth subset and launch Chrome.">
+    <svg viewBox="0 0 900 470" role="img" aria-label="extensions.yml feeds two disjoint pipelines: a build-time one that downloads, verifies and unpacks extensions into /opt/extensions, and a request-time one that publishes names and groups, selects names for ground truth, and maps them to build directories only when launching Chrome.">
       <defs>
         <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-build" d="M0,0 L10,5 L0,10 z"/></marker>
         <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-run" d="M0,0 L10,5 L0,10 z"/></marker>
@@ -525,7 +524,7 @@
 
       <rect class="n-box" x="18" y="196" width="168" height="72" rx="6"/>
       <text class="t t-b" x="102" y="226" text-anchor="middle">extensions.yml</text>
-      <text class="t-sm"  x="102" y="245" text-anchor="middle">27 pool &middot; 2 rejected</text>
+      <text class="t-sm"  x="102" y="245" text-anchor="middle">89 names &middot; 8 groups</text>
 
       <rect class="b-box" x="248" y="52" width="182" height="62" rx="6"/>
       <text class="t" x="339" y="78" text-anchor="middle">fetch_extensions</text>
@@ -533,15 +532,15 @@
 
       <rect class="b-box" x="466" y="52" width="182" height="62" rx="6"/>
       <text class="t" x="557" y="78" text-anchor="middle">parse_crx3</text>
-      <text class="t-sm" x="557" y="97" text-anchor="middle">inject manifest key</text>
+      <text class="t-sm" x="557" y="97" text-anchor="middle">verify id &middot; keep key absent</text>
 
       <rect class="b-box" x="684" y="52" width="198" height="62" rx="6"/>
       <text class="t" x="783" y="78" text-anchor="middle">/opt/extensions/</text>
-      <text class="t-sm" x="783" y="97" text-anchor="middle">27 unpacked dirs</text>
+      <text class="t-sm" x="783" y="97" text-anchor="middle">89 unpacked dirs</text>
 
       <rect class="r-box" x="248" y="350" width="182" height="62" rx="6"/>
-      <text class="t" x="339" y="376" text-anchor="middle">load_pool_ids()</text>
-      <text class="t-sm" x="339" y="395" text-anchor="middle">tuple of 27 ids</text>
+      <text class="t" x="339" y="376" text-anchor="middle">load_pool_groups()</text>
+      <text class="t-sm" x="339" y="395" text-anchor="middle">89 names in 8 groups</text>
 
       <rect class="r-box" x="466" y="350" width="182" height="62" rx="6"/>
       <text class="t" x="557" y="376" text-anchor="middle">build_round_</text>
@@ -554,14 +553,14 @@
       <path class="b-line" d="M186 214 C 214 214, 220 83, 244 83" marker-end="url(#ab)"/>
       <text class="t-sm t-build" x="196" y="150">id &middot; sha256 &middot; version</text>
       <path class="r-line" d="M186 250 C 214 250, 220 381, 244 381" marker-end="url(#ar)"/>
-      <text class="t-sm t-run" x="196" y="326">id only</text>
+      <text class="t-sm t-run" x="196" y="326">name &middot; group &middot; id</text>
 
       <path class="b-line" d="M430 83 L 462 83" marker-end="url(#ab)"/>
       <path class="b-line" d="M648 83 L 680 83" marker-end="url(#ab)"/>
       <path class="r-line" d="M430 381 L 462 381" marker-end="url(#ar)"/>
-      <text class="t-sm t-run" x="446" y="368">27</text>
+      <text class="t-sm t-run" x="446" y="368">89</text>
       <path class="r-line" d="M648 381 L 680 381" marker-end="url(#ar)"/>
-      <text class="t-sm t-run" x="640" y="340">3&ndash;8 ids</text>
+      <text class="t-sm t-run" x="640" y="340">12 names</text>
       <text class="t-sm t-run t-b" x="612" y="424">GROUND TRUTH</text>
 
       <path class="n-line" d="M783 114 L 783 346" marker-end="url(#ar)"/>
@@ -574,10 +573,9 @@
       <line class="n-line" x1="18" y1="304" x2="882" y2="304" stroke-dasharray="3 6"/>
     </svg>
     <figcaption>
-      Only a directory of bytes crosses between the two. The build lane never learns
-      which extensions get enabled; the run lane never re-reads a manifest, version or
-      hash. Deleting <code>sha256</code> would break the build and change nothing at
-      runtime &mdash; which is why the file needs only five fields per entry.
+      The store ID links a published name to its unpacked build directory, but never reaches the
+      miner. Version and digest govern the build only. The schedule is name-based, and IDs are
+      derived anew from secret staging paths when Chrome starts.
     </figcaption>
   </figure>
 </section>
@@ -585,26 +583,25 @@
 <hr class="rule">
 
 <section id="crx">
-  <h2><span class="num">05</span>Loading extensions under their real IDs</h2>
+  <h2><span class="num">05</span>Verifying CRX identity, rotating runtime IDs</h2>
   <p class="filepath">scripts/fetch_extensions.py &mdash; build time only</p>
 
   <div class="prose">
     <p>
-      Store <code>.crx</code> manifests carry <strong>no <code>key</code> field</strong>
-      &mdash; the Web Store rejects uploads that have one, and Chrome injects it at
-      install time. Loading unpacked skips that step, and without it Chrome derives the
-      extension ID <strong>from the directory path</strong>.
+      Store <code>.crx</code> manifests carry <strong>no <code>key</code> field</strong>.
+      The script verifies that a CRX signing key derives the pinned store ID, then deliberately
+      leaves the key out of the unpacked manifest. Chrome therefore derives the runtime ID from the
+      per-round staging path.
     </p>
     <p>
-      The extension still loads. It still works. It just lives at
-      <code>chrome-extension://&lt;hash-of-a-path&gt;/</code> &mdash; so every probe
-      against the real store ID fails, all published prior art is useless, and the
-      challenge is quietly unsolvable. Recovering that key is most of what this script does.
+      The extension still loads and works, but lives at a fresh
+      <code>chrome-extension://&lt;hash-of-secret-path&gt;/</code> each round. A static probe against
+      the store ID fails by design, forcing behavioral detection.
     </p>
   </div>
 
   <figure>
-    <svg viewBox="0 0 900 400" role="img" aria-label="A CRX3 file splits into a 12-byte prefix, a protobuf header and a ZIP archive. The header yields one declared crx_id and several candidate public keys; only the key whose SHA-256 prefix re-encodes to the declared id is chosen, and that key is injected into manifest.json.">
+    <svg viewBox="0 0 900 400" role="img" aria-label="A CRX3 file splits into a 12-byte prefix, a protobuf header and a ZIP archive. The header yields one declared crx_id and several candidate public keys; the matching key verifies the pinned identity but is deliberately not injected into manifest.json.">
       <defs>
         <marker id="ab2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-build" d="M0,0 L10,5 L0,10 z"/></marker>
         <marker id="an2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-neutral" d="M0,0 L10,5 L0,10 z"/></marker>
@@ -644,15 +641,15 @@
 
       <path class="b-line" d="M276 306 L 276 344" marker-end="url(#ab2)"/>
       <rect class="b-box" x="120" y="348" width="312" height="42" rx="6"/>
-      <text class="t t-b" x="276" y="374" text-anchor="middle">the one true signing key</text>
+      <text class="t t-b" x="276" y="374" text-anchor="middle">matching key proves pinned ID</text>
 
       <path class="n-line" d="M681 86 L 681 236" marker-end="url(#an2)"/>
       <rect class="n-box" x="576" y="240" width="210" height="66" rx="6"/>
       <text class="t" x="681" y="266" text-anchor="middle">manifest.json</text>
-      <text class="t-sm" x="681" y="286" text-anchor="middle">read utf-8-sig (BOMs!)</text>
+      <text class="t-sm" x="681" y="286" text-anchor="middle">runtime key remains absent</text>
 
       <path class="b-line" d="M432 369 C 620 369, 660 330, 676 310" marker-end="url(#ab2)"/>
-      <text class="t-sm t-build t-b" x="470" y="340">inject as "key"</text>
+      <text class="t-sm t-build t-b" x="470" y="340">verify, then discard key</text>
 
       <path class="f-line" d="M540 165 L 700 165" marker-end="url(#af2)"/>
       <rect class="f-box" x="706" y="130" width="176" height="72" rx="6"/>
@@ -664,7 +661,8 @@
       A CRX3 header carries <em>several</em> <code>AsymmetricKeyProof</code> entries.
       Taking the first yields a plausible-looking 32-character ID that is simply wrong,
       and nothing downstream complains &mdash; so each candidate is hashed and only the
-      one that re-derives the header's own declared ID is kept.
+      one that re-derives the header's declared ID is accepted for verification. It is not written
+      to the manifest, preserving per-round ID rotation.
     </figcaption>
   </figure>
 </section>
@@ -677,31 +675,30 @@
 
   <div class="prose">
     <p>
-      The miner's file is <strong>served, not injected</strong>. Before the rounds
-      start, <code>service.py</code> writes it to
-      <code>templates/static/detections/solution.js</code>, which the bait page loads
-      with its own <code>&lt;script src&gt;</code> &mdash; the same model
-      <code>ab_sniffer</code> and <code>ada_detection</code> use. The stub is restored
-      afterwards so a miner's code never outlives the run that sent it.
+      The miner's files are <strong>served, not injected</strong>. Before the rounds start,
+      <code>service.py</code> stages all eight <code>&lt;group&gt;.js</code> files under
+      <code>templates/static/detections/</code>. The bait page loads them with ordinary
+      <code>&lt;script src&gt;</code> tags. Stubs are restored afterwards so miner code never
+      outlives the run that sent it.
     </p>
   </div>
 
   <figure>
-    <svg viewBox="0 0 900 560" role="img" aria-label="A round proceeds through eight stages: stage the miner file, copy extensions to tmpfs, build Chrome options with the load-extension flag, start chromedriver, verify loaded ids via chrome extensions-internals, load the bait page and settle, perform a fixed gesture script, call the miner's entrypoint, then tear down.">
+    <svg viewBox="0 0 900 560" role="img" aria-label="A round copies 12 extensions to tmpfs, starts Chrome with a fresh profile, verifies derived IDs, loads and settles the bait page, performs fixed gestures, calls all grouped miner entrypoints, and tears down. Miner files are staged once before the loop.">
       <defs>
         <marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-run" d="M0,0 L10,5 L0,10 z"/></marker>
         <marker id="af4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-fail" d="M0,0 L10,5 L0,10 z"/></marker>
       </defs>
 
-      <text class="t-lane t-run" x="20" y="24">ChromeSession &mdash; scratch root: /run/exc/round-&lt;tag&gt;/</text>
+      <text class="t-lane t-run" x="20" y="24">ChromeSession &mdash; scratch: /run/exc/round-&lt;nonce&gt;-&lt;index&gt;/</text>
 
       <rect class="b-box" x="20" y="40" width="250" height="52" rx="6"/>
       <text class="t-sm" x="34" y="60">before the loop</text>
-      <text class="t t-b" x="34" y="80">stage solution.js</text>
+      <text class="t t-b" x="34" y="80">stage 8 group files</text>
 
       <rect class="r-box" x="20" y="104" width="250" height="52" rx="6"/>
       <text class="t-sm" x="34" y="124">_stage_extensions()</text>
-      <text class="t t-b" x="34" y="144">copytree per id</text>
+      <text class="t t-b" x="34" y="144">copytree 12 selected dirs</text>
 
       <rect class="r-box" x="20" y="168" width="250" height="52" rx="6"/>
       <text class="t-sm" x="34" y="188">_build_options()</text>
@@ -713,7 +710,7 @@
 
       <rect class="r-box" x="20" y="296" width="250" height="52" rx="6"/>
       <text class="t-sm" x="34" y="316">open_page()</text>
-      <text class="t t-b" x="34" y="336">navigate + settle 4s</text>
+      <text class="t t-b" x="34" y="336">HTTPS + settle 6s</text>
 
       <rect class="r-box" x="20" y="360" width="250" height="52" rx="6"/>
       <text class="t-sm" x="34" y="380">interact()</text>
@@ -721,7 +718,7 @@
 
       <rect class="r-box" x="20" y="424" width="250" height="52" rx="6"/>
       <text class="t-sm" x="34" y="444">run_script()</text>
-      <text class="t t-b" x="34" y="464">call detect_extensions()</text>
+      <text class="t t-b" x="34" y="464">call 8 detect_&lt;group&gt;()</text>
 
       <rect class="r-box" x="20" y="488" width="250" height="52" rx="6"/>
       <text class="t-sm" x="34" y="508">close()</text>
@@ -759,8 +756,8 @@
       <text class="t-sm" x="320" y="397">cannot leak which extensions are on. Without it the</text>
       <text class="t-sm" x="320" y="414">password managers are undetectable</text>
 
-      <text class="t-sm" x="320" y="444">already defined by the page; the wrapper only calls it,</text>
-      <text class="t-sm" x="320" y="461">so hang / throw / result are all distinguishable</text>
+      <text class="t-sm" x="320" y="444">Promise.all + per-group try/catch; one bad file costs only</text>
+      <text class="t-sm" x="320" y="461">its group while successful groups still contribute</text>
 
       <text class="t-sm" x="320" y="508">sweep + rmtree run even when <tspan class="t-b">driver.quit()</tspan> fails &mdash;</text>
       <text class="t-sm" x="320" y="525">it fails exactly when cleanup matters most</text>
@@ -780,10 +777,10 @@
   <pre class="run"><code>binary_location = /opt/chrome/browser/chrome
 
 --headless=new
---user-data-dir=/run/exc/round-&lt;req-id&gt;-7/profile
---load-extension=/run/exc/round-&lt;req-id&gt;-7/ext/cfhdojbkjhnklbpkdaibdccddilifddb,
-                 /run/exc/round-&lt;req-id&gt;-7/ext/mlomiejdfkolichcflejclcbmpeaniij,
-                 /run/exc/round-&lt;req-id&gt;-7/ext/pkehgijcmpdhfbdbbnkijodmdjhbjlgp</code></pre>
+--user-data-dir=/run/exc/round-&lt;secret-nonce&gt;-3/profile
+--load-extension=/run/exc/round-&lt;secret-nonce&gt;-3/ext/cfhdojbkjhnklbpkdaibdccddilifddb,
+                 /run/exc/round-&lt;secret-nonce&gt;-3/ext/mlomiejdfkolichcflejclcbmpeaniij,
+                 /run/exc/round-&lt;secret-nonce&gt;-3/ext/pkehgijcmpdhfbdbbnkijodmdjhbjlgp</code></pre>
 
   <p class="prose">
     That comma-separated path list <em>is</em> how extensions get enabled &mdash; a
@@ -800,12 +797,12 @@
   <p class="filepath">api/endpoints/challenge/_payload_manager.py</p>
 
   <figure>
-    <svg viewBox="0 0 900 300" role="img" aria-label="A round scores by comparing the miner's boolean for all 27 pool extensions against the enabled subset, producing true positives, false positives, false negatives and a large true-negative count, which feed the Matthews correlation coefficient, then the mean over all rounds.">
+    <svg viewBox="0 0 900 300" role="img" aria-label="A round scores by comparing the miner's boolean for all 89 extension names against the 12 enabled names, producing true positives, false positives, false negatives and true negatives, which feed the Matthews correlation coefficient, then the mean over six rounds.">
       <defs>
         <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="mk-run" d="M0,0 L10,5 L0,10 z"/></marker>
       </defs>
 
-      <text class="t-lane t-run" x="20" y="24">ALL 27 POOL IDS &mdash; ACTUAL vs GUESSED</text>
+      <text class="t-lane t-run" x="20" y="24">ALL 89 NAMES &mdash; ACTUAL vs GUESSED (EXAMPLE COUNTS)</text>
 
       <rect class="r-box" x="20"  y="40" width="26" height="26" rx="3"/>
       <rect class="r-box" x="52"  y="40" width="26" height="26" rx="3"/>
@@ -836,10 +833,10 @@
       <rect class="n-box" x="852" y="40" width="26" height="26" rx="3"/>
       <rect class="n-box" x="20"  y="72" width="26" height="26" rx="3"/>
 
-      <text class="t-sm t-run"  x="20"  y="118">tp = 4</text>
-      <text class="t-sm t-fail" x="148" y="118">fn = 1</text>
-      <text class="t-sm t-fail" x="196" y="118">fp = 2</text>
-      <text class="t-sm"        x="276" y="118">tn = 20  &mdash;  the class that dominates</text>
+      <text class="t-sm t-run"  x="20"  y="118">tp = 9</text>
+      <text class="t-sm t-fail" x="148" y="118">fn = 3</text>
+      <text class="t-sm t-fail" x="196" y="118">fp = 3</text>
+      <text class="t-sm"        x="276" y="118">tn = 74  &mdash;  the class that dominates</text>
 
       <path class="r-line" d="M120 130 L 120 162" marker-end="url(#ar3)"/>
       <rect class="r-box" x="20" y="166" width="420" height="58" rx="6"/>
@@ -853,7 +850,7 @@
 
       <path class="r-line" d="M670 195 L 716 195" marker-end="url(#ar3)"/>
       <rect class="r-box" x="720" y="166" width="160" height="58" rx="6"/>
-      <text class="t t-b" x="800" y="190" text-anchor="middle">mean over 20</text>
+      <text class="t t-b" x="800" y="190" text-anchor="middle">mean over 6</text>
       <text class="t-sm" x="800" y="211" text-anchor="middle">the run score</text>
 
       <text class="t-sm" x="20" y="262">Missing key in the miner's dict &rarr; counted False. Omitting an answer is never rewarded.</text>
@@ -863,7 +860,7 @@
       Scoring runs over every ID in the pool, not just the enabled ones &mdash; which is
       why true negatives dominate, and why the metric is MCC rather than F1. MCC is the
       one common coefficient that actually uses the <code>tn</code> cell, so a miner is
-      penalised for false positives on the ~20 extensions that were off.
+      penalised for false positives on the 77 extensions that were off.
     </figcaption>
   </figure>
 
@@ -886,20 +883,20 @@
 
   <div class="prose">
     <p>
-      A failed round scores <code>0.0</code> and stays in the denominator, so browser
-      flakiness is indistinguishable from a bad miner &mdash; except that one is our
-      fault. The code separates them.
+      Miner-caused failures score <code>0.0</code> and stay in the denominator.
+      Infrastructure failures are excluded because a dead browser is not evidence about the miner.
+      If too many browsers fail, the request fails instead of returning a thin average.
     </p>
   </div>
 
-  <pre class="fail"><code>BrowserError       the miner's script threw, timed out, or returned junk
+  <pre class="fail"><code>BrowserError       all miner groups failed, timed out, or returned junk
                    -> round scores 0.0, run continues
 
 BrowserInfraError  Chrome would not start, an id did not load, tab crashed
-                   -> counted separately; if more than 20% of rounds fail
+                   -> excluded; if more than 20% of rounds fail
                       this way, /score RAISES instead of returning a number
 
-RuntimeError       pool missing, k_max > pool size
+RuntimeError       pool missing, k >= pool size
                    -> 500 before any round runs</code></pre>
 
   <div class="note run">
@@ -922,11 +919,11 @@ RuntimeError       pool missing, k_max > pool size
   <pre class="run"><code>POST /score
  └─ router.post_score()                     lock, auth, 429 if busy
      └─ service.score(request_id, miner_output)
-         ├─ load_pool_ids()                 _pool.py    → 27 ids (cached)
+         ├─ load_pool_names/groups/id map   _pool.py    → 89 names, 8 groups
          ├─ PayloadManager(pool)
-         │   └─ build_schedule(20, 3, 8)
-         │       └─ secrets.SystemRandom().sample()   ← GROUND TRUTH
-         ├─ stage_detection_files()         miner's js → templates/static/detections/
+         │   └─ build_schedule(6, 12, 2.0)
+         │       └─ coverage-weighted secrets RNG     ← GROUND TRUTH
+         ├─ stage_detection_files()         8 group files → templates/static/detections/
          │
          ├─ for rec in rounds                         ← sequential
          │   └─ run_round(rec.enabled, pool=…)        _browser.py
@@ -934,13 +931,13 @@ RuntimeError       pool missing, k_max > pool size
          │           ├─ _stage_extensions()   /opt/extensions → /run/exc
          │           ├─ _build_options()      --load-extension=…
          │           ├─ _read_loaded_ids()    chrome://extensions-internals/
-         │           ├─ open_page()           bait page + 4s settle
+         │           ├─ open_page()           private HTTPS bait page + 6s settle
          │           ├─ interact()            6 gestures + 1.5s
-         │           ├─ run_script()          window.detect_extensions()
+         │           ├─ run_script()          Promise.all(window.detect_&lt;group&gt;())
          │           └─ close()               quit · sweep · rmtree
          │
          ├─ manager.record(...)              → max(0.0, mcc(...))
-         ├─ calculate_score()                mean over 20 → float
+         ├─ calculate_score()                mean over scored rounds (max 6) → float
          └─ finally: restore_stubs()         miner's code removed from disk</code></pre>
 
   <div class="note">
@@ -948,7 +945,7 @@ RuntimeError       pool missing, k_max > pool size
     <p style="margin-bottom:0">
       <code>rec.enabled</code> exists only in Python memory. It is never written into
       the bait page, exposed as a global, passed as a query parameter, or included in
-      the report &mdash; which publishes <code>n_enabled</code>, never the ids. The
+      the report &mdash; which publishes <code>n_enabled</code>, never enabled names or ids. The
       miner's only route to it is observing what the extensions actually do.
     </p>
   </div>
