@@ -18,7 +18,7 @@ Documentation page: <https://docs.theredteam.io/latest/challenges/extension-clas
 ### 1. 🚧 Prerequisites
 
 - Install [**docker** and **docker compose**](https://docs.docker.com/engine/install)
-    - Docker image: [**redteamsubnet61/rest-exc-challenge**](https://hub.docker.com/r/redteamsubnet61/rest-exc-challenge)
+    - Docker image: [**redteamsubnet61/rest-bex-challenge**](https://hub.docker.com/r/redteamsubnet61/rest-bex-challenge)
 
 [OPTIONAL] For **DEVELOPMENT** environment:
 
@@ -151,10 +151,10 @@ DEBUG=false
 
 ## -- API configs -- ##
 BEX_API_PORT=10001
-# BEX_API_CONFIGS_DIR="/etc/rest-exc-challenge"
-# BEX_API_LOGS_DIR="/var/log/rest-exc-challenge"
-# BEX_API_DATA_DIR="/var/lib/rest-exc-challenge"
-# BEX_API_TMP_DIR="/tmp/rest-exc-challenge"
+# BEX_API_CONFIGS_DIR="/etc/rest-bex-challenge"
+# BEX_API_LOGS_DIR="/var/log/rest-bex-challenge"
+# BEX_API_DATA_DIR="/var/lib/rest-bex-challenge"
+# BEX_API_TMP_DIR="/tmp/rest-bex-challenge"
 # BEX_API_VERSION="1"
 # BEX_API_PREFIX=""
 # BEX_API_DOCS_ENABLED=true

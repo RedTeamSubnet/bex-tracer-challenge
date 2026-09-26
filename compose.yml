@@ -1,6 +1,6 @@
 services:
   challenge-api:
-    image: redteamsubnet61/rest-exc-challenge:0.0.0
+    image: redteamsubnet61/rest-bex-challenge:0.0.0
     build:
       ## Repo root, so the Dockerfile can reach src/, extensions.yml and scripts/.
       context: .
@@ -17,8 +17,8 @@ services:
       - path: .env
         required: false
     volumes:
-      - ./volumes/configs/rest-exc-challenge:/etc/rest-exc-challenge
-      - ./volumes/storage/rest-exc-challenge/logs:/var/log/rest-exc-challenge
+      - ./volumes/configs/rest-bex-challenge:/etc/rest-bex-challenge
+      - ./volumes/storage/rest-bex-challenge/logs:/var/log/rest-bex-challenge
     ## Chrome needs shared memory per renderer; the 64MB default crashes tabs.
     shm_size: 2gb
     tmpfs:

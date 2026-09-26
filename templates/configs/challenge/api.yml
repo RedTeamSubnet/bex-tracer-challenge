@@ -2,7 +2,7 @@ env: LOCAL
 debug: false
 api:
   title: "Extension Classification"
-  slug: rest-exc-challenge
+  slug: rest-bex-challenge
   http_scheme: http
   bind_host: "0.0.0.0"
   version: "1"

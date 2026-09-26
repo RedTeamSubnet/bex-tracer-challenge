@@ -17,7 +17,7 @@ from api.core.configs._challenge import ChallengeConfig  # noqa: E402
 from api.core.configs._uvicorn import UvicornConfig  # noqa: E402
 
 _CONFIG_FILES = (
-    REPO / "volumes/configs/rest-exc-challenge/challenge.yml",
+    REPO / "volumes/configs/rest-bex-challenge/challenge.yml",
     REPO / "templates/configs/challenge/challenge.yml",
 )
 _ROUND_SETTINGS = (
@@ -50,7 +50,7 @@ def test_proxy_headers_are_never_trusted():
     staged into it. Nothing proxies to this container."""
     assert UvicornConfig.model_fields["proxy_headers"].default is False
     for path in (
-        REPO / "volumes/configs/rest-exc-challenge/api.yml",
+        REPO / "volumes/configs/rest-bex-challenge/api.yml",
         REPO / "templates/configs/challenge/api.yml",
     ):
         uvicorn_cfg = yaml.safe_load(path.read_text())["api"]["uvicorn"]

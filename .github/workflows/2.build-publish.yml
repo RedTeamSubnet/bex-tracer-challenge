@@ -48,11 +48,11 @@ jobs:
       #     context: .
       #     file: ./src/bex_tracer/challenge/Dockerfile
       #     load: true
-      #     cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:cache-latest
-      #     tags: ${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:test
+      #     cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-bex-challenge:cache-latest
+      #     tags: ${{ secrets.DOCKERHUB_USERNAME }}/rest-bex-challenge:test
       # - name: Test docker image
       #   run: |
-      #     docker run --rm -dt -p 10001:10001 ${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:test
+      #     docker run --rm -dt -p 10001:10001 ${{ secrets.DOCKERHUB_USERNAME }}/rest-bex-challenge:test
       #     sleep 3
       #     curl -s http://localhost:10001/ping | grep "Pong"
       - name: Build and push
@@ -63,11 +63,11 @@ jobs:
           file: ./src/bex_tracer/challenge/Dockerfile
           platforms: linux/amd64
           # platforms: linux/amd64,linux/arm64
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:cache-latest
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:cache-latest,mode=max
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-bex-challenge:cache-latest
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-bex-challenge:cache-latest,mode=max
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:${{ env._VERSION }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/rest-bex-challenge:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/rest-bex-challenge:${{ env._VERSION }}
           push: true
       - name: Trigger release
         env:

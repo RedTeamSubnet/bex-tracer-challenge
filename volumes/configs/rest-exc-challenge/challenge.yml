@@ -1,5 +1,5 @@
 challenge:
-  pool_path: "/app/rest-exc-challenge/extensions.yml"
+  pool_path: "/app/rest-bex-challenge/extensions.yml"
 
 
   n_rounds: 6

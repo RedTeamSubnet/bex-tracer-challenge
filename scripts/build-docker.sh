@@ -34,7 +34,7 @@ fi
 # Load from environment variables:
 BASE_IMAGE=${BASE_IMAGE:-}
 IMG_REGISTRY=${IMG_REGISTRY:-redteamsubnet61}
-IMG_REPO=${PROJECT_SLUG:-rest-exc-challenge}
+IMG_REPO=${PROJECT_SLUG:-rest-bex-challenge}
 IMG_VERSION=${IMG_VERSION:-$(./scripts/get-version.sh)}
 IMG_SUBTAG=${IMG_SUBTAG:-}
 IMG_PLATFORM=${IMG_PLATFORM:-$(uname -m)}
@@ -73,7 +73,7 @@ OPTIONS:
     -x, --cross-compile          Enable cross compilation. Default: false
     -b, --base-image [IMAGE]     Base image to use.
     -g, --registry [REGISTRY]    Container registry. Default: redteamsubnet61
-    -r, --repo [REPO]            Image repository. Default: rest-exc-challenge
+    -r, --repo [REPO]            Image repository. Default: rest-bex-challenge
     -v, --version [VERSION]      Image version tag.
     -s, --subtag [SUBTAG]        Additional image subtag.
     -d, --dockerfile [PATH]      Path to Dockerfile. Default: ./src/bex_tracer/challenge/Dockerfile

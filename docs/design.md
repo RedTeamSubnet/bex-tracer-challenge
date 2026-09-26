@@ -6,7 +6,7 @@
 ## Context
 
 `challenges/extension-classification/` is a fresh cookiecutter render of `challenge-template`
-(`module_name=bex_tracer`, `api_slug=rest-exc-challenge`, `env_prefix=BEX_`).
+(`module_name=bex_tracer`, `api_slug=rest-bex-challenge`, `env_prefix=BEX_`).
 Everything is boilerplate — `service.py` currently returns `random.random()`.
 
 We are building a RedTeam Subnet challenge where **miners submit JavaScript that fingerprints
@@ -370,7 +370,7 @@ hardcoded tags silently drifting from config is a real bug in ADA3's `index.html
 - `.vscode/settings.json:155` — un-rendered `src/my_challenge/challenge` path.
 - `pyproject.toml:65-69` — `[project.urls]` still point at `challenge-template`; `"template"`
   keyword at line 23.
-- `volumes/configs/rest-exc-challenge/` is empty, so the container runs on bare pydantic defaults
+- `volumes/configs/rest-bex-challenge/` is empty, so the container runs on bare pydantic defaults
   — the `templates/configs/challenge/*.yml` are never installed there.
 
 ---

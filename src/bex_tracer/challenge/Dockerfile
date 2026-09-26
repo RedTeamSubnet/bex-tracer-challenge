@@ -14,7 +14,7 @@ ARG PYTHON_VERSION=3.10
 ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-trixie
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG BEX_API_SLUG="rest-exc-challenge"
+ARG BEX_API_SLUG="rest-bex-challenge"
 
 ## Keep in lockstep with `chrome_for_testing_version` in extensions.yml: that
 ## value is sent as the CRX `prodversion`, so a mismatch means the extensions

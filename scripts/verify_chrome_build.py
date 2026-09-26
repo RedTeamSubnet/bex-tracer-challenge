@@ -25,7 +25,7 @@ from pathlib import Path
 CHROME_BIN = Path("/opt/chrome/browser/chrome")
 DRIVER_BIN = Path("/opt/chrome/driver/chromedriver")
 EXT_ROOT = Path("/opt/extensions")
-POOL_PATH = Path("/app/rest-exc-challenge/extensions.yml")
+POOL_PATH = Path("/app/rest-bex-challenge/extensions.yml")
 
 
 class GateFailed(Exception):

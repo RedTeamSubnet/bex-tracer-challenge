@@ -1,6 +1,6 @@
 challenge:
   # Pool of extensions published to miners. Path is inside the container.
-  pool_path: "/app/rest-exc-challenge/extensions.yml"
+  pool_path: "/app/rest-bex-challenge/extensions.yml"
 
   # T - rounds per /score call. Each round is one browser launch.
   n_rounds: 6

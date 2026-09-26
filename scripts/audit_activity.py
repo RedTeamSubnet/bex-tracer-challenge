@@ -22,7 +22,7 @@ import sys
 import time
 from pathlib import Path
 
-API_DIR = Path(os.environ.get("BEX_API_DIR", "/app/rest-exc-challenge"))
+API_DIR = Path(os.environ.get("BEX_API_DIR", "/app/rest-bex-challenge"))
 sys.path.insert(0, str(API_DIR))
 
 _ap = argparse.ArgumentParser(description=__doc__)

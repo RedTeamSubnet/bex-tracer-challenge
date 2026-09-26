@@ -1,9 +1,9 @@
 services:
   challenge-api:
-    image: redteamsubnet61/rest-exc-challenge:latest
+    image: redteamsubnet61/rest-bex-challenge:latest
     volumes:
       - "./src/bex_tracer/challenge/scripts/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh"
-      - "./src/bex_tracer/challenge/api:/app/rest-exc-challenge/api"
+      - "./src/bex_tracer/challenge/api:/app/rest-bex-challenge/api"
       - "./volumes/.vscode-server:/home/EXC-user/.vscode-server"
     # deploy:
     #   replicas: 3
