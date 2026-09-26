@@ -65,6 +65,8 @@ def solve(miner_input: MinerInput = Body(...)) -> MinerOutput:
 
         _miner_output = MinerOutput(commit_files=_commit_files)
         logger.info("Successfully retrieved commit files.")
+    except HTTPException:
+        raise
     except Exception as err:
         logger.error(f"Failed to retrieve commit files: {str(err)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve commit files.")

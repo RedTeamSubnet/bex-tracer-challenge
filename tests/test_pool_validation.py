@@ -86,6 +86,16 @@ def test_a_missing_lock_file_names_the_published_image(tmp_path, monkeypatch):
         load_name_to_id()
 
 
+def test_an_entry_without_a_name_gets_the_named_error_from_every_loader(tmp_path, monkeypatch):
+    """`load_pool_groups()` is the first loader startup calls; it used to fail
+    with a bare KeyError instead of saying what is wrong with the pool."""
+    _pool(tmp_path, monkeypatch, """
+        - group: blockers
+    """)
+    with pytest.raises(RuntimeError, match="has no name"):
+        load_pool_groups()
+
+
 def test_a_proto_name_is_rejected(tmp_path, monkeypatch):
     """`merged["__proto__"] = true` is a no-op in JS, so the label would never
     arrive and the extension would score false in every round."""

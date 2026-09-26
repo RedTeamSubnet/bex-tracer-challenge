@@ -568,6 +568,41 @@ def test_results_requires_the_api_key(client):
     assert client.get("/results").status_code == 401
 
 
+def test_a_failed_run_clears_the_previous_report(monkeypatch):
+    """The controller reads /results after every miner. A run that failed kept
+    the previous miner's report there, so it was filed under the wrong miner."""
+    from api.endpoints.challenge._browser import BrowserInfraError
+
+    monkeypatch.setattr(service, "_last_report", {"score": 0.99})
+
+    def _broken(*_a, **_kw):
+        raise BrowserInfraError("simulated")
+
+    monkeypatch.setattr(service, "run_round", _broken)
+    with pytest.raises(RuntimeError):
+        service.score(request_id="test", miner_output=solution("// stub"))
+    assert service.get_results() is None
+
+
+def test_swagger_examples_never_read_the_served_directory():
+    """The examples are built at import, before the startup reset. Read from
+    the served directory, a run killed mid-score had that miner's code
+    published by the public /openapi.json until the next restart."""
+    from api.endpoints.challenge.schemas import _stub_examples
+    from api.endpoints.challenge.utils import DETECTIONS_DIR, stub_source
+
+    group = next(iter(load_pool_groups()))
+    planted = DETECTIONS_DIR / f"{group}.js"
+    planted.write_text("// MINER-CODE-LEFT-BY-A-KILLED-RUN", encoding="utf-8")
+    try:
+        examples = {e["file_name"]: e["content"] for e in _stub_examples()}
+    finally:
+        planted.write_text(stub_source(group), encoding="utf-8")
+
+    assert examples[f"{group}.js"] == stub_source(group)
+    assert "MINER-CODE" not in "".join(examples.values())
+
+
 def test_results_is_404_before_any_run(client, monkeypatch):
     monkeypatch.setattr(service, "_last_report", None)
     response = client.get("/results", headers={"X-API-Key": API_KEY})

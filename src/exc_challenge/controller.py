@@ -84,7 +84,10 @@ class EXCController(Controller):
         # `RunReportPM`. Attaching it here is the only way those numbers reach
         # the validator's records; without it an infra failure in production is
         # invisible after the fact.
-        _scoring_log.miner_output["scoring_results"] = self._get_results_from_challenge()
+        if _scoring_log.miner_output is not None:
+            _scoring_log.miner_output["scoring_results"] = (
+                self._get_results_from_challenge()
+            )
 
         return
 

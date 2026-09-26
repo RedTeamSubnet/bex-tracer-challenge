@@ -163,6 +163,7 @@ def load_pool_groups() -> dict[str, tuple[str, ...]]:
     a JS identifier - it becomes the miner's `detect_<group>` entrypoint and
     its `<group>.js` filename.
     """
+    load_pool_names()  # validates every name first, so the lookup below is safe
     _groups: dict[str, list[str]] = {}
 
     for _entry in _read_pool_entries():

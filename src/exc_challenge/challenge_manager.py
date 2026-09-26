@@ -103,10 +103,6 @@ class EXCChallengeManager(ChallengeManager):
             )
             if not miner_commit.scored_timestamp:
                 miner_commit.scored_timestamp = time.time()
-            elif not miner_commit.scored_timestamp and miner_commit.commit_timestamp:
-                miner_commit.scored_timestamp = (
-                    miner_commit.commit_timestamp + 1 + 24 + 60 + 60
-                )  # Add 1 day to commit timestamp if scored timestamp is missing
 
             if miner_commit.miner_uid not in self.miner_states:
                 self.miner_states[miner_commit.miner_uid] = MinerChallengeInfo(

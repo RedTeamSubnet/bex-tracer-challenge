@@ -52,9 +52,9 @@ RUN	apt-get update && \
 
 
 ## Here is the extension image:
-## Downloads, sha-verifies, CRX3-parses and unpacks every pinned extension, and
-## injects each `key` so Chrome derives the real store id instead of a
-## path-derived one. Needs network at build; prod runs with egress blocked.
+## Downloads, sha-verifies, CRX3-parses and unpacks every pinned extension.
+## `key` is deliberately NOT injected, so Chrome derives a new id from the
+## staging path every round. Needs network at build; prod runs with egress blocked.
 FROM ${BASE_IMAGE} AS extensions
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

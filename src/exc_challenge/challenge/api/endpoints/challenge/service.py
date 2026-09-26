@@ -226,6 +226,11 @@ def _record_all(
 @validate_call
 def score(request_id: str, miner_output: MinerOutput) -> float:
 
+    # Cleared first: if this run fails, /results must not keep serving the
+    # previous miner's report as if it were this one's.
+    global _last_report
+    _last_report = None
+
     _pool: list[str] = list(load_pool_names())
     _challenge_config = config.challenge
 
@@ -278,7 +283,6 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
 
         _score: float = _payload_manager.calculate_score()
         _report = _payload_manager.report()
-        global _last_report
         _last_report = _report
         logger.info(
             f"[{request_id}] - Scored {_score:.4f} "

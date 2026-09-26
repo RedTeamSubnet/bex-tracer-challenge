@@ -257,8 +257,9 @@ def derive_unpacked_id(ext_dir: Path) -> str:
 
 
 def normalize_predictions(raw: Any, pool: list[str]) -> dict[str, bool]:
-    """One boolean per pool entry, keyed by extension NAME. Missing and
-    non-boolean values become False; keys outside the pool are dropped."""
+    """One boolean per pool entry, keyed by extension NAME. Missing keys are
+    False and other values are coerced by truthiness (so the string "false"
+    counts as True - return real booleans); keys outside the pool are dropped."""
     if not isinstance(raw, dict):
         raise BrowserError(
             f"miner returned {type(raw).__name__}, expected "

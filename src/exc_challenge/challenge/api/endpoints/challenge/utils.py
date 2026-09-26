@@ -13,10 +13,12 @@ an arbitrary file write.
 """
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from api.logger import logger
 
-from .schemas import MinerOutput
+if TYPE_CHECKING:  # schemas imports this module for `stub_source`
+    from .schemas import MinerOutput
 
 _SRC_DIR = Path(__file__).resolve().parents[3]
 DETECTIONS_DIR = _SRC_DIR / "templates" / "static" / "detections"
@@ -53,7 +55,7 @@ def _safe_target(detections_dir: Path, file_name: str) -> Path:
 
 
 def stage_detection_files(
-    miner_output: MinerOutput, detections_dir: Path = DETECTIONS_DIR
+    miner_output: "MinerOutput", detections_dir: Path = DETECTIONS_DIR
 ) -> list[Path]:
     """Write the miner's files into the served tree.
 

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from pydantic import BaseModel, Field, field_validator
 
 from potato_util.generator import gen_random_string
@@ -7,10 +5,7 @@ from potato_util.generator import gen_random_string
 from api.config import config
 
 from ._pool import load_pool_groups
-
-_DETECTIONS_DIR = (
-    Path(__file__).resolve().parents[3] / "templates" / "static" / "detections"
-)
+from .utils import stub_source
 
 
 def _stub_examples() -> list[dict[str, str]]:
@@ -20,32 +15,20 @@ def _stub_examples() -> list[dict[str, str]]:
     requires one file per group, so a single-file example is not unhelpful but
     INVALID: Try-it-out would 422 and read like a broken endpoint.
 
-    Runs at import, before the pool file is guaranteed readable (under pytest
-    it usually is not), so a missing pool degrades the example rather than
-    breaking the import.
+    Built from the stub template, never read from the served detections
+    directory. This runs at import - before the startup reset - and a run
+    killed mid-score leaves that miner's code there, which the public
+    /openapi.json then published until the next restart.
+
+    A missing pool degrades the example rather than breaking the import.
     """
-    _by_name: dict[str, str] = {}
-    if _DETECTIONS_DIR.is_dir():
-        for _path in sorted(_DETECTIONS_DIR.glob("*.js")):
-            try:
-                _by_name[_path.name] = _path.read_text(encoding="utf-8")
-            except OSError:  # pragma: no cover - the app still runs without one
-                continue
-
     try:
-        _names = [f"{_group}.js" for _group in load_pool_groups()]
+        _groups = list(load_pool_groups())
     except Exception:  # noqa: BLE001 - an example must never break startup
-        _names = sorted(_by_name) or ["detect.js"]
-
+        _groups = ["detect"]
     return [
-        {
-            "file_name": _name,
-            "content": _by_name.get(
-                _name,
-                f"window.detect_{_name[:-3]} = async () => ({{}});",
-            ),
-        }
-        for _name in _names
+        {"file_name": f"{_group}.js", "content": stub_source(_group)}
+        for _group in _groups
     ]
 
 
