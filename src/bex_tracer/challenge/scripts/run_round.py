@@ -132,22 +132,16 @@ class Extension:
 
 
 def load_pool(pool_file: Path) -> list[Extension]:
-    """Names and groups from `extensions.yml`, ids from the private
-    `extensions.lock.yml` beside it - which the image carries."""
     entries = (yaml.safe_load(pool_file.read_text(encoding="utf-8")) or {}).get("pool")
     if not entries:
         sys.exit(f"{pool_file} has an empty pool")
     missing_group = [e["name"] for e in entries if not e.get("group")]
     if missing_group:
         sys.exit(f"{pool_file}: pool entries with no group: {missing_group}")
-    lock_file = pool_file.with_name("extensions.lock.yml")
-    if not lock_file.is_file():
-        sys.exit(f"{lock_file} not found - it is private; run this in the published image")
-    lock = yaml.safe_load(lock_file.read_text(encoding="utf-8")) or {}
-    missing_id = [e["name"] for e in entries if not (lock.get(e["name"]) or {}).get("id")]
+    missing_id = [e["name"] for e in entries if not e.get("id")]
     if missing_id:
-        sys.exit(f"{lock_file}: no id for {missing_id}")
-    return [Extension(lock[e["name"]]["id"], e["name"], e["group"]) for e in entries]
+        sys.exit(f"{pool_file}: pool entries with no id: {missing_id}")
+    return [Extension(e["id"], e["name"], e["group"]) for e in entries]
 
 
 def groups_of(pool: list[Extension]) -> dict[str, list[str]]:

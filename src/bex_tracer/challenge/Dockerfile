@@ -63,7 +63,6 @@ RUN --mount=type=cache,target=/root/.cache,sharing=locked \
 	python3 -m pip install --timeout 60 -q PyYAML
 
 RUN	--mount=type=bind,source=src/bex_tracer/challenge/extensions.yml,target=/tmp/extensions.yml \
-	--mount=type=bind,source=src/bex_tracer/challenge/extensions.lock.yml,target=/tmp/extensions.lock.yml \
 	--mount=type=bind,source=scripts/fetch_extensions.py,target=/tmp/fetch_extensions.py \
 	python3 /tmp/fetch_extensions.py --pool /tmp/extensions.yml --out /opt/extensions && \
 	chmod -R a+rX /opt/extensions
@@ -242,8 +241,6 @@ COPY --chown=${UID}:${GID} ./src/bex_tracer/challenge/templates ${BEX_API_DIR}/t
 ## `config.challenge.pool_path` defaults to this path. It sits beside api/ and
 ## templates/ rather than loose in ${BEX_HOME_DIR}, matching the package layout.
 COPY --chown=${UID}:${GID} ./src/bex_tracer/challenge/extensions.yml ${BEX_API_DIR}/extensions.yml
-## Store ids and pins. Private - not in the public repository, only here.
-COPY --chown=${UID}:${GID} ./src/bex_tracer/challenge/extensions.lock.yml ${BEX_API_DIR}/extensions.lock.yml
 COPY --chown=${UID}:${GID} --chmod=770 ./src/bex_tracer/challenge/scripts/*.sh /usr/local/bin/
 COPY --chown=${UID}:${GID} --chmod=775 ./src/bex_tracer/challenge/scripts/run_round.py /usr/local/bin/
 

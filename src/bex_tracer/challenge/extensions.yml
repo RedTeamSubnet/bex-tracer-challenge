@@ -7,104 +7,554 @@ chrome_for_testing_version: "152.0.7977.54"
 ## or act only from the toolbar. Finding what is findable is the miner's job,
 ## and scores are relative, so the ones nobody can find cost everyone equally.
 ##
-## Names and groups only. The store ids and version pins are in
-## extensions.lock.yml, which is not public - use the published image.
+## Miners answer by `name`. `id` is what the build downloads and verifies; it
+## is public by design - Chrome gives every extension a new id each round, so
+## a store id cannot be used for detection.
+##
+## version/sha256 pin what the published image contains (2026-09-26). The store
+## serves only the newest version, so a build fails once one is re-published:
+## run scripts/fetch_extensions.py --allow-sha-mismatch to see what moved,
+## review it, and update the pins.
 
 pool:
   ## -- ad_blockers -----------------------------------------
-  - { name: "uBlock Origin Lite", group: ad_blockers }
-  - { name: "Adblock Plus - free ad blocker", group: ad_blockers }
-  - { name: "AdGuard AdBlocker", group: ad_blockers }
-  - { name: "AdBlocker Ultimate", group: ad_blockers }
-  - { name: "Adblock for Youtube", group: ad_blockers }
-  - { name: "Pie Adblock - A Powerful Free Ad Blocker", group: ad_blockers }
-  - { name: "Privacy Badger", group: ad_blockers }
-  - { name: "I don't care about cookies", group: ad_blockers }
-  - { name: "SponsorBlock", group: ad_blockers }
+  - name: "uBlock Origin Lite"
+    group: ad_blockers
+    id: ddkjiahejlhfcafbddmgiahcphecmpfh
+    version: "2026.920.1710"
+    sha256: "f08f8543bf5d6f2eb39c149f03b71194d85809354e90bb087611cd7ab1a1846a"
+
+  - name: "Adblock Plus - free ad blocker"
+    group: ad_blockers
+    id: cfhdojbkjhnklbpkdaibdccddilifddb
+    version: "4.44.1"
+    sha256: "2aa1c4ee48f261f2ea7ebca9e6025e4f2391e15cefd3e24fb75abc02ddf5a283"
+
+  - name: "AdGuard AdBlocker"
+    group: ad_blockers
+    id: bgnkhhnnamicmpeenaelnjfhikgbkllg
+    version: "5.5.2.48"
+    sha256: "333041e44b8a194a2c882a97d21269ae12b9a9fb1f43ea06c3ab2cc413a2ba2e"
+
+  - name: "AdBlocker Ultimate"
+    group: ad_blockers
+    id: ohahllgiabjaoigichmmfljhkcfikeof
+    version: "4.4.0"
+    sha256: "82c6d91a7a648e354e593df4dc3385d07a59ad0722eb1c58744a867563757db4"
+
+  - name: "Adblock for Youtube"
+    group: ad_blockers
+    id: cmedhionkhpnakcndndgjdbohmhepckk
+    version: "7.2.6"
+    sha256: "cb025b64fb635fb939302ef22e7d7c98291835a3e4a6d28536eacdce49b3e183"
+
+  - name: "Pie Adblock - A Powerful Free Ad Blocker"
+    group: ad_blockers
+    id: jpkfgepcmmchgfbjblnodjhldacghenp
+    version: "1.33.9"
+    sha256: "7ba1ab6266b643c8200945d4d6933f3637500c79e0903beb41c10fa3a4255e50"
+
+  - name: "Privacy Badger"
+    group: ad_blockers
+    id: pkehgijcmpdhfbdbbnkijodmdjhbjlgp
+    version: "2026.9.15"
+    sha256: "d0040c70a07691128713dcf692e83b35dc6cb7993d96ed2b12bab7545fe1fb8a"
+
+  - name: "I don't care about cookies"
+    group: ad_blockers
+    id: fihnjjcciajhdojfnbdddfaoknhalnja
+    version: "3.5.1"
+    sha256: "72a9a0b99f3255b9e637ecb5a4489cd8233e91a04fe131517a1ec445061b5089"
+
+  - name: "SponsorBlock"
+    group: ad_blockers
+    id: mnjggcdmjocbbbhaepdhchncahnbgone
+    version: "6.1.6"
+    sha256: "5587fe2b6a9946101ca0dde7c6efe76a755c5ee5b6d6e63dfc48c7f736cdb4ff"
+
   ## -- network_vpn -----------------------------------------
-  - { name: "1clickVPN", group: network_vpn }
-  - { name: "1VPN", group: network_vpn }
-  - { name: "uVPN", group: network_vpn }
-  - { name: "Browsec VPN - Free VPN for Chrome", group: network_vpn }
-  - { name: "Unblock Youku", group: network_vpn }
-  - { name: "FoxyProxy", group: network_vpn }
-  - { name: "Allow CORS", group: network_vpn }
-  - { name: "User-Agent Switcher for Chrome", group: network_vpn }
-  - { name: "User-Agent Switcher and Manager", group: network_vpn }
-  - { name: "Postman Interceptor", group: network_vpn }
+  - name: "1clickVPN"
+    group: network_vpn
+    id: fcfhplploccackoneaefokcmbjfbkenj
+    version: "2.1.0"
+    sha256: "413dafaf45c1abc5c5d52296e011f9d9a03562b35f117d619b85ec0d4bda5c99"
+
+  - name: "1VPN"
+    group: network_vpn
+    id: akcocjjpkmlniicdeemdceeajlmoabhg
+    version: "4.1.6"
+    sha256: "48fdf71dee75b87799f097b3d5e221cd118f10d60ff8212a1513d2c386927aed"
+
+  - name: "uVPN"
+    group: network_vpn
+    id: jaoafpkngncfpfggjefnekilbkcpjdgp
+    version: "8.0.10"
+    sha256: "44df3940ac59f018717ac3acc15d4c8e8d813ce4e28a51c60eed49c935930a4f"
+
+  - name: "Browsec VPN - Free VPN for Chrome"
+    group: network_vpn
+    id: omghfjlpggmjjaagoclmmobgdodcjboh
+    version: "3.93.7"
+    sha256: "6808984fb7ad893d3e2270d7c7e638cac854dbd7e6749044769d67e7cb0602eb"
+
+  - name: "Unblock Youku"
+    group: network_vpn
+    id: pdnfnkhpgegpcingjbfihlkjeighnddk
+    version: "6.3.1"
+    sha256: "a333cb305f16cbf970c681a04dcfe2d425e48d8c72b69148e49ecac20d2e3b0f"
+
+  - name: "FoxyProxy"
+    group: network_vpn
+    id: gcknhkkoolaabfmlnjonogaaifnjlfnp
+    version: "9.7"
+    sha256: "4c69dd6c1307726115ed6c9786461de76c77cde47133e7d97837da2b4c9cfa20"
+
+  - name: "Allow CORS"
+    group: network_vpn
+    id: lhobafahddgcelffkeicbaginigeejlf
+    version: "0.2.3"
+    sha256: "c044437fb4b5441140ba9c914424fefa6f425be8a599b7a469ea940c29fa6a75"
+
+  - name: "User-Agent Switcher for Chrome"
+    group: network_vpn
+    id: djflhoibgkdhkhhcedjiklpkjnoahfmg
+    version: "2.0.2"
+    sha256: "f7576f9019b16b1981b5c50f22b735b5cc8dfc3024c9eca96816b266bc716344"
+
+  - name: "User-Agent Switcher and Manager"
+    group: network_vpn
+    id: bhchdcejhohfmigjafbampogmaanbfkg
+    version: "0.7.1"
+    sha256: "2ad59a563b034b1ff81c86dee074c1dbb6f8a301f8e5b37b87a3a44f9028ce81"
+
+  - name: "Postman Interceptor"
+    group: network_vpn
+    id: aicmkgpgakddgnaphhhpliifpcfhicfo
+    version: "3.2.1"
+    sha256: "31d6be5b5852de2b91b7f77db040eee014b534d209dfb2260ce8c30c6a79581b"
+
   ## -- developer_tools -------------------------------------
-  - { name: "Web Developer", group: developer_tools }
-  - { name: "Fake Filler", group: developer_tools }
-  - { name: "SelectorsHub", group: developer_tools }
-  - { name: "SEOquake: On-Page SEO Checker", group: developer_tools }
-  - { name: "JSON Formatter", group: developer_tools }
-  - { name: "Lighthouse", group: developer_tools }
-  - { name: "Google Analytics Debugger", group: developer_tools }
-  - { name: "SEO META in 1 CLICK", group: developer_tools }
-  - { name: "html.to.design", group: developer_tools }
-  - { name: "Clear Cache", group: developer_tools }
-  - { name: "Ace Script", group: developer_tools }
-  - { name: "Cookie-Editor", group: developer_tools }
+  - name: "Web Developer"
+    group: developer_tools
+    id: bfbameneiokkgbdmiekhjnmfkcnldhhm
+    version: "3.0.1"
+    sha256: "15c464158e8bc176ef659af07592abfc46a75b24f3f706a105f0d1ba4ccaa1ed"
+
+  - name: "Fake Filler"
+    group: developer_tools
+    id: bnjjngeaknajbdcgpfkgnonkmififhfo
+    version: "4.1.0"
+    sha256: "9d6a15f4740f27b46569aee02e9e2afb565202a154fc37bd2922d21728830932"
+
+  - name: "SelectorsHub"
+    group: developer_tools
+    id: ndgimibanhlabgdgjcpbbndiehljcpfh
+    version: "5.8.4"
+    sha256: "0b611577bb87b13e099d7746fc5277c3a5a5603a1bc48104cebb2094205e208c"
+
+  - name: "SEOquake: On-Page SEO Checker"
+    group: developer_tools
+    id: akdgnmcogleenhbclghghlkkdndkjdjc
+    version: "4.2.0"
+    sha256: "f54b7ccebf65b1aa3313a9bb0f31736b614ba47ea32c681f707e00b7e71ac30f"
+
+  - name: "JSON Formatter"
+    group: developer_tools
+    id: bcjindcccaagfpapjjmafapmmgkkhgoa
+    version: "0.10.2"
+    sha256: "5e0ebde71ee60f997a9f5fc0850e6ae4a9f67006dbf662f00507f99e957c2b21"
+
+  - name: "Lighthouse"
+    group: developer_tools
+    id: blipmdconlkpinefehnmjammfjpmpbjk
+    version: "100.0.0.5"
+    sha256: "a2f4b8cb9abbfab0be1deadfffd7de6a318382fab207597059834231c8b95e65"
+
+  - name: "Google Analytics Debugger"
+    group: developer_tools
+    id: jnkmfdileelhofjcijamephohjechhna
+    version: "3.0"
+    sha256: "478e89a6b6d9dfdfbae393a776390877ec6d582129710996bd71cb38fab337e1"
+
+  - name: "SEO META in 1 CLICK"
+    group: developer_tools
+    id: bjogjfinolnhfhkbipphpdlldadpnmhc
+    version: "2.67"
+    sha256: "61f4a59ece7a8b9018eda4f026874cf1a83bef78452401132785ed6d6c5b3e8c"
+
+  - name: "html.to.design"
+    group: developer_tools
+    id: ldnheaepmnmbjjjahokphckbpgciiaed
+    version: "0.0.207"
+    sha256: "9a5ce610f40b659a65f532f428356e5f8037080ed73cca3402b9c49ddc63f1c6"
+
+  - name: "Clear Cache"
+    group: developer_tools
+    id: cppjkneekbjaeellbfkmgnhonkkjfpdn
+    version: "2.4.5.2"
+    sha256: "aa0743726956c7a31817215fbae49e0918b4f9d42c015edd7a7de492530c803f"
+
+  - name: "Ace Script"
+    group: developer_tools
+    id: mjbepbhonbojpoaenhckjocchgfiaofo
+    version: "1.2.6"
+    sha256: "79b245e1a743c9425e870f2a36b1f9bb07493392572d18be749463373c903fb8"
+
+  - name: "Cookie-Editor"
+    group: developer_tools
+    id: hlkenndednhfkekhgcdicdfddnkalmdm
+    version: "1.13.0"
+    sha256: "754a072a5b6327d27a0d4d6e299a8e28b2a5fafbd595ccb6bfcd4090ae8eb038"
+
   ## -- media_video -----------------------------------------
-  - { name: "Video Downloader Professional", group: media_video }
-  - { name: "Video Downloader Plus", group: media_video }
-  - { name: "Free Download Manager", group: media_video }
-  - { name: "Video Download Helper", group: media_video }
-  - { name: "Picture-in-Picture Extension", group: media_video }
-  - { name: "h264ify", group: media_video }
-  - { name: "Volume Booster", group: media_video }
-  - { name: "Volume Master", group: media_video }
-  - { name: "AHA Music - Song Finder for Browser", group: media_video }
+  - name: "Video Downloader Professional"
+    group: media_video
+    id: elicpjhcidhpjomhibiffojpinpmmpil
+    version: "2.1.7"
+    sha256: "95b494062862dd0f8bdd71cb9b07d50303c2f8344735f9b9c89997c3c48c5c92"
+
+  - name: "Video Downloader Plus"
+    group: media_video
+    id: hkdmdpdhfaamhgaojpelccmeehpfljgf
+    version: "4.0.0"
+    sha256: "0b9e0746dff3f352f3caa406f81efe77fa2eb10f1ffe198fb264855f8bb0e985"
+
+  - name: "Free Download Manager"
+    group: media_video
+    id: ahmpjcflkgiildlgicmcieglgoilbfdp
+    version: "3.3.1"
+    sha256: "fe2568aa528ba12ca34ee33d2a70ff77ed49da181ebc92a1fb4321a0d2f15917"
+
+  - name: "Video Download Helper"
+    group: media_video
+    id: lmjnegcaeklhafolokijcfjliaokphfk
+    version: "10.5.49.2"
+    sha256: "e393ee7c7e0c1c19b1a9b8f6c26840803a0af8f2764134f04b7dfe096a09c0da"
+
+  - name: "Picture-in-Picture Extension"
+    group: media_video
+    id: hkgfoiooedgoejojocmhlaklaeopbecg
+    version: "1.14"
+    sha256: "35a58d7c01fdcf22c856998ae7e71bef63d4677c2153937009bfbd040e396867"
+
+  - name: "h264ify"
+    group: media_video
+    id: aleakchihdccplidncghkekgioiakgal
+    version: "2.0.1"
+    sha256: "2007b59ca6741d4e9552b51f25a19010041a7e775020cd0add78607d75f8deec"
+
+  - name: "Volume Booster"
+    group: media_video
+    id: ejkiikneibegknkgimmihdpcbcedgmpo
+    version: "1.0.7"
+    sha256: "d92ea0a1ff9780a163e732b92ea0acd739473ec00674f80c4d5a217e6de084b0"
+
+  - name: "Volume Master"
+    group: media_video
+    id: jghecgabfgfdldnmbfkhmffcabddioke
+    version: "2.4.0"
+    sha256: "7522d2eca9bfe606dbd3bc446000803acf4405fbdb24696ac78ab0164295f795"
+
+  - name: "AHA Music - Song Finder for Browser"
+    group: media_video
+    id: dpacanjfikmhoddligfbehkpomnbgblf
+    version: "2.0.6"
+    sha256: "016701b93b625b9888924cf376bddb53a567e7c0ebd117fee8766f240c8c87f3"
+
   ## -- capture_recording -----------------------------------
-  - { name: "Vimeo Record - Screen & Webcam Recorder", group: capture_recording }
-  - { name: "Screen Recorder", group: capture_recording }
-  - { name: "Screen Recorder for Google Chrome", group: capture_recording }
-  - { name: "Lightshot", group: capture_recording }
-  - { name: "Read Aloud", group: capture_recording }
-  - { name: "Fathom AI Note Taker", group: capture_recording }
-  - { name: "ProctorExam Activity Sharing", group: capture_recording }
+  - name: "Vimeo Record - Screen & Webcam Recorder"
+    group: capture_recording
+    id: ejfmffkmeigkphomnpabpdabfddeadcb
+    version: "2.0.8"
+    sha256: "ff52134ef3e12be7fc26aabbad16f58dcb9a057efac0d9d042ae687143208379"
+
+  - name: "Screen Recorder"
+    group: capture_recording
+    id: hniebljpgcogalllopnjokppmgbhaden
+    version: "3.3.1"
+    sha256: "64e7134ed91499681e26b3ed10e3b4973a434774d828fd4a3774397386cfd164"
+
+  - name: "Screen Recorder for Google Chrome"
+    group: capture_recording
+    id: eclbecdgdoahkliaijlpkigldlkojjdn
+    version: "4.3.11"
+    sha256: "4589fbcd3436d1608ab9cb01d202f1ea8ac481ad39713fbada888d2da3874ec3"
+
+  - name: "Lightshot"
+    group: capture_recording
+    id: mbniclmhobmnbdlbpiphghaielnnpgdp
+    version: "7.0.1"
+    sha256: "4b6df74a3ed3a0656b1de26becc4a8428a2f777e07930424ea1bb14db6cca09f"
+
+  - name: "Read Aloud"
+    group: capture_recording
+    id: hdhinadidafjejdhmfkjgnolgimiaplp
+    version: "2.24.0"
+    sha256: "94fb6a139a423e32e385868c310b72db4763366f2112627ca2e078bfb9eebac1"
+
+  - name: "Fathom AI Note Taker"
+    group: capture_recording
+    id: nhocmlminaplaendbabmoemehbpgdemn
+    version: "0.2.13.0"
+    sha256: "abbfe038f776c0d3128f9be582c3e7080dbfc52d6b1089afdfa635eb72cfcf0c"
+
+  - name: "ProctorExam Activity Sharing"
+    group: capture_recording
+    id: digojkgonhgmnohbapdfjllpnmjmdhpg
+    version: "1.8.1"
+    sha256: "0800d3672cc727bc7e789b95e1ce75b4affc6eddd9fc1deb335dd7f090a39e39"
+
   ## -- save_research ---------------------------------------
-  - { name: "Save to Pinterest", group: save_research }
-  - { name: "Send from Gmail (by Google)", group: save_research }
-  - { name: "Scopus Document Download Manager", group: save_research }
-  - { name: "Save to Google Drive", group: save_research }
-  - { name: "OneNote Web Clipper", group: save_research }
-  - { name: "Notion Web Clipper", group: save_research }
-  - { name: "PrintFriendly", group: save_research }
-  - { name: "Kami for Google Chrome", group: save_research }
-  - { name: "Scribbr Citation Generator", group: save_research }
-  - { name: "The Camelizer", group: save_research }
-  - { name: "QR Code Generator", group: save_research }
-  - { name: "The QR Code Generator", group: save_research }
-  - { name: "Exporter for Followers", group: save_research }
-  - { name: "GMass", group: save_research }
+  - name: "Save to Pinterest"
+    group: save_research
+    id: gpdjojdkbbmdfjfahjcgigfpmkopogic
+    version: "6.16.2"
+    sha256: "05e6aff5abe3cf4febab588ab17796d47ad08a7a40325ddb28992fe2c84b8686"
+
+  - name: "Send from Gmail (by Google)"
+    group: save_research
+    id: pgphcomnlaojlmmcjmiddhdapjpbgeoc
+    version: "1.17"
+    sha256: "2571f2cb8d836a5514ae395f8442fb548f44777d8c83f3d3581e010db78d8cb1"
+
+  - name: "Scopus Document Download Manager"
+    group: save_research
+    id: ojplelelocihfchkdaebocpankipadmp
+    version: "4.00"
+    sha256: "e219ce867b97ba31aaf17fffc453d70ee43752b9b42fee343605178236b99f52"
+
+  - name: "Save to Google Drive"
+    group: save_research
+    id: gmbmikajjgmnabiglmofipeabaddhgne
+    version: "3.0.9"
+    sha256: "958036004cc28d1fa6fa29bb83eac721aa70ea7236974ccb257eb154e37f5dc2"
+
+  - name: "OneNote Web Clipper"
+    group: save_research
+    id: gojbdfnpnhogfdgjbigejoaolejmgdhk
+    version: "3.11.3"
+    sha256: "f79a97bd252e4c2ea73b23d7ddd2119d58f2d8c5c4f8fe391e06e6e55bbc98d3"
+
+  - name: "Notion Web Clipper"
+    group: save_research
+    id: knheggckgoiihginacbkhaalnibhilkk
+    version: "0.2.19"
+    sha256: "daea47142fc88151ff0ad3f37f793ab2250b61ef2205d3f4ff777d6cfa5b31b9"
+
+  - name: "PrintFriendly"
+    group: save_research
+    id: ohlencieiipommannpdfcmfdpjjmeolj
+    version: "7.2.10"
+    sha256: "9b90428fa0fec35a3df582f0cf911ba122d6ff7129b10e47d81d22419e246f2b"
+
+  - name: "Kami for Google Chrome"
+    group: save_research
+    id: ecnphlgnajanjnkcmbpancdjoidceilk
+    version: "2.0.25381"
+    sha256: "dc22339bba79690941db8213b8f1f03b64d3cec9348b4ea4de8c1497e544231f"
+
+  - name: "Scribbr Citation Generator"
+    group: save_research
+    id: epbobagokhieoonfplomdklollconnkl
+    version: "43.22"
+    sha256: "1ee2fd89571ba9e92a8fc70267b4a43de73fbf4d44056c94f61319e5ac89bfd4"
+
+  - name: "The Camelizer"
+    group: save_research
+    id: ghnomdcacenbmilgjigehppbamfndblo
+    version: "3.0.16"
+    sha256: "1835875342cf8c40e6ce6989d4c79278a75cf42bc00095d6fde88e7c4cc1fad3"
+
+  - name: "QR Code Generator"
+    group: save_research
+    id: afpbjjgbdimpioenaedcjgkaigggcdpp
+    version: "11.3.2"
+    sha256: "5264c3abbdbf2d713b910bf578feaea1cc4cdd87939355f8c7e5ff31ae98ddf5"
+
+  - name: "The QR Code Generator"
+    group: save_research
+    id: oijdcdmnjjgnnhgljmhkjlablaejfeeb
+    version: "2.2.1"
+    sha256: "2fd7ec73500ccbe5f8b12f08ade1a1b33f8749edab1bd0a4218ae3c7df95e8e1"
+
+  - name: "Exporter for Followers"
+    group: save_research
+    id: nmnhoiehpdfllknopjkhjgoddkpnmfpa
+    version: "2.3.2"
+    sha256: "959434d02af6da6a47c4c45682616ab9b43ac7c8bf2ce42cc648a6920ada1054"
+
+  - name: "GMass"
+    group: save_research
+    id: ehomdgjhgmbidokdgicgmdiedadncbgf
+    version: "6.0.45"
+    sha256: "c887b25f9b26658764f2b5d341ebc42e9eeb6e8207556e0bda3a1e90ba887e08"
+
   ## -- tabs_workflow ---------------------------------------
-  - { name: "Easy Auto Refresh", group: tabs_workflow }
-  - { name: "Auto Refresh Plus", group: tabs_workflow }
-  - { name: "OneTab", group: tabs_workflow }
-  - { name: "Session Buddy", group: tabs_workflow }
-  - { name: "Open Multiple URLs", group: tabs_workflow }
-  - { name: "New Tab Redirect", group: tabs_workflow }
-  - { name: "Dualless", group: tabs_workflow }
-  - { name: "Desktop app for Google Tasks", group: tabs_workflow }
-  - { name: "Focus To-Do", group: tabs_workflow }
-  - { name: "Keep Awake", group: tabs_workflow }
-  - { name: "Keep Awake your System or Display", group: tabs_workflow }
-  - { name: "iCloud Bookmarks", group: tabs_workflow }
-  - { name: "Ecosia", group: tabs_workflow }
-  - { name: "Morpheon Dark", group: tabs_workflow }
-  - { name: "Dark Theme for Google Chrome", group: tabs_workflow }
-  - { name: "Snake", group: tabs_workflow }
-  - { name: "Ultimate Car Driving Game", group: tabs_workflow }
+  - name: "Easy Auto Refresh"
+    group: tabs_workflow
+    id: aabcgdmkeabbnleenpncegpcngjpnjkc
+    version: "6.5"
+    sha256: "90fa845e1822d1e64e6285d667cb07aa421bb28cbbf9b2330bdd51abf8afaf62"
+
+  - name: "Auto Refresh Plus"
+    group: tabs_workflow
+    id: hgeljhfekpckiiplhkigfehkdpldcggm
+    version: "9.1.8"
+    sha256: "f3e492f3d401c6a1d4b4ee7ceab362e755be645ebd542c28b7cc242cc1fcd057"
+
+  - name: "OneTab"
+    group: tabs_workflow
+    id: chphlpgkkbolifaimnlloiipkdnihall
+    version: "2.21"
+    sha256: "8c28cfa9f4a7e6cbb727b00448ae580fba3723a5fa612b46f8f9429a9d10776a"
+
+  - name: "Session Buddy"
+    group: tabs_workflow
+    id: edacconmaakjimmfgnblocblbcdcpbko
+    version: "4.1.2"
+    sha256: "5d94b0257dd24bc5df058d6edc91513d5482c26d6c300e9434e72a965ed272aa"
+
+  - name: "Open Multiple URLs"
+    group: tabs_workflow
+    id: oifijhaokejakekmnjmphonojcfkpbbh
+    version: "1.7.5"
+    sha256: "46730253444f5c2e9c11112ba83109d0aaf48d1dfe410de8f607326cd1c5e5dd"
+
+  - name: "New Tab Redirect"
+    group: tabs_workflow
+    id: icpgjfneehieebagbmdbhnlpiopdcmna
+    version: "3.1.6"
+    sha256: "669846885c35e94806c9304fdeb2ceab3e2c4ed6ca0ed612ef982dafa5f111f6"
+
+  - name: "Dualless"
+    group: tabs_workflow
+    id: bgdpkilkheacbboffppjgceiplijhfpd
+    version: "0.4.1"
+    sha256: "73b632ce07dfd7628bdb07fa7e66dfa9f83ad129362978ca75d951b3d30b296d"
+
+  - name: "Desktop app for Google Tasks"
+    group: tabs_workflow
+    id: lpofefdiokgmcdnnaigddelnfamkkghi
+    version: "0.5.4"
+    sha256: "318828c34c25db77c75bb34f65d9b90146cc8c7b7223f397394d693858fba166"
+
+  - name: "Focus To-Do"
+    group: tabs_workflow
+    id: ngceodoilcgpmkijopinlkmohnfifjfb
+    version: "7.1.1"
+    sha256: "8f2661d9ddaefc0c8124a022b776186a9e89b66aad5561d6985f1cba49182d92"
+
+  - name: "Keep Awake"
+    group: tabs_workflow
+    id: bijihlabcfdnabacffofojgmehjdielb
+    version: "1.9"
+    sha256: "5e868cf3053a2b3266c71761758b42b328a5b57c1d2c09bcb9267b4d51b17493"
+
+  - name: "Keep Awake your System or Display"
+    group: tabs_workflow
+    id: kioaomfokioenhackhaijiebhhkkcojo
+    version: "1.2.32"
+    sha256: "2d3dbad2123556d7823e8966cc1cb8cf039b35dcf7172d362f8162f1256c31b1"
+
+  - name: "iCloud Bookmarks"
+    group: tabs_workflow
+    id: fkepacicchenbjecpbpbclokcabebhah
+    version: "2.3.40"
+    sha256: "d8aa059c22f896a137a9a0fac2fb00f30ff4cbe4fa6e098f17dd8bd73e8b7458"
+
+  - name: "Ecosia"
+    group: tabs_workflow
+    id: eedlgdlajadkbbjoobobefphmfkcchfk
+    version: "7.7.0"
+    sha256: "743df79b13898c86302ee2b956cccaed15a95f517b1945a3364ddf92feba0e66"
+
+  - name: "Morpheon Dark"
+    group: tabs_workflow
+    id: mafbdhjdkjnoafhfelkjpchpaepjknad
+    version: "6.3"
+    sha256: "146a9fe2ccd144110fe927ff1906a9509b567a5a43ea34c69618af4fa123eedd"
+
+  - name: "Dark Theme for Google Chrome"
+    group: tabs_workflow
+    id: annfbnbieaamhaimclajlajpijgkdblo
+    version: "1.0.8"
+    sha256: "82ada569b398dd34828e313a2bd04774736bd60143832a51c6d18eee5c1c70c4"
+
+  - name: "Snake"
+    group: tabs_workflow
+    id: oppflpnigmhkldmdmmbnopidlhahanji
+    version: "2.2.40"
+    sha256: "e79e3117ede0d8f76bfe1ee2c7c9cb6d992dc4f43a419ccd55dc4fd2a50a523d"
+
+  - name: "Ultimate Car Driving Game"
+    group: tabs_workflow
+    id: aomkpefnllinimbhddlfhelelngakbbn
+    version: "3.0"
+    sha256: "72369ceff78c46f963e72df444993ce3d549848e7a3b34a6f395e2dd24dd7af5"
+
   ## -- identity_security -----------------------------------
-  - { name: "Password Alert", group: identity_security }
-  - { name: "Microsoft Single Sign On", group: identity_security }
-  - { name: "Trust Wallet", group: identity_security }
-  - { name: "Authenticator", group: identity_security }
-  - { name: "Microsoft Defender Browser Protection", group: identity_security }
-  - { name: "eID Chrome Extension", group: identity_security }
-  - { name: "Privacy Test", group: identity_security }
-  - { name: "Chrome Remote Desktop", group: identity_security }
-  - { name: "Chromebook Recovery Utility", group: identity_security }
-  - { name: "Mobility Print", group: identity_security }
-  - { name: "LINE", group: identity_security }
+  - name: "Password Alert"
+    group: identity_security
+    id: noondiphcddnnabmjcihcjfbhfklnnep
+    version: "1.38.4"
+    sha256: "541da858794b5314f228d53f38bc92404ec7070580b41165fd1881940605f7a0"
+
+  - name: "Microsoft Single Sign On"
+    group: identity_security
+    id: ppnbnpeolgkicgegkbkbjmhlideopiji
+    version: "1.0.11"
+    sha256: "ac38efde7d1126b0715db1cd7e799b5ab785aa1d90a39dc0661fee547e50424a"
+
+  - name: "Trust Wallet"
+    group: identity_security
+    id: egjidjbpglichdcondbcbdnbeeppgdph
+    version: "26.39.3"
+    sha256: "958e2b9162dd7c06090f51c79332596b2a0a9fcb4a03d4aa9327fb0543b907f8"
+
+  - name: "Authenticator"
+    group: identity_security
+    id: bhghoamapcdpbohphigoooaddinpkbai
+    version: "8.0.1"
+    sha256: "cf21d578ba3bb30af6c4ca2cb495e89a13296aca0a3e1467d957351d7940bbb2"
+
+  - name: "Microsoft Defender Browser Protection"
+    group: identity_security
+    id: bkbeeeffjjeopflfhgeknacdieedcoml
+    version: "1.664"
+    sha256: "42bf7dc86da9385a34d654fac7235f6167c3c82d24bb547c6a028a8f512444fb"
+
+  - name: "eID Chrome Extension"
+    group: identity_security
+    id: bkbdaodnaecdijpajecpncpdomgcoakc
+    version: "1.0.3"
+    sha256: "e0a3e89e7873206c16b18b14f1fed24738c51696b192f1e704fb4157c927dbd1"
+
+  - name: "Privacy Test"
+    group: identity_security
+    id: pdabfienifkbhoihedcgeogidfmibmhp
+    version: "10.7"
+    sha256: "b32f80ff7183d57a522e46191add5cd2cab192ef54bc6a2ebbeb302eb1353d90"
+
+  - name: "Chrome Remote Desktop"
+    group: identity_security
+    id: inomeogfingihgjfjlpeplalcfajhgai
+    version: "2.1"
+    sha256: "389981305efeff65a5e2dbe3b2c91cd89a68f29260e70b1c8a5a315864fe8da2"
+
+  - name: "Chromebook Recovery Utility"
+    group: identity_security
+    id: pocpnlppkickgojjlmhdmidojbmbodfm
+    version: "0.2.3"
+    sha256: "2f62e68d5619cb9081998bcb0884cd0d88545ce18369443c5ee5a233182594c3"
+
+  - name: "Mobility Print"
+    group: identity_security
+    id: ndakideadaglgpbblmppfonobpdgggin
+    version: "1.4.5"
+    sha256: "9f0a664d6fe05ee198e9d2d66c12de783de97e2cbe08cb4606cc5090277bf559"
+
+  - name: "LINE"
+    group: identity_security
+    id: ophjlpahpchlmihnnnihgmmeilfjmjjc
+    version: "3.7.2"
+    sha256: "3722ab02edb0aba49c229399ee8df5b4b5a38c60b76efadadfbae395015eb859"

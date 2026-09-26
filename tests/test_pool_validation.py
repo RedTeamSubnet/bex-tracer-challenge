@@ -22,7 +22,6 @@ sys.path.insert(0, str(_CHALLENGE))
 
 from api.config import config  # noqa: E402
 from api.endpoints.challenge._pool import (  # noqa: E402
-    LOCK_FILE_NAME,
     load_name_to_id,
     load_pool_groups,
     load_pool_names,
@@ -33,15 +32,9 @@ _OTHER_ID = "b" * 32
 
 
 def _pool(tmp_path, monkeypatch, entries: str) -> None:
-    """Point the loaders at a synthetic pool file. Entries are written the old
-    single-file way for readability; their ids are split out into the lock
-    file beside it, the way the real pool is stored."""
+    """Point the loaders at a synthetic pool file."""
     path = tmp_path / "pool.yml"
     path.write_text("pool:\n" + textwrap.dedent(entries))
-    _entries = yaml.safe_load(path.read_text())["pool"]
-    (tmp_path / LOCK_FILE_NAME).write_text(yaml.safe_dump(
-        {e["name"]: {"id": e["id"]} for e in _entries if "id" in e and "name" in e}
-    ))
     monkeypatch.setattr(config.challenge, "pool_path", str(path))
     for loader in (load_pool_names, load_pool_groups, load_name_to_id):
         loader.cache_clear()
@@ -72,17 +65,14 @@ def test_a_valid_pool_loads(tmp_path, monkeypatch):
     assert load_name_to_id() == {"Dark Reader": _VALID_ID, "Adblock Plus": _OTHER_ID}
 
 
-def test_a_missing_lock_file_names_the_published_image(tmp_path, monkeypatch):
-    """The public repository has no lock file. /task must still work from a
-    checkout; only staging needs the ids, and its error says where they are."""
-    _pool(tmp_path, monkeypatch, f"""
-        - id: {_VALID_ID}
-          name: "Dark Reader"
+def test_an_entry_without_an_id_is_named(tmp_path, monkeypatch):
+    """/task needs only names; staging needs the id, and says whose is missing."""
+    _pool(tmp_path, monkeypatch, """
+        - name: "Dark Reader"
           group: appearance_media
     """)
-    (tmp_path / LOCK_FILE_NAME).unlink()
     assert load_pool_names() == ("Dark Reader",)
-    with pytest.raises(RuntimeError, match="published image"):
+    with pytest.raises(RuntimeError, match="no id for: \\['Dark Reader'\\]"):
         load_name_to_id()
 
 

@@ -25,9 +25,9 @@ which is the difference between a pool that costs an attacker two hours and
 one that costs a day.
 
     screen_candidates.py --ids ids.txt --out screened.json
-    screen_candidates.py --lock src/bex_tracer/challenge/extensions.lock.yml
+    screen_candidates.py --pool src/bex_tracer/challenge/extensions.yml
 
-`--lock` re-scores what is already shipping, which is how the numbers above
+`--pool` re-scores what is already shipping, which is how the numbers above
 were produced. Nothing here downloads more than the manifest and the css it
 names, and nothing is written outside `--out`.
 """
@@ -121,18 +121,18 @@ def screen(eid: str, name: str, cft_version: str) -> dict[str, Any]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--lock", type=Path, help="score an existing extensions.lock.yml")
+    ap.add_argument("--pool", type=Path, help="score an existing extensions.yml")
     ap.add_argument("--ids", type=Path, help="file of `id[ name]` lines to screen")
     ap.add_argument("--out", type=Path, help="write the full result as JSON")
     ap.add_argument("--cft", default="152.0.7977.54", help="Chrome for Testing version")
     args = ap.parse_args()
 
     candidates: list[tuple[str, str]] = []
-    if args.lock:
+    if args.pool:
         import yaml
 
-        for name, e in (yaml.safe_load(args.lock.read_text()) or {}).items():
-            candidates.append((e["id"], name))
+        for e in yaml.safe_load(args.pool.read_text())["pool"]:
+            candidates.append((e["id"], e.get("name", "")))
     if args.ids:
         for line in args.ids.read_text().splitlines():
             line = line.strip()
