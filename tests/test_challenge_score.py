@@ -207,7 +207,8 @@ def client(monkeypatch):
         "run_round",
         fake_browser(lambda enabled, pool: {e: e in enabled for e in pool}),
     )
-    return TestClient(app)
+    # A real loopback address: `TestClient`'s default peer name is not one.
+    return TestClient(app, client=("127.0.0.1", 50000))
 
 
 def payload() -> dict:

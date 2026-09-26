@@ -13,7 +13,7 @@ api:
   uvicorn:
     access_log: false
     server_header: false
-    proxy_headers: true
+    proxy_headers: false
     forwarded_allow_ips: ["*"]
     ssl_keyfile: null
     ssl_certfile: null

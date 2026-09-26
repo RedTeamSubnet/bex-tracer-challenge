@@ -12,7 +12,10 @@ from ._base import BaseConfig
 class UvicornConfig(BaseConfig):
     access_log: bool = Field(default=False)
     server_header: bool = Field(default=False)
-    proxy_headers: bool = Field(default=True)
+    # Off: nothing proxies to this container, and trusting X-Forwarded-For
+    # from any client let a remote caller claim to be 127.0.0.1 and read the
+    # loopback-only bait page - and the submission staged into it - mid-run.
+    proxy_headers: bool = Field(default=False)
     forwarded_allow_ips: list[str] | str | None = Field(default=["*"])
     ssl_keyfile: str | None = Field(default=None)
     ssl_certfile: str | None = Field(default=None)

@@ -140,6 +140,8 @@ def _start_bait_server(app: FastAPI) -> tuple[_BaitServer, asyncio.Task]:
             ssl_certfile=str(_tls_dir / "bait.crt"),
             lifespan="off",
             log_config=None,
+            # The loopback check must see the real peer, never a header.
+            proxy_headers=False,
         )
     )
     return _server, asyncio.create_task(_server.serve())

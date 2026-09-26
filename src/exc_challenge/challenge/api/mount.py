@@ -18,7 +18,11 @@ BAIT_INDEX = _BAIT_DIR / "index.html"
 # reaches it from inside the container. Left open on the published port, a rival
 # could read that submission and copy it - which the similarity gate then
 # penalises for both. Loopback only.
-LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
+#
+# Addresses only: a socket peer is always an IP. Names such as `localhost` could
+# only arrive through a forwarded header, which is exactly what must not count.
+# Correct only while proxy headers are off - see `UvicornConfig.proxy_headers`.
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1"})
 
 
 class _LoopbackOnly:
