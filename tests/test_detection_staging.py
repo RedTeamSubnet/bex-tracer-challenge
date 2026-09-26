@@ -41,7 +41,7 @@ def detections(tmp_path):
     """A detections dir holding the checked-in stub."""
     d = tmp_path / "detections"
     d.mkdir()
-    (d / "blockers.js").write_text("// stub\n", encoding="utf-8")
+    (d / "blockers.js").write_text(stub_source("blockers"), encoding="utf-8")
     return d
 
 
@@ -54,24 +54,25 @@ def test_restore_puts_the_stub_back(detections):
     staged = stage_detection_files(
         _Output(_File("blockers.js", "// miner\n")), detections
     )
-    restore_stubs(staged, detections)
-    assert (detections / "blockers.js").read_text() == "// stub\n"
+    restore_stubs(staged)
+    assert (detections / "blockers.js").read_text() == stub_source("blockers")
 
 
-def test_restore_leaves_no_backup_behind(detections):
-    """A leftover `.stub` was copied into every image built from a dev checkout."""
+def test_restore_ignores_leftover_files(detections):
+    """A root-owned `.stub` left by `run_round.py` under `docker exec` made the
+    app's restore fail on every run. Nothing beside the target is read now."""
+    (detections / "blockers.js.stub").write_text("// miner from an old run\n")
     staged = stage_detection_files(_Output(_File("blockers.js", "// miner\n")), detections)
-    restore_stubs(staged, detections)
-    assert not list(detections.glob("*.stub"))
+    restore_stubs(staged)
+    assert (detections / "blockers.js").read_text() == stub_source("blockers")
 
 
-def test_a_second_run_still_restores_the_original_stub(detections):
-    """The backup is written once per target. Without that, run 2 would snapshot
-    run 1's miner code and 'restore' one miner's submission over another's."""
+def test_a_second_run_still_restores_the_clean_stub(detections):
+    """Run 2 must not end up serving run 1's miner code as 'the stub'."""
     for miner in ("// miner A\n", "// miner B\n"):
         staged = stage_detection_files(_Output(_File("blockers.js", miner)), detections)
-        restore_stubs(staged, detections)
-    assert (detections / "blockers.js").read_text() == "// stub\n"
+        restore_stubs(staged)
+    assert (detections / "blockers.js").read_text() == stub_source("blockers")
 
 
 def test_restore_runs_after_a_failed_round(detections):
@@ -81,8 +82,8 @@ def test_restore_runs_after_a_failed_round(detections):
         _Output(_File("blockers.js", "// miner\n")), detections
     )
     (detections / "blockers.js").unlink()
-    restore_stubs(staged, detections)  # must not raise
-    assert (detections / "blockers.js").read_text() == "// stub\n"
+    restore_stubs(staged)  # must not raise
+    assert (detections / "blockers.js").read_text() == stub_source("blockers")
 
 
 @pytest.mark.parametrize(
@@ -110,7 +111,7 @@ def test_a_plain_file_name_resolves_inside(detections):
 
 def test_reset_overwrites_a_solution_left_in_a_group_file(tmp_path):
     """The 2026-09-21 incident: working detectors sat in the served, git-tracked
-    directory with no `.stub` beside them, so `restore_stubs` could not help."""
+    directory, which `restore_stubs` never saw because no run had staged them."""
     (tmp_path / "ad_blockers.js").write_text("window.detect_ad_blockers = () => SOLUTION")
     changed = reset_detections_dir(["ad_blockers"], tmp_path)
     assert (tmp_path / "ad_blockers.js").read_text() == stub_source("ad_blockers")
@@ -122,10 +123,8 @@ def test_reset_creates_missing_stubs(tmp_path):
     assert sorted(p.name for p in tmp_path.iterdir()) == ["ad_blockers.js", "vpn_proxy.js"]
 
 
-def test_reset_removes_old_groups_and_stub_backups(tmp_path):
+def test_reset_removes_old_groups(tmp_path):
     (tmp_path / "canvas_api.js").write_text("old group")
-    (tmp_path / "canvas_api.js.stub").write_text("old backup")
-    (tmp_path / "ad_blockers.js.stub").write_text("backup that may hold miner code")
     reset_detections_dir(["ad_blockers"], tmp_path)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["ad_blockers.js"]
 

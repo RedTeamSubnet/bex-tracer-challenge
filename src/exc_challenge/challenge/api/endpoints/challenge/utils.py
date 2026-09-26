@@ -2,7 +2,7 @@
 
 Same shape as `ab_sniffer` and `ada_detection`: the miner's file is written into
 `templates/static/detections/`, which `index.html` loads with a `<script src>`.
-The checked-in stub is restored afterwards so a miner's code never outlives the
+A clean stub is written back afterwards so a miner's code never outlives the
 run that submitted it.
 
 The file name is NOT taken on trust - `MinerOutput` already pins the submitted
@@ -12,7 +12,6 @@ detections directory. A `file_name` of `../../api/config.py` would otherwise be
 an arbitrary file write.
 """
 
-import shutil
 from pathlib import Path
 
 from api.logger import logger
@@ -21,7 +20,6 @@ from .schemas import MinerOutput
 
 _SRC_DIR = Path(__file__).resolve().parents[3]
 DETECTIONS_DIR = _SRC_DIR / "templates" / "static" / "detections"
-_STUB_SUFFIX = ".stub"
 
 # The checked-in stub for one group. `reset_detections_dir` writes exactly this,
 # so the committed files and a freshly reset directory are byte-identical.
@@ -57,7 +55,7 @@ def _safe_target(detections_dir: Path, file_name: str) -> Path:
 def stage_detection_files(
     miner_output: MinerOutput, detections_dir: Path = DETECTIONS_DIR
 ) -> list[Path]:
-    """Write the miner's files into the served tree, keeping the stubs aside.
+    """Write the miner's files into the served tree.
 
     Returns the paths written, so the caller can restore them in a `finally`.
     """
@@ -66,13 +64,6 @@ def stage_detection_files(
 
     for commit_file in miner_output.commit_files:
         target = _safe_target(detections_dir, commit_file.file_name)
-
-        # Written once per target: a crashed run must not get its miner code
-        # promoted to "the stub".
-        backup = target.with_suffix(target.suffix + _STUB_SUFFIX)
-        if target.is_file() and not backup.exists():
-            shutil.copy2(target, backup)
-
         target.write_text(commit_file.content, encoding="utf-8")
         staged.append(target)
 
@@ -80,26 +71,19 @@ def stage_detection_files(
     return staged
 
 
-def restore_stubs(
-    staged: list[Path], detections_dir: Path = DETECTIONS_DIR
-) -> None:
-    """Put the checked-in stubs back. Never raises - it runs in a `finally`,
-    where an exception would mask the real failure.
+def restore_stubs(staged: list[Path]) -> None:
+    """Put clean stubs back. Never raises - it runs in a `finally`, where an
+    exception would mask the real failure.
 
-    The backup is removed only once it has been copied back. A backup that
-    outlived its run was copied into every image built from a dev checkout,
-    where the startup reset then deleted it - with a warning on each boot. If
-    the copy fails, the backup stays, so the next run cannot snapshot miner
-    code as "the stub".
+    Written from `stub_source`, not copied from a backup taken at staging:
+    backups could capture another run's miner code, leaked into images built
+    from a dev checkout, and one left by `run_round.py` run as root (the
+    `docker exec` default) was unreadable by the app, so every later run
+    failed to restore and left the miner's code served.
     """
     for target in staged:
-        backup = target.with_suffix(target.suffix + _STUB_SUFFIX)
         try:
-            if backup.is_file():
-                shutil.copy2(backup, target)
-                backup.unlink()
-            else:
-                target.unlink(missing_ok=True)
+            target.write_text(stub_source(target.stem), encoding="utf-8")
         except Exception as err:  # noqa: BLE001
             logger.warning(f"Could not restore stub for {target.name}: {err}")
 
@@ -111,10 +95,10 @@ def reset_detections_dir(
 
     Run at startup. `restore_stubs` only undoes what a run staged, and only if
     that run reached its `finally`. This covers everything else: a crash or a
-    kill mid-run, a submission copied in by hand, `.stub` backups that captured
-    the wrong content, files for groups the pool no longer has. All of those
-    have happened, and each leaves code in a directory that is both served to
-    Chrome and tracked in git. Returns the names it changed, for the log.
+    kill mid-run, a submission copied in by hand, files for groups the pool no
+    longer has. All of those have happened, and each leaves code in a directory
+    that is both served to Chrome and tracked in git. Returns the names it
+    changed, for the log.
     """
     detections_dir.mkdir(parents=True, exist_ok=True)
     changed: list[str] = []
@@ -128,8 +112,7 @@ def reset_detections_dir(
 
     wanted = {f"{group}.js" for group in groups}
     for path in sorted(detections_dir.iterdir()):
-        stale_js = path.suffix == ".js" and path.name not in wanted
-        if path.is_file() and (stale_js or path.name.endswith(".js" + _STUB_SUFFIX)):
+        if path.is_file() and path.suffix == ".js" and path.name not in wanted:
             path.unlink()
             changed.append(path.name)
 

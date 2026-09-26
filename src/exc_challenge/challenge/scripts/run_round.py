@@ -20,7 +20,6 @@ import functools
 import json
 import os
 import re
-import shutil
 import sys
 import threading
 import time
@@ -457,7 +456,7 @@ def _prove_they_load(
 
 def _stage_miner_js(
     miner_js: str, bait_dir: Path, groups: Mapping[str, Sequence[str]]
-) -> list[Path]:
+) -> dict[Path, str | None]:
     """Write the miner's code where every group's <script src> tag will find
     it - one copy per group file.
 
@@ -469,37 +468,34 @@ def _stage_miner_js(
     one. Writing the identical content into all 7 sidesteps that: by the time
     the last tag runs, every group is defined the same way regardless of order.
 
-    The API does the same thing in `endpoints/challenge/utils.py`; this is the
-    dev-tool copy so `run_round.py` keeps working from a checkout, where the
-    app config (and therefore that module) may not import.
+    Returns what each file held before, kept in memory - never as a backup
+    file beside it. This script is often run as root via `docker exec`, and a
+    root-owned backup in the served directory broke the app's own restore.
+    It does not import the app's `utils.py`: that pulls in the app config,
+    which parses this script's command line as its own.
     """
     detections_dir = bait_dir / "static" / "detections"
     detections_dir.mkdir(parents=True, exist_ok=True)
-    staged = []
+    staged: dict[Path, str | None] = {}
     for group in groups:
         target = detections_dir / f"{group}.js"
-        backup = target.with_suffix(".js.stub")
-        if target.is_file() and not backup.exists():
-            shutil.copy2(target, backup)
+        staged[target] = (
+            target.read_text(encoding="utf-8") if target.is_file() else None
+        )
         target.write_text(miner_js, encoding="utf-8")
-        staged.append(target)
     return staged
 
 
-def _restore_stub(staged: list[Path]) -> None:
-    """Put the checked-in stubs back. Never raises - it runs in a `finally`.
-
-    Mirrors `utils.restore_stubs()`, including the else-branch: with no backup
-    there was no file before this run, so the miner's code must be deleted, not
-    left to become the next run's "stub".
-    """
-    for target in staged:
-        backup = target.with_suffix(".js.stub")
+def _restore_stub(staged: Mapping[Path, str | None]) -> None:
+    """Put back what `_stage_miner_js` replaced. Never raises - it runs in a
+    `finally`. A file that did not exist before is deleted, not left to serve
+    the miner's code."""
+    for target, original in staged.items():
         try:
-            if backup.is_file():
-                shutil.copy2(backup, target)
-            else:
+            if original is None:
                 target.unlink(missing_ok=True)
+            else:
+                target.write_text(original, encoding="utf-8")
         except OSError as err:
             print(f"warning: could not restore {target.name}: {err}", file=sys.stderr)
 

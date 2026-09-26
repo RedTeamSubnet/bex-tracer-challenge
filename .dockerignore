@@ -581,5 +581,3 @@ scripts/changelog.sh
 !src/exc_challenge/challenge/templates/*.html
 examples/
 
-# Runtime backups of the detector stubs (restore_stubs); never part of an image.
-src/exc_challenge/challenge/templates/static/detections/*.js.stub
