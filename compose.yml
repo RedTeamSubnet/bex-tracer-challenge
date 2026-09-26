@@ -1,6 +1,6 @@
 services:
   challenge-api:
-    image: redteamsubnet61/rest-exc-challenge:0.0.1
+    image: redteamsubnet61/rest-bex-challenge:0.0.2
     build:
       ## Repo root, so the Dockerfile can reach src/, extensions.yml and scripts/.
       context: .
