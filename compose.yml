@@ -7,6 +7,7 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     environment:
+      CHALLENGE_API_KEY: ${BEX_CHALLENGE_API_KEY:?"BEX_CHALLENGE_API_KEY is not set in .env"}
       BEX_API_PORT: ${BEX_API_PORT:-10001}
     env_file:
       - path: .env
@@ -31,6 +32,4 @@ services:
       - SETGID
     ports:
       - "${BEX_API_PORT:-10001}:${BEX_API_PORT:-10001}"
-    dns:
-      - 0.0.0.0
     tty: true
