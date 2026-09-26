@@ -467,6 +467,92 @@ def test_the_bait_page_is_brought_to_the_front(settings):
     assert driver.cdp == [("bait", "Page.bringToFront")]
 
 
+@pytest.mark.parametrize("phase", ["open_page", "interact", "run_script"])
+def test_infra_failures_after_navigation_become_page_failures(settings, monkeypatch, phase):
+    """Once the page is open the submission is running, so an infra-looking
+    failure there must reach service.py as PageInfraError (retried, then the
+    submission's) - not as a plain BrowserInfraError (dropped from its score)."""
+    import api.endpoints.challenge._browser as browser
+
+    class FakeSession:
+        def __init__(self, *_a, **_kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+        def launch(self, ext_ids, page_url=None):
+            pass
+
+        def _fail_or(self, name, value=None):
+            if name == phase:
+                raise browser.BrowserInfraError("simulated")
+            return value
+
+        def open_page(self, page_url, settle, groups=None):
+            return self._fail_or("open_page")
+
+        def interact(self, pause=0.0):
+            return self._fail_or("interact", [])
+
+        def run_script(self, pool, groups, budget):
+            return self._fail_or("run_script", {e: False for e in pool})
+
+    monkeypatch.setattr(browser, "ChromeSession", FakeSession)
+    monkeypatch.setattr(browser.time, "sleep", lambda _s: None)
+    with pytest.raises(browser.PageInfraError):
+        browser.run_round(
+            {"aaaa"}, pool=POOL, groups=GROUPS, id_map=ID_MAP,
+            page_url="http://x", settings=settings,
+        )
+
+
+def test_a_launch_failure_stays_ours(settings, monkeypatch):
+    """Before navigation no submission code has run - still excluded."""
+    import api.endpoints.challenge._browser as browser
+
+    class FakeSession:
+        def __init__(self, *_a, **_kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+        def launch(self, ext_ids, page_url=None):
+            raise browser.BrowserInfraError("could not start Chrome")
+
+    monkeypatch.setattr(browser, "ChromeSession", FakeSession)
+    with pytest.raises(browser.BrowserInfraError) as caught:
+        browser.run_round(
+            {"aaaa"}, pool=POOL, groups=GROUPS, id_map=ID_MAP,
+            page_url="http://x", settings=settings,
+        )
+    assert not isinstance(caught.value, browser.PageInfraError)
+
+
+def test_a_staging_os_error_is_ours(settings, monkeypatch):
+    """A full scratch tmpfs raised a bare OSError, which was scored as the
+    submission failing."""
+    import api.endpoints.challenge._browser as browser
+
+    ext_id = next(iter(ID_MAP.values()))
+    (Path(settings.extensions_dir) / ext_id).mkdir(parents=True, exist_ok=True)
+
+    def disk_full(*_a, **_kw):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(browser.shutil, "copytree", disk_full)
+    with ChromeSession(settings, "t") as session:
+        with pytest.raises(BrowserInfraError, match="No space left"):
+            session._stage_extensions([ext_id])
+
+
 def test_sweep_does_not_match_a_sibling_round_by_prefix(settings, monkeypatch):
     """`run-1` is a prefix of `run-10`. With rounds running concurrently, a
     bare substring test would let round 1's teardown SIGKILL round 10's

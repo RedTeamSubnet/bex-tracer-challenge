@@ -182,6 +182,45 @@ def test_a_partial_setup_failure_still_scores(monkeypatch):
     assert score_with(monkeypatch, flaky_launch) == pytest.approx(1.0)
 
 
+def _run_and_report(monkeypatch, answer):
+    monkeypatch.setattr(service, "run_round", fake_browser(answer))
+    score = service.score(request_id="test", miner_output=solution("// stub"))
+    return score, service.get_results()
+
+
+def test_a_page_failure_that_passes_on_retry_is_scored_normally(monkeypatch):
+    """A genuine flake with the page open gets one retry, and the retry counts."""
+    from api.endpoints.challenge._browser import PageInfraError
+
+    seen = set()
+
+    def flaky_page(enabled, pool):
+        key = frozenset(enabled)
+        if key not in seen:
+            seen.add(key)
+            raise PageInfraError("tab crashed")
+        return {e: e in enabled for e in pool}
+
+    score, report = _run_and_report(monkeypatch, flaky_page)
+    assert score == pytest.approx(1.0)
+    assert report["n_completed"] == report["n_rounds"]
+
+
+def test_a_page_failure_that_repeats_counts_against_the_submission(monkeypatch):
+    """The submission runs in the page and can empty #root, navigate away or
+    crash its tab on purpose. Excluding those rounds would let it discard the
+    ones it expects to lose - so a repeat stays in the average as a zero."""
+    from api.endpoints.challenge._browser import PageInfraError
+
+    def always_breaks_the_page(enabled, pool):
+        raise PageInfraError("the bait page loaded but rendered nothing")
+
+    score, report = _run_and_report(monkeypatch, always_breaks_the_page)
+    assert score == 0.0
+    assert report["n_scored"] == report["n_rounds"]
+    assert {r["status"] for r in report["rounds"]} == {"FAILED"}
+
+
 # -- the published task ------------------------------------------------------
 
 
@@ -266,6 +305,18 @@ def test_an_unset_key_rejects_instead_of_crashing(client, monkeypatch):
     monkeypatch.setattr(config.challenge, "api_key", None)
     response = client.post("/score", json=payload(), headers={"X-API-Key": API_KEY})
     assert response.status_code == 401
+
+
+def test_startup_refuses_a_bait_page_with_a_missing_bundle(monkeypatch, tmp_path):
+    """A missing bundle renders an empty page and zeroes every miner - so it
+    fails the boot instead of being inferred per round from page state."""
+    import api.lifespan as lifespan
+
+    page = tmp_path / "index.html"
+    page.write_text('<script defer="defer" src="./static/js/main.gone.js"></script>')
+    monkeypatch.setattr(lifespan, "BAIT_INDEX", page)
+    with pytest.raises(SystemExit):
+        lifespan._check_bait_page_assets()
 
 
 def test_score_rejects_a_wrong_api_key(client):

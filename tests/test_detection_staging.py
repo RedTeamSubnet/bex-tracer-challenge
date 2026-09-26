@@ -86,6 +86,28 @@ def test_restore_runs_after_a_failed_round(detections):
     assert (detections / "blockers.js").read_text() == stub_source("blockers")
 
 
+def test_a_staging_failure_part_way_restores_what_it_wrote(detections, monkeypatch):
+    """The caller gets no list to restore from when staging raises, so
+    staging must not leave the files it already wrote behind."""
+    import api.endpoints.challenge.utils as utils
+
+    (detections / "writers.js").write_text(stub_source("writers"), encoding="utf-8")
+    real_safe_target = utils._safe_target
+
+    def fail_on_second(root, name):
+        if name == "writers.js":
+            raise OSError("disk full")
+        return real_safe_target(root, name)
+
+    monkeypatch.setattr(utils, "_safe_target", fail_on_second)
+    with pytest.raises(OSError):
+        stage_detection_files(
+            _Output(_File("blockers.js", "// miner\n"), _File("writers.js", "// miner\n")),
+            detections,
+        )
+    assert (detections / "blockers.js").read_text() == stub_source("blockers")
+
+
 @pytest.mark.parametrize(
     "hostile",
     [

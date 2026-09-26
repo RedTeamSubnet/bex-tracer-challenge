@@ -17,7 +17,15 @@ from api.config import config
 from api.logger import logger
 
 from . import utils as ch_utils
-from ._browser import BAIT_HOST, BAIT_TLS_PORT, BrowserSettings, BrowserInfraError, run_round
+from ._browser import (
+    BAIT_HOST,
+    BAIT_TLS_PORT,
+    BrowserError,
+    BrowserInfraError,
+    BrowserSettings,
+    PageInfraError,
+    run_round,
+)
 from ._payload_manager import PayloadManager, RoundRecord
 from ._pool import load_name_to_id, load_pool_groups, load_pool_names
 from .schemas import MinerInput, MinerOutput
@@ -93,6 +101,15 @@ def _run_one_round(
     `path_nonce` - not `request_id` - names the staging directory. See
     `_run_all_rounds` for why that distinction is load-bearing."""
     _started_at = time.monotonic()
+    _kwargs = dict(
+        pool=pool,
+        groups=groups,
+        id_map=id_map,
+        page_url=page_url,
+        settings=settings,
+        settle_seconds=config.challenge.settle_seconds,
+        script_budget_sec=config.challenge.script_budget_sec,
+    )
     # The enabled set is this round's answer key, so it is never logged above
     # DEBUG and never leaves the container. At DEBUG it is the only way to tell
     # which extension broke a browser - `level.base: INFO` in logger.yml keeps
@@ -101,18 +118,28 @@ def _run_one_round(
         f"[{request_id}] - Round {round_record.index} enabling "
         f"{sorted(round_record.enabled)}"
     )
+    _tag = f"{path_nonce}-{round_record.index}"
     try:
-        _predicted = run_round(
-            round_record.enabled,
-            pool=pool,
-            groups=groups,
-            id_map=id_map,
-            page_url=page_url,
-            settings=settings,
-            settle_seconds=config.challenge.settle_seconds,
-            script_budget_sec=config.challenge.script_budget_sec,
-            round_tag=f"{path_nonce}-{round_record.index}",
-        )
+        try:
+            _predicted = run_round(round_record.enabled, round_tag=_tag, **_kwargs)
+        except PageInfraError as err:
+            # The submission was running when this happened and can cause it
+            # on purpose - dropping the round from the average would let it
+            # discard rounds it expects to lose. A genuine flake passes on the
+            # retry; a failure that repeats with the same extensions is the
+            # submission's.
+            logger.warning(
+                f"[{request_id}] - Round {round_record.index} failed with the "
+                f"page open, retrying once: {err}"
+            )
+            try:
+                _predicted = run_round(
+                    round_record.enabled, round_tag=f"{_tag}-retry", **_kwargs
+                )
+            except PageInfraError as err_again:
+                raise BrowserError(
+                    f"failed twice with the submission running: {err_again}"
+                ) from err_again
     except Exception as err:  # one bad round must not abort the run
         return RoundResult(round_record.index, None, err, time.monotonic() - _started_at)
     return RoundResult(round_record.index, _predicted, None, time.monotonic() - _started_at)

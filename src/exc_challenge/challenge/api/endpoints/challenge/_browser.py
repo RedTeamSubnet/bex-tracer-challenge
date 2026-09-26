@@ -107,6 +107,19 @@ class BrowserInfraError(BrowserError):
     """
 
 
+class PageInfraError(BrowserInfraError):
+    """An infra-looking failure AFTER the submission's code had loaded.
+
+    Once the bait page is open, the submission runs in it and can produce the
+    same symptoms our own failures do: empty `#root`, navigate away, open an
+    alert, crash its tab, fake `performance` entries. So these are not trusted
+    as ours on sight - `service.py` retries the round once with the same
+    extensions, and a second failure counts against the submission.
+    Everything before navigation (staging, launch, extension load) stays a
+    plain `BrowserInfraError`: no submission code has run yet.
+    """
+
+
 @dataclass(frozen=True)
 class BrowserSettings:
     """Launch settings. Field-for-field the same shape as
@@ -289,8 +302,11 @@ class ChromeSession:
         self._driver_pid: int | None = None
 
     def __enter__(self) -> "ChromeSession":
-        self.profile_dir.mkdir(parents=True, exist_ok=True)
-        self.ext_root.mkdir(parents=True, exist_ok=True)
+        try:
+            self.profile_dir.mkdir(parents=True, exist_ok=True)
+            self.ext_root.mkdir(parents=True, exist_ok=True)
+        except OSError as err:
+            raise BrowserInfraError(f"could not create the round's scratch dir: {err}") from err
         return self
 
     def __exit__(self, *_exc: object) -> None:
@@ -365,8 +381,13 @@ class ChromeSession:
                 )
 
             dst = self.ext_root / ext_id
-            shutil.copytree(src, dst)
-            _make_writable(dst)
+            try:
+                shutil.copytree(src, dst)
+                _make_writable(dst)
+            except OSError as err:
+                # Ours, not the miner's - e.g. the scratch tmpfs filling up.
+                # Uncaught, it was scored as the submission failing.
+                raise BrowserInfraError(f"could not stage '{ext_id}': {err}") from err
             staged[ext_id] = dst
 
         return staged
@@ -575,8 +596,10 @@ class ChromeSession:
         Every extension then has nothing to react to, every detector returns
         nothing, and ALL miners score 0 with no error anywhere.
 
-        Infra, not miner: this is our asset failing, so the round must not
-        count against whoever happened to be scored when it broke.
+        Raised as infra, but the submission can empty `#root` too, so
+        `run_round` turns it into a `PageInfraError` (retried once, then the
+        submission's). The asset-missing case itself is caught at startup by
+        `lifespan._check_bait_page_assets`, before any miner is scored.
         """
         try:
             rendered = self.driver.execute_script(
@@ -830,10 +853,17 @@ def run_round(
     tag = round_tag or uuid.uuid4().hex[:12]
     with ChromeSession(settings, tag) as session:
         session.launch(sorted(id_map[_name] for _name in subset), page_url)
-        session.open_page(page_url, settle_seconds, groups=list(groups))
-        session.interact()
-        time.sleep(_GESTURE_SETTLE_SEC)
-        return session.run_script(pool, groups, script_budget_sec)
+        # From here on the submission is running in the page - see
+        # `PageInfraError` for why that changes who a failure belongs to.
+        try:
+            session.open_page(page_url, settle_seconds, groups=list(groups))
+            session.interact()
+            time.sleep(_GESTURE_SETTLE_SEC)
+            return session.run_script(pool, groups, script_budget_sec)
+        except PageInfraError:
+            raise
+        except BrowserInfraError as err:
+            raise PageInfraError(str(err)) from err
 
 
 __all__ = [
@@ -843,6 +873,7 @@ __all__ = [
     "BrowserInfraError",
     "BrowserSettings",
     "ChromeSession",
+    "PageInfraError",
     "bait_page_args",
     "run_round",
     "wrap_miner_script",

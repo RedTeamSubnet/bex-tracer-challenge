@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import os
+import re
 from collections.abc import AsyncGenerator, Iterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,6 +15,7 @@ from potato_util.crypto import ssl as ssl_utils
 
 from api.__version__ import __version__
 from api.config import config
+from api.mount import BAIT_INDEX
 from api.core.dependencies.auth import is_well_formed
 from api.endpoints.challenge._browser import BAIT_HOST, BAIT_TLS_PORT
 from api.endpoints.challenge._pool import load_pool_groups
@@ -76,10 +78,36 @@ def _check_api_key() -> None:
     return
 
 
+def _check_bait_page_assets() -> None:
+    """Refuse to start when the bait page references a file that is missing.
+
+    A missing bundle renders an empty page and zeroes every miner. That is a
+    property of the image, so it is checked once here - not inferred per
+    round from page state, which the submission can fake (see
+    `_browser.PageInfraError`).
+
+    Raises:
+        SystemExit: If a local `./static/...` asset of index.html is missing.
+    """
+
+    _html = BAIT_INDEX.read_text(encoding="utf-8")
+    _assets = re.findall(r'(?:src|href)="\.?/?(static/(?:js|css)/[^"]+)"', _html)
+    _missing = [_a for _a in _assets if not (BAIT_INDEX.parent / _a).is_file()]
+    if not _assets or _missing:
+        logger.error(
+            f"Bait page {BAIT_INDEX} is broken - missing assets: "
+            f"{_missing or 'no script bundle referenced'}"
+        )
+        raise SystemExit(1)
+
+    return
+
+
 def pre_init() -> None:
     """Pre-initialization tasks before creating FastAPI application."""
 
     _check_api_key()
+    _check_bait_page_assets()
     _check_ssl_certs()
     # Add more pre-initialization tasks here...
 

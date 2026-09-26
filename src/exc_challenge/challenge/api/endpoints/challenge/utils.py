@@ -60,14 +60,20 @@ def stage_detection_files(
     """Write the miner's files into the served tree.
 
     Returns the paths written, so the caller can restore them in a `finally`.
+    If staging itself fails part-way, it restores what it already wrote before
+    re-raising - the caller never got a list to restore from.
     """
     detections_dir.mkdir(parents=True, exist_ok=True)
     staged: list[Path] = []
 
-    for commit_file in miner_output.commit_files:
-        target = _safe_target(detections_dir, commit_file.file_name)
-        target.write_text(commit_file.content, encoding="utf-8")
-        staged.append(target)
+    try:
+        for commit_file in miner_output.commit_files:
+            target = _safe_target(detections_dir, commit_file.file_name)
+            staged.append(target)
+            target.write_text(commit_file.content, encoding="utf-8")
+    except Exception:
+        restore_stubs(staged)
+        raise
 
     logger.info(f"Staged {len(staged)} detection file(s) into {detections_dir}")
     return staged
