@@ -36,11 +36,11 @@ class ChallengeConfig(BaseConfig):
     # the compose-mounted config file, so anything set only in
     # volumes/configs/.../challenge.yml silently does not apply there.
     #
-    # 2 rounds of 10 over a 45-extension pool. One run is noisy - the same
-    # submission moves about +/-0.10 with which extensions are drawn - which is
-    # acceptable only because the validator averages many runs per miner.
+    # 6 rounds of 12 over an 89-extension pool: 72 draws, so coverage weighting
+    # enables most of the pool once per run. One run still moves with which
+    # extensions are drawn, which the validator averages out over runs.
     n_rounds: int = Field(
-        default=2, ge=1, le=200, description="T - rounds per /score call"
+        default=6, ge=1, le=200, description="T - rounds per /score call"
     )
     # Fixed across the run: every round enables exactly this many extensions,
     # drawn at random. The miner therefore knows |enabled| and can rank the pool
@@ -50,7 +50,7 @@ class ChallengeConfig(BaseConfig):
     # INVARIANT: must be < the pool size, or build_round_schedule() raises -
     # with everything enabled there is no negative class and even a perfect
     # prediction scores 0.0.
-    k: int = Field(default=10, ge=1, description="extensions enabled per round")
+    k: int = Field(default=12, ge=1, description="extensions enabled per round")
     coverage_bias: float = Field(
         default=2.0,
         ge=1.0,
