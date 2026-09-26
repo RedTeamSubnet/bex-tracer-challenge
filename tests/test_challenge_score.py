@@ -239,6 +239,34 @@ def test_score_requires_the_api_key(client):
     assert client.post("/score", json=payload()).status_code == 401
 
 
+def test_startup_refuses_without_an_api_key(monkeypatch):
+    """No default key exists - the repo is public, so any default is known."""
+    from api.lifespan import _check_api_key
+
+    monkeypatch.setattr(config.challenge, "api_key", None)
+    with pytest.raises(SystemExit):
+        _check_api_key()
+
+
+@pytest.mark.parametrize("bad", ["short", "has spaces in it", "x" * 129])
+def test_startup_refuses_a_key_no_request_could_match(monkeypatch, bad):
+    """A key `auth_api_key` would reject on shape fails at boot, not on every
+    request."""
+    from pydantic import SecretStr
+
+    from api.lifespan import _check_api_key
+
+    monkeypatch.setattr(config.challenge, "api_key", SecretStr(bad))
+    with pytest.raises(SystemExit):
+        _check_api_key()
+
+
+def test_an_unset_key_rejects_instead_of_crashing(client, monkeypatch):
+    monkeypatch.setattr(config.challenge, "api_key", None)
+    response = client.post("/score", json=payload(), headers={"X-API-Key": API_KEY})
+    assert response.status_code == 401
+
+
 def test_score_rejects_a_wrong_api_key(client):
     response = client.post("/score", json=payload(), headers={"X-API-Key": "nope"})
     assert response.status_code == 401

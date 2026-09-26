@@ -30,7 +30,9 @@ class BrowserConfig(BaseConfig):
 
 
 class ChallengeConfig(BaseConfig):
-    api_key: SecretStr = Field(default=SecretStr("challenge_api_key"))
+    # No default: this repository is public, so any default key would be one
+    # everybody knows. `pre_init()` refuses to start without a well-formed key.
+    api_key: SecretStr | None = Field(default=None)
     pool_path: str = Field(default="/app/rest-exc-challenge/extensions.yml")
     # These defaults ARE the production values: prod starts the container without
     # the compose-mounted config file, so anything set only in

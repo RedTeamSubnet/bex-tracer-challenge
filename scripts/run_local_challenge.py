@@ -32,7 +32,6 @@ from typing import Any
 
 DEFAULT_CHALLENGE = "http://127.0.0.1:10001"
 DEFAULT_MINER = "http://127.0.0.1:10002"
-DEFAULT_API_KEY = "challenge_api_key"
 
 
 class StepFailed(RuntimeError):
@@ -132,7 +131,8 @@ _KEY_VAR = "EXC_CHALLENGE_CHALLENGE_API_KEY"
 
 
 def resolve_api_key(repo_root: Path) -> tuple[str, str]:
-    """Same precedence the container sees: env var, then .env, then the default.
+    """Same precedence the container sees: env var, then .env. There is no
+    default - the challenge refuses to start without a key.
 
     Returns (key, where_it_came_from) so the run can say which one it used
     without ever printing the key itself.
@@ -150,7 +150,7 @@ def resolve_api_key(repo_root: Path) -> tuple[str, str]:
                 if value:
                     return value, ".env"
 
-    return DEFAULT_API_KEY, "built-in default"
+    raise StepFailed(f"no API key: pass --api-key, or set {_KEY_VAR} in the environment or .env")
 
 
 def _parse_args() -> argparse.Namespace:
@@ -163,7 +163,7 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--api-key",
         default=None,
-        help=f"defaults to ${_KEY_VAR}, then .env, then the built-in default",
+        help=f"defaults to ${_KEY_VAR}, then .env",
     )
     ap.add_argument(
         "--solution",
@@ -187,12 +187,12 @@ def main() -> int:
     args = _parse_args()
     repo_root = Path(__file__).resolve().parent.parent
 
-    if args.api_key:
-        api_key, key_source = args.api_key, "--api-key"
-    else:
-        api_key, key_source = resolve_api_key(repo_root)
-
     try:
+        if args.api_key:
+            api_key, key_source = args.api_key, "--api-key"
+        else:
+            api_key, key_source = resolve_api_key(repo_root)
+
         print(f"[1/3] task     {args.challenge}/task")
         wait_for_health(args.challenge, "challenge")
         task = get_task(args.challenge)

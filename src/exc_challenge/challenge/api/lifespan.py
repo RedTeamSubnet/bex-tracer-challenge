@@ -14,6 +14,7 @@ from potato_util.crypto import ssl as ssl_utils
 
 from api.__version__ import __version__
 from api.config import config
+from api.core.dependencies.auth import is_well_formed
 from api.endpoints.challenge._browser import BAIT_HOST, BAIT_TLS_PORT
 from api.endpoints.challenge._pool import load_pool_groups
 from api.endpoints.challenge.utils import reset_detections_dir
@@ -53,9 +54,32 @@ def _check_ssl_certs() -> None:
     return
 
 
+def _check_api_key() -> None:
+    """Refuse to start without a usable API key.
+
+    Raises:
+        SystemExit: If the key is unset, or has a shape `auth_api_key` rejects.
+    """
+
+    _key = config.challenge.api_key
+    _var = f"{config.challenge.model_config['env_prefix']}API_KEY"
+    if _key is None or not _key.get_secret_value():
+        logger.error(f"{_var} is not set - refusing to start without an API key.")
+        raise SystemExit(1)
+    if not is_well_formed(_key.get_secret_value()):
+        logger.error(
+            f"{_var} must be 9-128 characters of letters, digits and hyphens; "
+            f"every request would be rejected."
+        )
+        raise SystemExit(1)
+
+    return
+
+
 def pre_init() -> None:
     """Pre-initialization tasks before creating FastAPI application."""
 
+    _check_api_key()
     _check_ssl_certs()
     # Add more pre-initialization tasks here...
 
