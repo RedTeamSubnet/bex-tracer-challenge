@@ -2,16 +2,11 @@ services:
   challenge-api:
     image: redteamsubnet61/rest-bex-challenge:0.0.2
     build:
-      ## Repo root, so the Dockerfile can reach src/, extensions.yml and scripts/.
       context: .
       dockerfile: ./src/bex_tracer/challenge/Dockerfile
-    ## Chrome for Testing has no linux-arm64 Stable build, so this runs under
-    ## QEMU on Apple Silicon (slow). Prod is x86.
     platform: linux/amd64
     restart: unless-stopped
     environment:
-      ## Same variable `ports:` below reads, so the app listens where Docker
-      ## maps - even when it is set in the shell rather than in .env.
       BEX_API_PORT: ${BEX_API_PORT:-10001}
     env_file:
       - path: .env
@@ -19,18 +14,13 @@ services:
     volumes:
       - ./volumes/configs/rest-bex-challenge:/etc/rest-bex-challenge
       - ./volumes/storage/rest-bex-challenge/logs:/var/log/rest-bex-challenge
-    ## Chrome needs shared memory per renderer; the 64MB default crashes tabs.
     shm_size: 2gb
     tmpfs:
-      ## Per-round profiles and extension copies, gone after each round.
-      ## `exec` because Chrome maps files out of the profile directory.
       - /run/exc:mode=1777,size=2g,exec
     mem_limit: 8g
     pids_limit: 4096
     security_opt:
       - no-new-privileges:true
-    ## Drop everything, then add back only what docker-entrypoint.sh needs to
-    ## chown the app tree and drop to EXC-user via gosu.
     cap_drop:
       - ALL
     cap_add:
@@ -41,13 +31,6 @@ services:
       - SETGID
     ports:
       - "${BEX_API_PORT:-10001}:${BEX_API_PORT:-10001}"
-    ## No DNS, so miner JS in Chrome cannot reach anything off-box. The
-    ## validator connects by IP:port and Chrome resolves the bait page itself,
-    ## so neither needs it. Not `internal: true`: that also kills the port.
     dns:
       - 0.0.0.0
     tty: true
-## PROD DOES NOT READ THIS FILE. The validator starts the challenge itself, so
-## every setting above must be mirrored into the `challenge_container_run_kwargs`
-## block of `active_challenges.yaml` - see docs/BUILD.md Step 6. Anything set
-## only here silently does not apply in production.

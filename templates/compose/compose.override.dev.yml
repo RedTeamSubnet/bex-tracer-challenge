@@ -4,7 +4,7 @@ services:
     volumes:
       - "./src/bex_tracer/challenge/scripts/docker-entrypoint.sh:/usr/local/bin/docker-entrypoint.sh"
       - "./src/bex_tracer/challenge/api:/app/rest-bex-challenge/api"
-      - "./volumes/.vscode-server:/home/EXC-user/.vscode-server"
+      - "./volumes/.vscode-server:/home/bex-user/.vscode-server"
     # deploy:
     #   replicas: 3
     #   resources:

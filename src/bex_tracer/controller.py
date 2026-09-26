@@ -6,10 +6,6 @@ import requests
 from redteam_core.challenge_pool.controller import Controller
 from redteam_core.validator.models import MinerChallengeCommit
 
-# The challenge container publishes on this port; `controller.py` in
-# redteam_core is what maps it, so it is fixed rather than configurable here.
-_CHALLENGE_BASE_URL = "http://localhost:10001"
-
 
 class BEXController(Controller):
 
@@ -83,8 +79,6 @@ class BEXController(Controller):
     def _exclude_output_keys(self, miner_output: dict, reference_output: dict) -> None:
         miner_output["commit_files"] = None
         reference_output["commit_files"] = None
-        # miner_output["telemetry"] = None
-        # reference_output["telemetry"] = None
         miner_output["scoring_results"] = None
         reference_output["scoring_results"] = None
 
