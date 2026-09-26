@@ -34,10 +34,10 @@ import yaml
 # it - so this is only meaningful in a checkout, and must not blow up elsewhere.
 _parents = Path(__file__).resolve().parents
 _REPO = _parents[4] if len(_parents) > 4 else Path("/nonexistent")
-_API_DIR = Path(os.environ.get("EXC_CHALLENGE_API_DIR", "/app/rest-exc-challenge"))
+_API_DIR = Path(os.environ.get("BEX_TRACKER_API_DIR", "/app/rest-exc-challenge"))
 
 # The app package is importable from both places; add whichever exists.
-for _candidate in (_API_DIR, _REPO / "src/exc_challenge/challenge"):
+for _candidate in (_API_DIR, _REPO / "src/bex_tracker/challenge"):
     if (_candidate / "api").is_dir():
         sys.path.insert(0, str(_candidate))
         break
@@ -93,9 +93,7 @@ def detect_layout() -> Layout:
             pool_file=Path("/app/extensions.yml"),
             bait_dir=_API_DIR / "templates",
             scratch=Path(
-                os.environ.get(
-                    "EXC_CHALLENGE_CHALLENGE_BROWSER_SCRATCH_DIR", "/run/exc"
-                )
+                os.environ.get("BEX_TRACKER_CHALLENGE_BROWSER_SCRATCH_DIR", "/run/exc")
             ),
         )
 
@@ -107,7 +105,7 @@ def detect_layout() -> Layout:
                 driver=driver,
                 extensions=_REPO / "volumes/extensions",
                 pool_file=_REPO / "extensions.yml",
-                bait_dir=_REPO / "src/exc_challenge/challenge/templates",
+                bait_dir=_REPO / "src/bex_tracker/challenge/templates",
                 scratch=_REPO / "volumes/scratch",
             )
 

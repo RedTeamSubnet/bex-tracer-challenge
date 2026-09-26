@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(
-    0, str(Path(__file__).resolve().parent.parent / "src/exc_challenge/challenge")
+    0, str(Path(__file__).resolve().parent.parent / "src/bex_tracker/challenge")
 )
 
 from api.endpoints.challenge._payload_manager import (  # noqa: E402

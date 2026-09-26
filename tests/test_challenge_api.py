@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from src.exc_challenge.challenge.api.main import app
+from src.bex_tracker.challenge.api.main import app
 
 client = TestClient(app)
 

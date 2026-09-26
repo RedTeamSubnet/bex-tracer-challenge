@@ -38,8 +38,8 @@ IMG_REPO=${PROJECT_SLUG:-rest-exc-challenge}
 IMG_VERSION=${IMG_VERSION:-$(./scripts/get-version.sh)}
 IMG_SUBTAG=${IMG_SUBTAG:-}
 IMG_PLATFORM=${IMG_PLATFORM:-$(uname -m)}
-DOCKERFILE_PATH=${DOCKERFILE_PATH:-./src/exc_challenge/challenge/Dockerfile}
-CONTEXT_PATH=${CONTEXT_PATH:-./src/exc_challenge/challenge}
+DOCKERFILE_PATH=${DOCKERFILE_PATH:-./src/bex_tracker/challenge/Dockerfile}
+CONTEXT_PATH=${CONTEXT_PATH:-./src/bex_tracker/challenge}
 
 HASH_PASSWORD="${HASH_PASSWORD:-}"
 IMG_ARGS="${IMG_ARGS:-}"
@@ -76,8 +76,8 @@ OPTIONS:
     -r, --repo [REPO]            Image repository. Default: rest-exc-challenge
     -v, --version [VERSION]      Image version tag.
     -s, --subtag [SUBTAG]        Additional image subtag.
-    -d, --dockerfile [PATH]      Path to Dockerfile. Default: ./src/exc_challenge/challenge/Dockerfile
-    -t, --context-path [PATH]    Build context path. Default: ./src/exc_challenge/challenge
+    -d, --dockerfile [PATH]      Path to Dockerfile. Default: ./src/bex_tracker/challenge/Dockerfile
+    -t, --context-path [PATH]    Build context path. Default: ./src/bex_tracker/challenge
     -h, --help                   Show this help message.
 
 EXAMPLES:

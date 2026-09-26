@@ -6,7 +6,7 @@
 ## Context
 
 `challenges/extension-classification/` is a fresh cookiecutter render of `challenge-template`
-(`module_name=exc_challenge`, `api_slug=rest-exc-challenge`, `env_prefix=EXC_CHALLENGE_`).
+(`module_name=bex_tracker`, `api_slug=rest-exc-challenge`, `env_prefix=BEX_TRACKER_`).
 Everything is boilerplate — `service.py` currently returns `random.random()`.
 
 We are building a RedTeam Subnet challenge where **miners submit JavaScript that fingerprints
@@ -20,17 +20,17 @@ pipeline dependency.
 
 ## Locked decisions
 
-| Decision | Value |
-|---|---|
-| Threat model | Page-context JS, injected post-load via `execute_async_script` |
-| Browser driver | **Selenium, in-repo** |
-| Extension pool | ~30, IDs published to miners |
-| Enabled per trial | **Random k ∈ [3,8]**, subset never revealed |
-| Sourcing | `.crx` from the Chrome Web Store, downloaded at image build |
-| Metric | **MCC** over all N binary decisions, `max(0, mcc)` → `[0,1]` |
-| Miner output | `{extensionId: true\|false}` — plain booleans |
-| Prod browser | Chrome for Testing, **headless** |
-| Dev browser | Chrome for Testing, headful under Xvfb |
+| Decision          | Value                                                          |
+| ----------------- | -------------------------------------------------------------- |
+| Threat model      | Page-context JS, injected post-load via `execute_async_script` |
+| Browser driver    | **Selenium, in-repo**                                          |
+| Extension pool    | ~30, IDs published to miners                                   |
+| Enabled per trial | **Random k ∈ [3,8]**, subset never revealed                    |
+| Sourcing          | `.crx` from the Chrome Web Store, downloaded at image build    |
+| Metric            | **MCC** over all N binary decisions, `max(0, mcc)` → `[0,1]`   |
+| Miner output      | `{extensionId: true\|false}` — plain booleans                  |
+| Prod browser      | Chrome for Testing, **headless**                               |
+| Dev browser       | Chrome for Testing, headful under Xvfb                         |
 
 **Assumption:** script timeout → score whatever resolved, not a hard zero. Under MCC an empty
 answer already scores ~0, so the harsh rule buys nothing and would punish late-injecting
@@ -66,23 +66,23 @@ saturate. MCC does; F1-over-fixed-5 does not.
 mounted and `network_mode: host`. It is the **orchestrator**, and there are two distinct things
 called "scoring":
 
-| Layer | Question | Where |
-|---|---|---|
-| Challenge container (**this repo**) | "Did this JS correctly identify which extensions were enabled?" → one float in `[0,1]` | `service.py` |
-| `scoring-api` / `redteam_core` | "What is that float worth in TAO across all miners?" → similarity penalty, time decay, softmax, sybil collapse, on-chain weights | `stack-redteam` |
+| Layer                               | Question                                                                                                                         | Where           |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| Challenge container (**this repo**) | "Did this JS correctly identify which extensions were enabled?" → one float in `[0,1]`                                           | `service.py`    |
+| `scoring-api` / `redteam_core`      | "What is that float worth in TAO across all miners?" → similarity penalty, time decay, softmax, sybil collapse, on-chain weights | `stack-redteam` |
 
 `scoring-api` cannot do the first. It has no concept of a browser extension, and critically **it
 does not know the ground truth** — our container picks the random subset and drives the browser,
 so only we know which 3–8 were enabled. The validator receives a single number.
 
 This is also why `controller.py` / `challenge_manager.py` are out of scope: they are the plugins
-`scoring-api` loads for the *second* layer.
+`scoring-api` loads for the _second_ layer.
 
 **Consequence for the container spec:** in production `scoring-api` launches our image itself via
 the Docker socket, using `challenge_container_run_kwargs` from `active_challenges.yaml`. Our
 `compose.yml` is **local dev only and is ignored in prod**. Every hardening setting — `shm_size`,
 `tmpfs`, `mem_limit`, `pids_limit`, `cap_drop`, seccomp, the internal network — must be written
-in *both* places, or it silently won't apply where it matters. Ship the required
+in _both_ places, or it silently won't apply where it matters. Ship the required
 `challenge_container_run_kwargs` block in `docs/design.md` as part of the registration handoff.
 
 ## Architecture
@@ -124,7 +124,7 @@ extension-classification/
 │   └── fetch_extensions.py             NEW  build-time: download CRX, unpack, inject key
 ├── examples/miner_commit/
 │   └── src/commit/solution.js          EDIT reference baseline detector
-└── src/exc_challenge/
+└── src/bex_tracker/
     │   # controller.py / challenge_manager.py deliberately untouched — see below
     └── challenge/
         ├── Dockerfile                  EDIT + Chrome for Testing + chromedriver + extensions
@@ -146,20 +146,21 @@ manager — `endpoints/challenge/` contains only `__init__.py`, `router.py`, `sc
 nothing. ADA3 and flowprint each added theirs by hand. It's a convention the real challenges
 converged on, not inherited scaffolding, so we add ours too:
 
-| ADA3 | Ours | Role |
-|---|---|---|
-| `service.py` (251 lines) | `service.py` | Orchestration. **Never computes a score** — calls `calculate_score()` |
-| `_payload_manager.py` (300 lines) | `_payload_manager.py` | Ground truth + predictions + metric + scoring constants |
-| `_bot_runner.py` | `_browser.py` | How we drive a browser, kept out of the HTTP layer |
+| ADA3                              | Ours                  | Role                                                                  |
+| --------------------------------- | --------------------- | --------------------------------------------------------------------- |
+| `service.py` (251 lines)          | `service.py`          | Orchestration. **Never computes a score** — calls `calculate_score()` |
+| `_payload_manager.py` (300 lines) | `_payload_manager.py` | Ground truth + predictions + metric + scoring constants               |
+| `_bot_runner.py`                  | `_browser.py`         | How we drive a browser, kept out of the HTTP layer                    |
 
 `_payload_manager.py` owns, exactly as ADA3's does:
+
 - `build_trial_schedule(pool, T, k_range)` → per-trial enabled subsets. This **is** the ground
   truth, and keeping it separable makes it unit-testable on its own (ADA3 has a dedicated
   `tests/test_run_schedule.py` for precisely this).
 - the recorded per-trial predictions
 - `calculate_score()` → `mean(max(0, MCC))`, plus scoring constants at module top
 
-Deliberately *not* creating:
+Deliberately _not_ creating:
 
 - **`_crx.py`** — CRX3 parsing is build-time only, called from `fetch_extensions.py` and never at
   runtime. It has no business in the API package; it lives inside that script.
@@ -178,18 +179,20 @@ choose ~30 popular extensions with known page-visible fingerprints, confirm each
 in a headless throwaway session, write down what the signal is, move on.
 
 **`extensions.yml`** — single source of truth, committed:
+
 ```yaml
 pool:
-  - id: cjpalhdlnbpafiamejdnhcphjbkeiagm
-    name: uBlock Origin
-    version: "1.x.y"
-    sha256: "..."            # of the .crx; a mismatch should fail the build loudly
-    signal: web_accessible_resources
-    use_dynamic_url: false   # true => WAR probing is dead for this one
-    time_to_stable_ms: 1200  # feeds the settle window
+    - id: cjpalhdlnbpafiamejdnhcphjbkeiagm
+      name: uBlock Origin
+      version: "1.x.y"
+      sha256: "..." # of the .crx; a mismatch should fail the build loudly
+      signal: web_accessible_resources
+      use_dynamic_url: false # true => WAR probing is dead for this one
+      time_to_stable_ms: 1200 # feeds the settle window
 ```
 
 Rules when picking, all checked in the same pass:
+
 - **Verify headless, with egress already blocked** — that's what prod looks like. An extension
   that only reveals itself with a visible window, or only with internet access, is a trap.
   Popup UI, context menus, notifications and `action.onClicked` never fire headless;
@@ -205,7 +208,7 @@ Rules when picking, all checked in the same pass:
 - **Skip anything invisible to a page** (pure background/service-worker extensions).
 - **Reject anything nondeterministic.** If an extension's footprint varies across repeat runs,
   it's permanent label noise that caps achievable MCC below 1.0 for reasons no miner can beat.
-- **Go easy on heavy ad blockers.** Static DNR rulesets are re-indexed on *every* launch and
+- **Go easy on heavy ad blockers.** Static DNR rulesets are re-indexed on _every_ launch and
   can't be cached (Chrome wipes `_metadata/` each load). A uBlock-class extension costs 1–4s per
   trial. One or two per subset is fine; fifteen would make scoring unusably slow.
 
@@ -249,9 +252,9 @@ extension pool has to live somewhere miners can read.
 
 ### 2. Container — Chrome for Testing
 
-`src/exc_challenge/challenge/Dockerfile`, extending the existing 3-stage build:
+`src/bex_tracker/challenge/Dockerfile`, extending the existing 3-stage build:
 
-- Pin **Chrome for Testing** + matching chromedriver by version *and* sha256, from
+- Pin **Chrome for Testing** + matching chromedriver by version _and_ sha256, from
   `https://storage.googleapis.com/chrome-for-testing-public/{VERSION}/{PLATFORM}/{BINARY}-{PLATFORM}.zip`.
   Discover versions via the CfT JSON endpoints; never resolve "Stable" at build time.
   **`selenium/standalone-chrome` is unusable** — it ships google-chrome-stable, and Chrome 137
@@ -280,7 +283,7 @@ it affects local dev ergonomics.
 the canary for a future CfT change); every unpacked manifest's derived ID equals its pinned
 store ID; no extension path contains a comma.
 
-`compose.yml` (**dev**) *and* the `challenge_container_run_kwargs` block for
+`compose.yml` (**dev**) _and_ the `challenge_container_run_kwargs` block for
 `active_challenges.yaml` (**prod**) — both need: `shm_size: 2gb` (the 64MB default crashes tabs),
 `tmpfs` for trial scratch, `mem_limit: 8g`, `pids_limit`, `cap_drop: ALL`, `no-new-privileges`,
 seccomp profile, and an `internal: true` network (see Network policy). Prod ignores `compose.yml`
@@ -380,14 +383,14 @@ challenge is registered there, they are dead code and nothing we build imports t
 
 For the record, what's in them and when it will matter:
 
-| Item | Status |
-|---|---|
+| Item                                                                               | Status                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `_score_miner_with_new_inputs` loops over inputs but only writes `scoring_logs[0]` | **Latent, never fires for us.** `num_tasks` defaults to `N_CHALLENGES_PER_EPOCH = 1`, so there's exactly one input. We run T trials inside a single `/score`, so we want `num_tasks: 1` regardless |
-| `_exclude_output_keys` is a no-op (`return`) | Only affects the anti-plagiarism comparison payload. ADA3 and flowprint null `commit_files`/`telemetry`/`scoring_results`. Decide at registration |
-| Class names `MyController` / `MyChallengeManager` | Cosmetic. The yaml points at whatever path we write |
-| Not exported from `src/exc_challenge/__init__.py` | Only needed to re-enable `tests/test_module.py`, which is 100% commented out |
-| `min_score` / `reward_temperature` in the manager | **Can't be chosen yet.** Needs the real MCC distribution from working baselines. Genuinely a later decision |
-| `commit_timestamp + 1 + 24 + 60 + 60` (meant to be `1*24*60*60`) | Inherited template bug, upstream's problem, doesn't affect scoring correctness here |
+| `_exclude_output_keys` is a no-op (`return`)                                       | Only affects the anti-plagiarism comparison payload. ADA3 and flowprint null `commit_files`/`telemetry`/`scoring_results`. Decide at registration                                                  |
+| Class names `MyController` / `MyChallengeManager`                                  | Cosmetic. The yaml points at whatever path we write                                                                                                                                                |
+| Not exported from `src/bex_tracker/__init__.py`                                    | Only needed to re-enable `tests/test_module.py`, which is 100% commented out                                                                                                                       |
+| `min_score` / `reward_temperature` in the manager                                  | **Can't be chosen yet.** Needs the real MCC distribution from working baselines. Genuinely a later decision                                                                                        |
+| `commit_timestamp + 1 + 24 + 60 + 60` (meant to be `1*24*60*60`)                   | Inherited template bug, upstream's problem, doesn't affect scoring correctness here                                                                                                                |
 
 Revisit as a single pass when registering the challenge.
 
@@ -395,15 +398,15 @@ Revisit as a single pass when registering the challenge.
 
 ## Anti-cheat
 
-| Vector | Mitigation |
-|---|---|
-| Ground truth in the page | Bait page fully static; subset chosen server-side, never serialized anywhere the browser can reach |
-| Cross-trial state | Fresh `--user-data-dir` per trial |
-| Forged results | Results come back through `execute_async_script`. **Do not** copy ADA3's `/_payload` — unauthenticated and accepts an attacker-chosen `order_number` |
-| Always-guess strategies | MCC scores them ~0 by construction |
-| Copying other miners | Existing `comparison_config` / similarity pipeline in `redteam_core` |
-| Crashing the browser | Per-trial try/except → that trial scores 0, run continues |
-| Miner JS as an SSRF / abuse vector | Deny-by-default egress on an `internal: true` network — see below |
+| Vector                             | Mitigation                                                                                                                                           |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ground truth in the page           | Bait page fully static; subset chosen server-side, never serialized anywhere the browser can reach                                                   |
+| Cross-trial state                  | Fresh `--user-data-dir` per trial                                                                                                                    |
+| Forged results                     | Results come back through `execute_async_script`. **Do not** copy ADA3's `/_payload` — unauthenticated and accepts an attacker-chosen `order_number` |
+| Always-guess strategies            | MCC scores them ~0 by construction                                                                                                                   |
+| Copying other miners               | Existing `comparison_config` / similarity pipeline in `redteam_core`                                                                                 |
+| Crashing the browser               | Per-trial try/except → that trial scores 0, run continues                                                                                            |
+| Miner JS as an SSRF / abuse vector | Deny-by-default egress on an `internal: true` network — see below                                                                                    |
 
 ### Network policy — deny-by-default egress at runtime
 
@@ -458,20 +461,21 @@ signal only appears with internet access doesn't belong in the pool.
 Pinned now, because if `T` has to rise later for score stability, sequential execution eats the
 whole time budget and we'd be re-architecting under pressure.
 
-| | |
-|---|---|
-| Per-trial wall time | 4–9s (k=5, one heavy ad blocker; DNR re-indexing dominates) |
+|                     |                                                                  |
+| ------------------- | ---------------------------------------------------------------- |
+| Per-trial wall time | 4–9s (k=5, one heavy ad blocker; DNR re-indexing dominates)      |
 | Peak RAM per Chrome | ~0.7–1.2 GB (peak is the DNR flatbuffer build, not steady state) |
-| Parallel trials `P` | **4** (configurable via `EXC_MAX_PARALLEL_TRIALS`) |
-| `mem_limit` | 8 GB — covers P=4 at peak with headroom |
-| `shm_size` | 2 GB — enough for 4 concurrent Chromes |
-| T=20 at P=4 | 5 waves × ≤9s ≈ **45–60s** |
-| T=40 at P=4 | ≈ 90–120s, still inside the ADA3 precedent (277s) |
+| Parallel trials `P` | **4** (configurable via `EXC_MAX_PARALLEL_TRIALS`)               |
+| `mem_limit`         | 8 GB — covers P=4 at peak with headroom                          |
+| `shm_size`          | 2 GB — enough for 4 concurrent Chromes                           |
+| T=20 at P=4         | 5 waves × ≤9s ≈ **45–60s**                                       |
+| T=40 at P=4         | ≈ 90–120s, still inside the ADA3 precedent (277s)                |
 
 So P=4 buys roughly a 4× headroom on `T` before we're anywhere near the validator's tolerance.
 `P` and `T` both configurable; `P` is bounded by RAM, not CPU.
 
 Two guardrails:
+
 - **OOM canary.** Watch the cgroup `memory.events` for `oom_kill` and fail the score request
   loudly. An OOM-killed trial otherwise returns garbage labels that look like a bad miner.
 - **Scratch leak.** Trial dirs live on tmpfs; a crash before cleanup leaks. Sweep `exc-trial-*`
@@ -484,7 +488,7 @@ estimates and there's no published measurement for this workload shape.
 
 `settle_seconds` is not a feel-based constant. Derive it, then verify it:
 
-1. **During pool curation**, for each extension record its *time-to-stable-footprint*: poll the
+1. **During pool curation**, for each extension record its _time-to-stable-footprint_: poll the
    page footprint (injected nodes, stylesheets, blocked requests) every 250ms and note when it
    stops changing. Store it in `extensions.yml` alongside `signal`.
 2. **Set `settle_seconds` = p99 of those measurements**, floored at 2s and capped at 8s. An

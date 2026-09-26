@@ -4,7 +4,7 @@ from redteam_core.challenge_pool.controller import Controller
 from redteam_core.validator.models import MinerChallengeCommit
 
 
-class MyController(Controller):
+class BEXController(Controller):
 
     def __init__(
         self,
@@ -70,5 +70,5 @@ class MyController(Controller):
 
 
 __all__ = [
-    "MyController",
+    "BEXController",
 ]

@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "src/exc_challenge/challenge"))
+sys.path.insert(0, str(REPO / "src/bex_tracker/challenge"))
 
 from api.config import config  # noqa: E402
 from api.main import app  # noqa: E402

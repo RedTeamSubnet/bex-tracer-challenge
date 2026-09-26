@@ -4,7 +4,7 @@ services:
     build:
       ## Repo root, so the Dockerfile can reach extensions.yml and scripts/.
       context: .
-      dockerfile: ./src/exc_challenge/challenge/Dockerfile
+      dockerfile: ./src/bex_tracker/challenge/Dockerfile
     ## Chrome for Testing ships no linux-arm64 build before 153, and 153 is
     ## Beta. Staying on Stable 152 means amd64 - on Apple Silicon this build
     ## and every round runs under QEMU and is slow. Prod is x86, so this is a
@@ -14,14 +14,14 @@ services:
     environment:
       TERM: ${TERM:-xterm}
       TZ: ${TZ:-KST}
-      EXC_CHALLENGE_API_PORT: ${EXC_CHALLENGE_API_PORT:-10001}
+      BEX_TRACKER_API_PORT: ${BEX_TRACKER_API_PORT:-10001}
     env_file:
       - path: .env
         required: false
     volumes:
-      - "./volumes/configs/rest-exc-challenge:${EXC_CHALLENGE_API_CONFIGS_DIR:-/etc/rest-exc-challenge}"
-      - "./volumes/storage/rest-exc-challenge/logs:${EXC_CHALLENGE_API_LOGS_DIR:-/var/log/rest-exc-challenge}"
-      - "./volumes/storage/rest-exc-challenge/data:${EXC_CHALLENGE_API_DATA_DIR:-/var/lib/rest-exc-challenge}"
+      - "./volumes/configs/rest-exc-challenge:${BEX_TRACKER_API_CONFIGS_DIR:-/etc/rest-exc-challenge}"
+      - "./volumes/storage/rest-exc-challenge/logs:${BEX_TRACKER_API_LOGS_DIR:-/var/log/rest-exc-challenge}"
+      - "./volumes/storage/rest-exc-challenge/data:${BEX_TRACKER_API_DATA_DIR:-/var/lib/rest-exc-challenge}"
     ## Chrome maps shared memory for every renderer. The 64MB Docker default
     ## makes tabs crash under load; the alternative, --disable-dev-shm-usage,
     ## pushes that traffic onto disk and slows every round.
@@ -53,7 +53,7 @@ services:
       - SETUID
       - SETGID
     ports:
-      - "${EXC_CHALLENGE_API_PORT:-10001}:${EXC_CHALLENGE_API_PORT:-10001}"
+      - "${BEX_TRACKER_API_PORT:-10001}:${BEX_TRACKER_API_PORT:-10001}"
     tty: true
 
 ## PROD DOES NOT READ THIS FILE. The validator starts the challenge itself, so

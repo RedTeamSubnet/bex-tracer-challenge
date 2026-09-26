@@ -45,7 +45,7 @@ jobs:
       # - name: Build and export
       #   uses: docker/build-push-action@v6
       #   with:
-      #     context: ./src/exc_challenge/challenge
+      #     context: ./src/bex_tracker/challenge
       #     secrets: |
       #       "HASH_PASSWORD=${{ secrets.DOCKER_UID_HASH_PASSWORD }}"
       #     load: true
@@ -59,7 +59,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./src/exc_challenge/challenge
+          context: ./src/bex_tracker/challenge
           secrets: |
             "HASH_PASSWORD=${{ secrets.DOCKER_UID_HASH_PASSWORD }}"
           platforms: linux/amd64
