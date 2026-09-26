@@ -45,9 +45,8 @@ jobs:
       # - name: Build and export
       #   uses: docker/build-push-action@v6
       #   with:
-      #     context: ./src/exc_challenge/challenge
-      #     secrets: |
-      #       "HASH_PASSWORD=${{ secrets.DOCKER_UID_HASH_PASSWORD }}"
+      #     context: .
+      #     file: ./src/exc_challenge/challenge/Dockerfile
       #     load: true
       #     cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:cache-latest
       #     tags: ${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:test
@@ -59,9 +58,9 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./src/exc_challenge/challenge
-          secrets: |
-            "HASH_PASSWORD=${{ secrets.DOCKER_UID_HASH_PASSWORD }}"
+          # The repo root: the Dockerfile COPYs src/, scripts/ and both pool files.
+          context: .
+          file: ./src/exc_challenge/challenge/Dockerfile
           platforms: linux/amd64
           # platforms: linux/amd64,linux/arm64
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:cache-latest

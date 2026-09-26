@@ -109,8 +109,6 @@ ARG EXC_CHALLENGE_API_DOCS_ENABLED=true
 ## Per-round Chrome profiles and extension copies. compose mounts a tmpfs here;
 ## Chrome rewrites `_metadata/` on every unpacked load, so it cannot be read-only.
 ARG EXC_CHALLENGE_SCRATCH_DIR="/run/exc"
-## echo "EXC_CHALLENGE_USER_PASSWORD123" | openssl passwd -6 -stdin
-ARG HASH_PASSWORD="\$6\$Ex9TNhjjLMtBMG.j\$X4psLehOPZ2Q0GOnzqjShmzcUg4SvjNV663a6wBQA78/sk5JjDzDPOurHBjPCTem2IwM4lbO/c1jkUJYMouOu/"
 ARG UID=1000
 ARG GID=11000
 ARG USER=EXC-user
@@ -135,12 +133,12 @@ ENV EXC_CHALLENGE_API_SLUG="${EXC_CHALLENGE_API_SLUG}" \
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN --mount=type=secret,id=HASH_PASSWORD \
-	rm -vrf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/* /root/.cache/* && \
+## No sudo, and the app user has no password: it runs Chrome, which runs
+## submitted JavaScript with --no-sandbox. The entrypoint drops to it via gosu.
+RUN	rm -vrf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/* /root/.cache/* && \
 	apt-get clean -y && \
 	apt-get update --fix-missing -o Acquire::CompressionTypes::Order::=gz && \
 	apt-get install -y --no-install-recommends \
-		sudo \
 		gosu \
 		tini \
 		locales \
@@ -193,14 +191,7 @@ RUN --mount=type=secret,id=HASH_PASSWORD \
 	echo "LANGUAGE=en_US.UTF-8" >> /etc/default/locale && \
 	echo "LC_ALL=en_US.UTF-8" >> /etc/default/locale && \
 	addgroup --gid ${GID} ${GROUP} && \
-	useradd -lmN -d "/home/${USER}" -s /bin/bash -g ${GROUP} -G sudo -u ${UID} ${USER} && \
-	if [ -f "/run/secrets/HASH_PASSWORD" ]; then \
-		echo "Using hashed password from secret: /run/secrets/HASH_PASSWORD"; \
-		echo -e "${USER}:$(cat /run/secrets/HASH_PASSWORD)" | chpasswd -e; \
-	else \
-		echo "Using hashed password from build argument: HASH_PASSWORD"; \
-		echo -e "${USER}:${HASH_PASSWORD}" | chpasswd -e; \
-	fi && \
+	useradd -lmN -d "/home/${USER}" -s /bin/bash -g ${GROUP} -u ${UID} ${USER} && \
 	echo -e "\nalias ls='ls -aF --group-directories-first --color=auto'" >> /root/.bashrc && \
 	echo -e "alias ll='ls -alhF --group-directories-first --color=auto'\n" >> /root/.bashrc && \
 	echo -e "\numask 0002" >> "/home/${USER}/.bashrc" && \
