@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "src/exc_challenge/challenge"))
+sys.path.insert(0, str(REPO / "src/bex_tracer/challenge"))
 
 from api.core.configs._challenge import ChallengeConfig  # noqa: E402
 from api.core.configs._uvicorn import UvicornConfig  # noqa: E402

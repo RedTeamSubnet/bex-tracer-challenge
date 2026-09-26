@@ -20,8 +20,8 @@ import pytest
 
 _REPO = pathlib.Path(__file__).resolve().parents[1]
 # `pytest.ini` ignores `src/`, and the other suites add
-# `src/exc_challenge/challenge` for the `api.*` package. The manager lives one
-# level up from that, as `exc_challenge.challenge_manager`, so it needs `src/`.
+# `src/bex_tracer/challenge` for the `api.*` package. The manager lives one
+# level up from that, as `bex_tracer.challenge_manager`, so it needs `src/`.
 sys.path.insert(0, str(_REPO / "src"))
 _REDTEAM_SRC = _REPO.parents[1] / "RedTeam" / "src"
 pytestmark = pytest.mark.skipif(
@@ -65,7 +65,7 @@ def manager_bits():
         ScoringLog,
     )
 
-    from exc_challenge.challenge_manager import EXCChallengeManager  # noqa: E402
+    from bex_tracer.challenge_manager import EXCChallengeManager  # noqa: E402
 
     class FakeMetagraph:
         n = 8

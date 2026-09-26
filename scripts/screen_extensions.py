@@ -132,7 +132,7 @@ def format_row(r: dict) -> str:
 def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--lock", default=str(repo_root / "src/exc_challenge/challenge/extensions.lock.yml"))
+    ap.add_argument("--lock", default=str(repo_root / "src/bex_tracer/challenge/extensions.lock.yml"))
     ap.add_argument("--json", action="store_true", help="emit raw json instead")
     args = ap.parse_args()
 

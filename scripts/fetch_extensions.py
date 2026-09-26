@@ -261,7 +261,7 @@ def format_ok_line(entry: dict[str, Any], info: dict[str, Any]) -> str:
 def _parse_args() -> argparse.Namespace:
     repo_root = Path(__file__).resolve().parent.parent
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--pool", default=str(repo_root / "src/exc_challenge/challenge/extensions.yml"))
+    ap.add_argument("--pool", default=str(repo_root / "src/bex_tracer/challenge/extensions.yml"))
     ap.add_argument("--lock", help="default: extensions.lock.yml beside --pool")
     ap.add_argument("--out", required=True, help="output dir, e.g. /opt/extensions")
     ap.add_argument(

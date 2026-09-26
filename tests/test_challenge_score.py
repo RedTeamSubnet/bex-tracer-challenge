@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "src/exc_challenge/challenge"))
+sys.path.insert(0, str(REPO / "src/bex_tracer/challenge"))
 
 from api.config import config  # noqa: E402
 from api.main import app  # noqa: E402
@@ -26,7 +26,7 @@ from api.endpoints.challenge._pool import (  # noqa: E402
     load_pool_names,
 )
 
-POOL_PATH = REPO / "src/exc_challenge/challenge/extensions.yml"
+POOL_PATH = REPO / "src/bex_tracer/challenge/extensions.yml"
 API_KEY = config.challenge.api_key.get_secret_value()
 
 

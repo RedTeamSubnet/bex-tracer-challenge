@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-_CHALLENGE = Path(__file__).resolve().parent.parent / "src/exc_challenge/challenge"
+_CHALLENGE = Path(__file__).resolve().parent.parent / "src/bex_tracer/challenge"
 sys.path.insert(0, str(_CHALLENGE))
 
 from api.config import config  # noqa: E402
@@ -226,7 +226,7 @@ def test_the_bait_page_loads_exactly_the_groups_the_pool_declares():
     """
     import re
 
-    _root = Path(__file__).resolve().parent.parent / "src/exc_challenge/challenge"
+    _root = Path(__file__).resolve().parent.parent / "src/bex_tracer/challenge"
     _html = (_root / "templates/index.html").read_text()
     _tagged = set(re.findall(r"static/detections/([a-z_]+)\.js", _html))
 

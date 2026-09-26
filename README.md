@@ -24,8 +24,8 @@ Documentation page: <https://docs.theredteam.io/latest/challenges/extension-clas
 
 - Install **Python (>= v3.10)** and **pip (>= 23)**:
     - **[RECOMMENDED] [Miniconda (v3)](https://www.anaconda.com/docs/getting-started/miniconda/install)**
-    - *[arm64/aarch64] [Miniforge (v3)](https://github.com/conda-forge/miniforge)*
-    - *[Python virtual environment] [venv](https://docs.python.org/3/library/venv.html)*
+    - _[arm64/aarch64] [Miniforge (v3)](https://github.com/conda-forge/miniforge)_
+    - _[Python virtual environment] [venv](https://docs.python.org/3/library/venv.html)_
 - Install [**git**](https://git-scm.com/downloads)
 - Setup an [**SSH key**](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh)
 
@@ -150,17 +150,17 @@ DEBUG=false
 
 
 ## -- API configs -- ##
-EXC_CHALLENGE_API_PORT=10001
-# EXC_CHALLENGE_API_CONFIGS_DIR="/etc/rest-exc-challenge"
-# EXC_CHALLENGE_API_LOGS_DIR="/var/log/rest-exc-challenge"
-# EXC_CHALLENGE_API_DATA_DIR="/var/lib/rest-exc-challenge"
-# EXC_CHALLENGE_API_TMP_DIR="/tmp/rest-exc-challenge"
-# EXC_CHALLENGE_API_VERSION="1"
-# EXC_CHALLENGE_API_PREFIX=""
-# EXC_CHALLENGE_API_DOCS_ENABLED=true
-# EXC_CHALLENGE_API_DOCS_OPENAPI_URL="{api_prefix}/openapi.json"
-# EXC_CHALLENGE_API_DOCS_DOCS_URL="{api_prefix}/docs"
-# EXC_CHALLENGE_API_DOCS_REDOC_URL="{api_prefix}/redoc"
+BEX_API_PORT=10001
+# BEX_API_CONFIGS_DIR="/etc/rest-exc-challenge"
+# BEX_API_LOGS_DIR="/var/log/rest-exc-challenge"
+# BEX_API_DATA_DIR="/var/lib/rest-exc-challenge"
+# BEX_API_TMP_DIR="/tmp/rest-exc-challenge"
+# BEX_API_VERSION="1"
+# BEX_API_PREFIX=""
+# BEX_API_DOCS_ENABLED=true
+# BEX_API_DOCS_OPENAPI_URL="{api_prefix}/openapi.json"
+# BEX_API_DOCS_DOCS_URL="{api_prefix}/docs"
+# BEX_API_DOCS_REDOC_URL="{api_prefix}/redoc"
 ```
 
 ---

@@ -31,9 +31,9 @@ api:
       private_key_fname: "private_key.pem" # pragma: allowlist secret
       public_key_fname: "public_key.pem"
     jwt:
-      secret: "EXC_CHALLENGE_JWT_SECRET123" # This should be read from an environment variable! # pragma: allowlist secret
+      secret: "BEX_JWT_SECRET123" # This should be read from an environment variable! # pragma: allowlist secret
       algorithm: HS256
     password:
-      pepper: "EXC_CHALLENGE_PASSWORD_PEPPER123" # This should be read from an environment variable! # pragma: allowlist secret
+      pepper: "BEX_PASSWORD_PEPPER123" # This should be read from an environment variable! # pragma: allowlist secret
       min_length: 8
       max_length: 128

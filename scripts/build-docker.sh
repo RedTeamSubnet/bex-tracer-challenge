@@ -38,7 +38,7 @@ IMG_REPO=${PROJECT_SLUG:-rest-exc-challenge}
 IMG_VERSION=${IMG_VERSION:-$(./scripts/get-version.sh)}
 IMG_SUBTAG=${IMG_SUBTAG:-}
 IMG_PLATFORM=${IMG_PLATFORM:-$(uname -m)}
-DOCKERFILE_PATH=${DOCKERFILE_PATH:-./src/exc_challenge/challenge/Dockerfile}
+DOCKERFILE_PATH=${DOCKERFILE_PATH:-./src/bex_tracer/challenge/Dockerfile}
 # The repo root: the Dockerfile COPYs src/, scripts/ and both pool files.
 CONTEXT_PATH=${CONTEXT_PATH:-.}
 
@@ -76,8 +76,8 @@ OPTIONS:
     -r, --repo [REPO]            Image repository. Default: rest-exc-challenge
     -v, --version [VERSION]      Image version tag.
     -s, --subtag [SUBTAG]        Additional image subtag.
-    -d, --dockerfile [PATH]      Path to Dockerfile. Default: ./src/exc_challenge/challenge/Dockerfile
-    -t, --context-path [PATH]    Build context path. Default: ./src/exc_challenge/challenge
+    -d, --dockerfile [PATH]      Path to Dockerfile. Default: ./src/bex_tracer/challenge/Dockerfile
+    -t, --context-path [PATH]    Build context path. Default: ./src/bex_tracer/challenge
     -h, --help                   Show this help message.
 
 EXAMPLES:

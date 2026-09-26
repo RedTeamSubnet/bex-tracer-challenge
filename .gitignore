@@ -548,7 +548,7 @@ opencode.json
 # restored by restore_stubs(). They are runtime artifacts, not source - and a
 # .stub committed while it held a miner's code would be "restored" as the clean
 # page state on every later run.
-src/exc_challenge/challenge/templates/static/detections/*.js.stub
+src/bex_tracer/challenge/templates/static/detections/*.js.stub
 
 # Extension research scratch data, not part of the build.
 merged.csv
@@ -559,8 +559,8 @@ merged.csv
 volumes/reference_miner/
 
 # CRA build metadata - nothing at runtime reads these.
-src/exc_challenge/challenge/templates/asset-manifest.json
-src/exc_challenge/challenge/templates/robots.txt
+src/bex_tracer/challenge/templates/asset-manifest.json
+src/bex_tracer/challenge/templates/robots.txt
 
 # Dev calibration tool: regenerates the WAR-probe reference submission to
 # measure the mechanical score floor after a pool change. Nothing at

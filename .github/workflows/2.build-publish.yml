@@ -46,7 +46,7 @@ jobs:
       #   uses: docker/build-push-action@v6
       #   with:
       #     context: .
-      #     file: ./src/exc_challenge/challenge/Dockerfile
+      #     file: ./src/bex_tracer/challenge/Dockerfile
       #     load: true
       #     cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:cache-latest
       #     tags: ${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:test
@@ -60,7 +60,7 @@ jobs:
         with:
           # The repo root: the Dockerfile COPYs src/, scripts/ and both pool files.
           context: .
-          file: ./src/exc_challenge/challenge/Dockerfile
+          file: ./src/bex_tracer/challenge/Dockerfile
           platforms: linux/amd64
           # platforms: linux/amd64,linux/arm64
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/rest-exc-challenge:cache-latest

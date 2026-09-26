@@ -3,15 +3,13 @@ requires = ["setuptools>=70.3.0,<83.0.0", "setuptools-scm>=8.0.4,<10.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "exc_challenge"
-authors = [
-	{ name = "RedTeam Subnet", email = "noreply@theredteam.io" },
-]
+name = "bex_tracer"
+authors = [{ name = "RedTeam Subnet", email = "noreply@theredteam.io" }]
 description = "This is a RedTeam Subnet's extension classification repository."
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
 keywords = [
-	"exc_challenge",
+	"bex_tracer",
 	"bittensor",
 	"redteam",
 	"subnet",
@@ -34,11 +32,11 @@ dynamic = ["version", "dependencies", "optional-dependencies"]
 
 # [tool.setuptools.packages.find]
 # where = ["src"]
-# include = ["exc_challenge*"]
+# include = ["bex_tracer*"]
 # namespaces = false
 
 [tool.setuptools.dynamic]
-version = { attr = "exc_challenge.__version__.__version__" }
+version = { attr = "bex_tracer.__version__.__version__" }
 dependencies = { file = "./requirements.txt" }
 
 [tool.setuptools.dynamic.optional-dependencies]
@@ -46,15 +44,13 @@ dependencies = { file = "./requirements.txt" }
 test = { file = ["./requirements/requirements.test.txt"] }
 build = { file = ["./requirements/requirements.build.txt"] }
 redteam = { file = ["./requirements/requirements.redteam.txt"] }
-api = { file = [
-	"./src/exc_challenge/challenge/requirements.txt",
-] }
+api = { file = ["./src/bex_tracer/challenge/requirements.txt"] }
 dev = { file = [
 	"./requirements/requirements.test.txt",
 	"./requirements/requirements.build.txt",
 	"./requirements/requirements.dev.txt",
 	# "./requirements/requirements.redteam.txt",
-	"./src/exc_challenge/challenge/requirements.txt",
+	"./src/bex_tracer/challenge/requirements.txt",
 ] }
 
 [tool.black]

@@ -4,7 +4,7 @@ services:
     build:
       ## Repo root, so the Dockerfile can reach src/, extensions.yml and scripts/.
       context: .
-      dockerfile: ./src/exc_challenge/challenge/Dockerfile
+      dockerfile: ./src/bex_tracer/challenge/Dockerfile
     ## Chrome for Testing has no linux-arm64 Stable build, so this runs under
     ## QEMU on Apple Silicon (slow). Prod is x86.
     platform: linux/amd64
@@ -12,7 +12,7 @@ services:
     environment:
       ## Same variable `ports:` below reads, so the app listens where Docker
       ## maps - even when it is set in the shell rather than in .env.
-      EXC_CHALLENGE_API_PORT: ${EXC_CHALLENGE_API_PORT:-10001}
+      BEX_API_PORT: ${BEX_API_PORT:-10001}
     env_file:
       - path: .env
         required: false
@@ -40,7 +40,7 @@ services:
       - SETUID
       - SETGID
     ports:
-      - "${EXC_CHALLENGE_API_PORT:-10001}:${EXC_CHALLENGE_API_PORT:-10001}"
+      - "${BEX_API_PORT:-10001}:${BEX_API_PORT:-10001}"
     ## No DNS, so miner JS in Chrome cannot reach anything off-box. The
     ## validator connects by IP:port and Chrome resolves the bait page itself,
     ## so neither needs it. Not `internal: true`: that also kills the port.

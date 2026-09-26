@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-_CHALLENGE = Path(__file__).resolve().parent.parent / "src/exc_challenge/challenge"
+_CHALLENGE = Path(__file__).resolve().parent.parent / "src/bex_tracer/challenge"
 sys.path.insert(0, str(_CHALLENGE))
 
 from api.config import config  # noqa: E402
@@ -25,7 +25,7 @@ from api.endpoints.challenge._pool import (  # noqa: E402
     load_pool_names,
 )
 
-POOL_PATH = Path(__file__).resolve().parent.parent / "src/exc_challenge/challenge/extensions.yml"
+POOL_PATH = Path(__file__).resolve().parent.parent / "src/bex_tracer/challenge/extensions.yml"
 
 
 @pytest.fixture(autouse=True)

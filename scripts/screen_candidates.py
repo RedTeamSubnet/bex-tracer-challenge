@@ -25,7 +25,7 @@ which is the difference between a pool that costs an attacker two hours and
 one that costs a day.
 
     screen_candidates.py --ids ids.txt --out screened.json
-    screen_candidates.py --lock src/exc_challenge/challenge/extensions.lock.yml
+    screen_candidates.py --lock src/bex_tracer/challenge/extensions.lock.yml
 
 `--lock` re-scores what is already shipping, which is how the numbers above
 were produced. Nothing here downloads more than the manifest and the css it

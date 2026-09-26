@@ -35,7 +35,7 @@ end-to-end without Docker or the API — this is the loop to use while curating 
 
 ```sh
 pip install selenium psutil pyyaml
-pip install -r src/exc_challenge/challenge/requirements.txt
+pip install -r src/bex_tracer/challenge/requirements.txt
 
 # 1. Chrome for Testing -> ./volumes/chrome  (mac-arm64 shown; use linux64 on Linux)
 V=152.0.7977.54; PLAT=mac-arm64
@@ -51,10 +51,10 @@ cd ../..
 python3 scripts/fetch_extensions.py --out ./volumes/extensions
 
 # 3. Enable the extensions and prove they enabled
-python3 src/exc_challenge/challenge/scripts/run_round.py --rounds 0    # whole pool, headless
+python3 src/bex_tracer/challenge/scripts/run_round.py --rounds 0    # whole pool, headless
 
 # 4. Scored rounds (needs a miner script; not required to check loading)
-python3 src/exc_challenge/challenge/scripts/run_round.py --rounds 4
+python3 src/bex_tracer/challenge/scripts/run_round.py --rounds 4
 ```
 
 ### Watching it work
@@ -64,13 +64,13 @@ through the page; `--slow` paces the steps so you can follow along.
 
 ```sh
 # the full show: visible window, Selenium driving, one step per second
-python3 src/exc_challenge/challenge/scripts/run_round.py --rounds 0 --no-headless --interact --slow 1.0 --hold 30
+python3 src/bex_tracer/challenge/scripts/run_round.py --rounds 0 --no-headless --interact --slow 1.0 --hold 30
 
 # one extension at a time, matched by name or id
-python3 src/exc_challenge/challenge/scripts/run_round.py --rounds 0 --ext dark --no-headless --interact --slow 1.0
+python3 src/bex_tracer/challenge/scripts/run_round.py --rounds 0 --ext dark --no-headless --interact --slow 1.0
 
 # scored rounds, visible
-python3 src/exc_challenge/challenge/scripts/run_round.py --rounds 2 --no-headless --settle 6
+python3 src/bex_tracer/challenge/scripts/run_round.py --rounds 2 --no-headless --settle 6
 ```
 
 `--hold N` keeps the browser open N seconds at the end so you can poke at it — open devtools,
