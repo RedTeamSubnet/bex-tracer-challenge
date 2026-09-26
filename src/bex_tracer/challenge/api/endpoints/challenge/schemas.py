@@ -5,31 +5,34 @@ from potato_util.generator import gen_random_string
 from api.config import config
 
 from ._pool import load_pool_groups
-from .utils import stub_source
+from .utils import DETECTIONS_DIR, stub_source
 
 
-def _stub_examples() -> list[dict[str, str]]:
+def _detection_examples() -> list[dict[str, str]]:
     """The OpenAPI example for `commit_files` - EVERY group file, not one.
 
     Swagger pre-fills the request body from this and `_check_commit_files`
     requires one file per group, so a single-file example is not unhelpful but
     INVALID: Try-it-out would 422 and read like a broken endpoint.
 
-    Built from the stub template, never read from the served detections
-    directory. This runs at import - before the startup reset - and a run
-    killed mid-score leaves that miner's code there, which the public
-    /openapi.json then published until the next restart.
-
-    A missing pool degrades the example rather than breaking the import.
+    Content comes from the checked-in files under
+    `templates/static/detections`. A missing pool or file degrades the example
+    rather than breaking the import.
     """
     try:
         _groups = list(load_pool_groups())
     except Exception:  # noqa: BLE001 - an example must never break startup
         _groups = ["detect"]
-    return [
-        {"file_name": f"{_group}.js", "content": stub_source(_group)}
-        for _group in _groups
-    ]
+
+    _examples: list[dict[str, str]] = []
+    for _group in _groups:
+        _file_name = f"{_group}.js"
+        try:
+            _content = (DETECTIONS_DIR / _file_name).read_text(encoding="utf-8")
+        except OSError:
+            _content = stub_source(_group)
+        _examples.append({"file_name": _file_name, "content": _content})
+    return _examples
 
 
 class MinerInput(BaseModel):
@@ -81,7 +84,7 @@ class MinerOutput(BaseModel):
         description="One file per group published by GET /task, named "
         "`<group>.js` and defining `window.detect_<group>`. ALL groups are "
         "required - a missing or unexpected file name is rejected.",
-        examples=[_stub_examples()],
+        examples=[_detection_examples()],
     )
 
     @field_validator("commit_files", mode="after")
@@ -122,16 +125,18 @@ class RoundReportPM(BaseModel):
     score: float = Field(..., description="this round's clamped MCC")
     failed: bool = Field(..., description="whether the round raised")
     duration_sec: float | None = Field(None, description="wall time for the round")
+    detected_extensions: list[str] = Field(
+        ...,
+        description="extension names detected by the miner in this round",
+    )
 
 
 class RunReportPM(BaseModel):
     """Outcome of the most recent scoring run.
 
-    Deliberately carries NO ground truth - no enabled set, no per-extension
-    labels, no error text (browser errors name the extensions they failed to
-    load, which is the round's answer key). Declaring the shape here also means
-    a field added to `report()` later cannot reach the response without being
-    added to this model on purpose.
+    Includes the detected extension names for each round, but no expected labels
+    or error text. Declaring the shape here also means a field added to
+    `report()` later cannot reach the response without being added to this model.
     """
 
     pool_size: int

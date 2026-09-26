@@ -65,16 +65,6 @@ class ChallengeConfig(BaseConfig):
         "becomes deducible. Raise above ~3 only once egress from the bait "
         "page is closed - see build_round_schedule.",
     )
-    max_parallel_rounds: int = Field(
-        default=1,
-        ge=1,
-        le=16,
-        description="P - concurrent browsers. Raise ONLY with measurement: "
-        "shm_size and mem_limit are container-wide, so P browsers each get "
-        "1/P of them. Measured 2026-08-30 with shm_size=2gb: P=1 completed "
-        "4/4 rounds, P=2 3/4, P=4 1/4 - and failed rounds score 0, so an "
-        "over-set P quietly deflates every miner's score",
-    )
     settle_seconds: float = Field(
         default=6.0,
         gt=0,

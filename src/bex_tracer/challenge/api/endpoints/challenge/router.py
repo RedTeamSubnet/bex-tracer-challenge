@@ -111,7 +111,7 @@ def post_score(request: Request, miner_input: MinerInput, miner_output: MinerOut
     summary="Report on the most recent scoring run",
     description=(
         "Per-round outcome of the last /score call: how many rounds completed, "
-        "which failed, timings and the final score. Carries no ground truth."
+        "which failed, timings, detected extensions, and the final score."
     ),
     response_class=JSONResponse,
     response_model=RunReportPM,
@@ -121,9 +121,8 @@ def post_score(request: Request, miner_input: MinerInput, miner_output: MinerOut
 def get_results(request: Request):
     """Behind the same key as /score.
 
-    The report names no extensions, but it does expose the last-scored miner's
-    per-round results, which is not something a rival should be able to read
-    off an open port.
+    The report exposes the last-scored miner's detected extensions, which is not
+    something a rival should be able to read off an open port.
     """
     _request_id = request.state.request_id
     _report = service.get_results()

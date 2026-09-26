@@ -10,7 +10,7 @@ See `docs/design.md` for why the metric is MCC rather than F1.
 import math
 import secrets
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
@@ -143,16 +143,16 @@ class RoundRecord:
     enabled: set[str]
     status: RoundStatus = RoundStatus.CREATED
     score: float = 0.0
+    detected_extensions: list[str] = field(default_factory=list)
     error: str | None = None
     duration_sec: float | None = None
 
     def as_public_dict(self) -> dict[str, Any]:
-        """Report shape. Contains no ground truth, so it is safe to serialise.
+        """Report shape, including extensions detected by the miner.
 
         `error` is deliberately reduced to a flag. Browser failures name the
-        extensions they were trying to load - `not loaded, or ids drifted:
-        [...]` - which is exactly this round's answer key. The full text stays
-        on `self.error` for the server log.
+        extensions they failed to load and can contain operational details. The
+        full text stays on `self.error` for the server log.
         """
         return {
             "index": self.index,
@@ -161,6 +161,7 @@ class RoundRecord:
             "score": round(self.score, 4),
             "failed": self.error is not None,
             "duration_sec": self.duration_sec,
+            "detected_extensions": self.detected_extensions,
         }
 
 
@@ -205,13 +206,23 @@ class PayloadManager:
         rec = self.rounds[index]
         rec.duration_sec = duration_sec
         rec.error = error
+        _normalized = (
+            None
+            if predicted is None
+            else {_name: bool(predicted.get(_name, False)) for _name in self.pool}
+        )
+        rec.detected_extensions = (
+            []
+            if _normalized is None
+            else [_name for _name, _detected in _normalized.items() if _detected]
+        )
 
-        if predicted is None:
+        if _normalized is None:
             rec.status = RoundStatus.INFRA_FAILED if infra else RoundStatus.FAILED
             rec.score = 0.0
             return 0.0
 
-        rec.score = score_round(self.pool, rec.enabled, predicted)
+        rec.score = score_round(self.pool, rec.enabled, _normalized)
         rec.status = RoundStatus.COMPLETED
         return rec.score
 

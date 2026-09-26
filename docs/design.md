@@ -304,8 +304,8 @@ Care points:
   `<ext>/_metadata/generated_indexed_rulesets/`. If the extension dir isn't writable, static DNR
   rules **silently fail to apply** — ad blockers become no-ops, labels are wrong, and no error is
   raised. This is the most dangerous failure mode in the design. Copying also avoids two
-  concurrent trials racing on the same `_metadata` dir. Because we injected `key`, the path
-  change doesn't change the ID — which is exactly why key injection is non-negotiable.
+  Chrome mutating the source `_metadata` dir. Because we injected `key`, the path change
+  doesn't change the ID — which is exactly why key injection is non-negotiable.
 - `--headless=new` in prod. (Old headless was removed in Chrome 132; the flag is now a synonym,
   but pass it to document intent.)
 - **Don't blanket-copy a "disable everything" flag list.** `--disable-extensions` loads then
@@ -320,7 +320,7 @@ Care points:
   all 30 extensions on every launch, silently destroying subset selection).
 - `driver.quit()` in a `finally`, plus a process-group sweeper — `quit()` fails exactly when
   cleanup matters most (hung renderer, script timeout). Filter the sweeper by the trial's
-  scratch path so it can't kill a concurrent trial.
+  scratch path so stale processes cannot affect a later trial.
 - `set_script_timeout` must be strictly greater than the in-script timeout, or Selenium raises
   before our own sentinel fires and we lose the diagnostic.
 
@@ -465,11 +465,10 @@ whole time budget and we'd be re-architecting under pressure.
 | ------------------- | ---------------------------------------------------------------- |
 | Per-trial wall time | 4–9s (k=5, one heavy ad blocker; DNR re-indexing dominates)      |
 | Peak RAM per Chrome | ~0.7–1.2 GB (peak is the DNR flatbuffer build, not steady state) |
-| Parallel trials `P` | **4** (configurable via `EXC_MAX_PARALLEL_TRIALS`)               |
-| `mem_limit`         | 8 GB — covers P=4 at peak with headroom                          |
-| `shm_size`          | 2 GB — enough for 4 concurrent Chromes                           |
-| T=20 at P=4         | 5 waves × ≤9s ≈ **45–60s**                                       |
-| T=40 at P=4         | ≈ 90–120s, still inside the ADA3 precedent (277s)                |
+| Round execution     | Sequential — one browser at a time                               |
+| `mem_limit`         | 8 GB                                                               |
+| `shm_size`          | 2 GB                                                               |
+| Total run time      | Sum of per-round wall times                                      |
 
 So P=4 buys roughly a 4× headroom on `T` before we're anywhere near the validator's tolerance.
 `P` and `T` both configurable; `P` is bounded by RAM, not CPU.

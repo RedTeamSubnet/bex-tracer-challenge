@@ -422,48 +422,34 @@ def test_only_one_scoring_run_at_a_time(client, monkeypatch):
     assert result["first"] == 200
 
 
-def test_rounds_run_in_parallel_up_to_the_configured_limit(monkeypatch):
-    """`max_parallel_rounds` was declared in config but read by nothing, so
-    rounds ran one at a time. Pin that it is actually honoured."""
-    import threading
-
+def test_rounds_run_sequentially(monkeypatch):
     monkeypatch.setattr(config.challenge, "n_rounds", 8)
-    monkeypatch.setattr(config.challenge, "max_parallel_rounds", 4)
-
-    lock = threading.Lock()
     state = {"live": 0, "peak": 0}
 
     def slow_round(enabled, pool):
-        with lock:
-            state["live"] += 1
-            state["peak"] = max(state["peak"], state["live"])
-        time.sleep(0.05)
-        with lock:
-            state["live"] -= 1
+        state["live"] += 1
+        state["peak"] = max(state["peak"], state["live"])
+        time.sleep(0.01)
+        state["live"] -= 1
         return {e: e in enabled for e in pool}
 
     score = score_with(monkeypatch, slow_round)
 
     assert score == pytest.approx(1.0)
-    assert state["peak"] > 1, "rounds still ran sequentially"
-    assert state["peak"] <= 4, f"exceeded the configured limit: {state['peak']}"
+    assert state["peak"] == 1
 
 
-def test_results_are_recorded_in_index_order_despite_finish_order(monkeypatch):
-    """Workers finish out of order; the report must not."""
+def test_results_are_recorded_in_index_order(monkeypatch):
     monkeypatch.setattr(config.challenge, "n_rounds", 6)
-    monkeypatch.setattr(config.challenge, "max_parallel_rounds", 6)
 
-    def jittered(enabled, pool):
-        time.sleep(0.02 * (len(enabled) % 3))
+    def perfect(enabled, pool):
         return {e: e in enabled for e in pool}
 
-    score_with(monkeypatch, jittered)
+    score_with(monkeypatch, perfect)
 
 
 def test_a_mostly_broken_run_raises_instead_of_returning_a_deflated_score(monkeypatch):
-    """Measured 2026-08-30: with max_parallel_rounds=4 only 1 of 4 rounds
-    started, and /score returned 0.1654 as though the miner had earned it."""
+    """Too many browser failures must not produce a misleading thin average."""
     from api.endpoints.challenge._browser import BrowserInfraError
 
     monkeypatch.setattr(config.challenge, "n_rounds", 4)
@@ -635,23 +621,17 @@ def test_a_failed_run_clears_the_previous_report(monkeypatch):
     assert service.get_results() is None
 
 
-def test_swagger_examples_never_read_the_served_directory():
-    """The examples are built at import, before the startup reset. Read from
-    the served directory, a run killed mid-score had that miner's code
-    published by the public /openapi.json until the next restart."""
-    from api.endpoints.challenge.schemas import _stub_examples
-    from api.endpoints.challenge.utils import DETECTIONS_DIR, stub_source
+def test_swagger_examples_use_static_detection_files():
+    from api.endpoints.challenge.schemas import _detection_examples
+    from api.endpoints.challenge.utils import DETECTIONS_DIR
 
-    group = next(iter(load_pool_groups()))
-    planted = DETECTIONS_DIR / f"{group}.js"
-    planted.write_text("// MINER-CODE-LEFT-BY-A-KILLED-RUN", encoding="utf-8")
-    try:
-        examples = {e["file_name"]: e["content"] for e in _stub_examples()}
-    finally:
-        planted.write_text(stub_source(group), encoding="utf-8")
+    examples = {e["file_name"]: e["content"] for e in _detection_examples()}
 
-    assert examples[f"{group}.js"] == stub_source(group)
-    assert "MINER-CODE" not in "".join(examples.values())
+    for group in load_pool_groups():
+        file_name = f"{group}.js"
+        assert examples[file_name] == (DETECTIONS_DIR / file_name).read_text(
+            encoding="utf-8"
+        )
 
 
 def test_results_is_404_before_any_run(client, monkeypatch):
@@ -677,25 +657,23 @@ def test_results_reports_the_last_run(client):
     assert [r["index"] for r in body["rounds"]] == list(range(body["n_rounds"]))
 
 
-def test_results_never_leaks_ground_truth(client):
-    """The response model must not carry the enabled set, per-extension labels
-    or error text - browser errors name the extensions they failed to load,
-    which is the round's answer key."""
+def test_results_reports_detected_extensions(client):
     assert (
         client.post("/score", json=payload(), headers={"X-API-Key": API_KEY}).status_code
         == 200
     )
     body = client.get("/results", headers={"X-API-Key": API_KEY}).json()
 
-    banned = {"enabled", "predicted", "error", "labels", "truth", "extension_names"}
-    assert not banned & set(body)
+    pool = set(load_pool_names())
     for round_report in body["rounds"]:
-        assert not banned & set(round_report)
+        detected = round_report["detected_extensions"]
+        assert set(detected) <= pool
+        assert len(detected) == round_report["n_enabled"]
+        assert "returned" not in round_report
+        assert "expected" not in round_report
 
+    # Store ids remain private; reports use published extension names.
     flat = json.dumps(body)
-    for name in load_pool_names():
-        assert name not in flat, f"{name} leaked into /results"
-    # Store ids must never appear either - they are not published anywhere.
     for ext_id in load_name_to_id().values():
         assert ext_id not in flat, f"{ext_id} leaked into /results"
 

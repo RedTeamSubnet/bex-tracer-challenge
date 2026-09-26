@@ -24,7 +24,6 @@ _ROUND_SETTINGS = (
     "n_rounds",
     "k",
     "coverage_bias",
-    "max_parallel_rounds",
     "settle_seconds",
     "script_budget_sec",
     "submission_max_lines",

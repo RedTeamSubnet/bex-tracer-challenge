@@ -8,7 +8,6 @@ that lives in `_payload_manager.py`.
 import secrets
 import time
 from collections.abc import Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, NamedTuple
 
 from pydantic import validate_call
@@ -76,7 +75,7 @@ def bait_page_url() -> str:
 
 
 class RoundResult(NamedTuple):
-    """What one worker thread came back with."""
+    """Outcome of one browser round."""
 
     index: int
     predicted: dict[str, bool] | None
@@ -95,8 +94,8 @@ def _run_one_round(
     request_id: str,
     path_nonce: str,
 ) -> RoundResult:
-    """One round, on a worker thread. Returns rather than raises, so a single
-    bad round cannot take the pool of workers down with it.
+    """Run one round. Returns rather than raises, so a single bad round does not
+    prevent later rounds from running.
 
     `path_nonce` - not `request_id` - names the staging directory. See
     `_run_all_rounds` for why that distinction is load-bearing."""
@@ -110,10 +109,9 @@ def _run_one_round(
         settle_seconds=config.challenge.settle_seconds,
         script_budget_sec=config.challenge.script_budget_sec,
     )
-    # The enabled set is this round's answer key, so it is never logged above
-    # DEBUG and never leaves the container. At DEBUG it is the only way to tell
-    # which extension broke a browser - `level.base: INFO` in logger.yml keeps
-    # it off in production, and an operator diagnosing a failure turns it on.
+    # Do not publish the enabled set. /results exposes only the miner's detected
+    # extensions after the complete run finishes. At DEBUG this is the only way
+    # to tell which extension broke a browser.
     logger.debug(
         f"[{request_id}] - Round {round_record.index} enabling "
         f"{sorted(round_record.enabled)}"
@@ -155,11 +153,11 @@ def _run_all_rounds(
     settings: BrowserSettings,
     request_id: str,
 ) -> list[RoundResult]:
-    """Drive every round, in parallel, collecting outcomes rather than raising.
+    """Drive every round sequentially, collecting outcomes rather than raising.
 
     Rounds are independent: each gets its own scratch root and profile, and the
     process sweeper matches on that path so one round's teardown cannot touch
-    another's browser. Peak RAM is roughly 1GB per concurrent Chrome.
+    another's browser.
     """
     # The staging path decides the id Chrome assigns each extension, so it has
     # to be unguessable. `request_id` is NOT safe to use here: the logging
@@ -176,25 +174,20 @@ def _run_all_rounds(
     _path_nonce = secrets.token_hex(8)
     logger.debug(f"[{request_id}] - staging nonce {_path_nonce}")
 
-    _workers = max(1, min(config.challenge.max_parallel_rounds, len(rounds)))
-    logger.info(f"[{request_id}] - Using {_workers} parallel browser(s).")
-
-    with ThreadPoolExecutor(max_workers=_workers) as _executor:
-        return list(
-            _executor.map(
-                lambda rec: _run_one_round(
-                    rec,
-                    pool=pool,
-                    groups=groups,
-                    id_map=id_map,
-                    page_url=page_url,
-                    settings=settings,
-                    request_id=request_id,
-                    path_nonce=_path_nonce,
-                ),
-                rounds,
-            )
+    logger.info(f"[{request_id}] - Running rounds sequentially.")
+    return [
+        _run_one_round(
+            _record,
+            pool=pool,
+            groups=groups,
+            id_map=id_map,
+            page_url=page_url,
+            settings=settings,
+            request_id=request_id,
+            path_nonce=_path_nonce,
         )
+        for _record in rounds
+    ]
 
 
 def _record_all(
@@ -204,7 +197,7 @@ def _record_all(
 ) -> tuple[int, str | None]:
     """Score every round. Returns (infra failures, last error class).
 
-    `executor.map` yields in input order, so the report is deterministic.
+    Results arrive in schedule order, so the report is deterministic.
     Exception TEXT can name extensions - this round's answer key - so only the
     class name is kept; the text goes to the log.
     """
@@ -300,9 +293,7 @@ def score(request_id: str, miner_output: MinerOutput) -> float:
         if _setup_failures > _MAX_SETUP_FAILURE_RATIO * _n_rounds:
             raise RuntimeError(
                 f"{_setup_failures} of {_n_rounds} round(s) lost the browser, "
-                f"leaving too few scored rounds to average. If max_parallel_rounds "
-                f"({_challenge_config.max_parallel_rounds}) was raised, lower it: "
-                f"shm_size and mem_limit are shared across concurrent browsers. "
+                f"leaving too few scored rounds to average. "
                 # The class name only. The full text names extensions, and this
                 # exception is logged with a traceback by router.py.
                 f"Last failure was {_last_error}; see the log for details."

@@ -13,10 +13,6 @@ challenge:
   ## Uniform leaves ~2.7 of 25 never enabled per run.
   coverage_bias: 2.0
 
-  # P - concurrent rounds. RAM-bound, roughly 1GB peak per Chrome instance.
-  ## Raise only with measurement - see the field description in _challenge.py
-  max_parallel_rounds: 1
-
   # Wait after page load for extensions to act. Covers the SLOWER of two
   # clocks, measured by scripts/audit_activity.py:
   #   DOM settles      by ~3.5s (LastPass is the slowest)

@@ -223,10 +223,10 @@
   </p>
   <p class="standfirst" style="border-left:3px solid var(--warn, #A0522A); padding-left:12px;">
     <strong>Out of date (describes the 2026-09-01 design).</strong> The diagrams below show a
-    27-extension pool, a single <code>solution.js</code>, detection by extension id, 4 parallel
-    browsers and 20 rounds. All of that has changed: the pool is 45 extensions in 6 groups
-    and published by name, ids rotate every round, a submission is one file per group, and
-    the container has no internet. The flow itself is still accurate. For current facts see
+    27-extension pool, a single <code>solution.js</code>, detection by extension id and 20 rounds.
+    All of that has changed: rounds now run sequentially, the pool is 45 extensions in 6 groups
+    and published by name, ids rotate every round, a submission is one file per group, and the
+    container has no internet. The flow itself is still accurate. For current facts see
     <code>docs/README.md</code>.
   </p>
   <ul class="key">
@@ -404,7 +404,6 @@
       <tr><td class="fn">k_min / k_max</td><td class="num">3 / 8</td><td>extensions enabled per round, redrawn each time</td></tr>
       <tr><td class="fn">settle_seconds</td><td class="num">4.0</td><td>pause after load before sampling</td></tr>
       <tr><td class="fn">script_budget_sec</td><td class="num">10.0</td><td>hard cap on the miner's JavaScript</td></tr>
-      <tr><td class="fn">max_parallel_rounds</td><td class="num">4</td><td>concurrent browsers &mdash; roughly 1&nbsp;GB each</td></tr>
     </tbody>
   </table>
   </div>
@@ -413,8 +412,8 @@
     <span class="lbl">Local dev differs</span>
     <p style="margin-bottom:0">
       <code>volumes/configs/</code> is currently tuned down for laptop testing:
-      <code>n_rounds: 5</code>, <code>k</code> fixed at <code>5</code>,
-      <code>max_parallel_rounds: 1</code>. Note that a <em>fixed</em> k removes a
+      <code>n_rounds: 5</code>, <code>k</code> fixed at <code>5</code>.
+      Note that a <em>fixed</em> k removes a
       real property &mdash; with k varying, cardinality is part of what the miner has
       to get right; pinned, precision and recall are forced equal and false
       positives stop costing anything.
@@ -772,9 +771,9 @@
       <text class="t-sm t-fail" x="799" y="249" text-anchor="middle">raise BrowserInfraError</text>
     </svg>
     <figcaption>
-      Up to four of these run concurrently. Each gets its own scratch root, and the
-      process sweeper matches leftovers by that path &mdash; which is what keeps one
-      round's teardown from killing another round's browser.
+      Rounds run one at a time. Each gets its own scratch root, and the process sweeper
+      matches leftovers by that path so stale processes from one round cannot affect
+      the next round's browser.
     </figcaption>
   </figure>
 
@@ -929,7 +928,7 @@ RuntimeError       pool missing, k_max > pool size
          │       └─ secrets.SystemRandom().sample()   ← GROUND TRUTH
          ├─ stage_detection_files()         miner's js → templates/static/detections/
          │
-         ├─ ThreadPoolExecutor(max_workers=4)         ← 20 rounds
+         ├─ for rec in rounds                         ← sequential
          │   └─ run_round(rec.enabled, pool=…)        _browser.py
          │       └─ with ChromeSession(settings, tag):
          │           ├─ _stage_extensions()   /opt/extensions → /run/exc

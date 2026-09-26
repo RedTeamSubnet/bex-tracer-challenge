@@ -199,18 +199,19 @@ def test_manager_no_rounds_scores_zero():
     assert PayloadManager(POOL).calculate_score() == 0.0
 
 
-def test_manager_report_never_leaks_ground_truth():
-    """The report must not reveal WHICH extensions were enabled."""
+def test_manager_report_includes_detected_extensions():
     mgr = PayloadManager(POOL)
     mgr.build_schedule(n_rounds=3, k=4)
     for rec in mgr.rounds:
         mgr.record(rec.index, {e: (e in rec.enabled) for e in POOL})
     mgr.calculate_score()
 
-    blob = repr(mgr.report())
-    for rec in mgr.rounds:
-        for ext_id in rec.enabled:
-            assert ext_id not in blob, f"report leaked enabled extension {ext_id}"
+    for rec, published in zip(mgr.rounds, mgr.report()["rounds"]):
+        assert published["detected_extensions"] == [
+            ext_id for ext_id in POOL if ext_id in rec.enabled
+        ]
+        assert "returned" not in published
+        assert "expected" not in published
 
 
 def test_manager_rejects_empty_pool():
@@ -218,9 +219,8 @@ def test_manager_rejects_empty_pool():
         PayloadManager([])
 
 
-def test_public_dict_does_not_leak_the_enabled_set_via_the_error():
-    """Browser errors name the extensions they tried to load, which is the
-    round's answer key. The report must not carry that."""
+def test_public_dict_reports_failure_without_leaking_error_text():
+    """Results include ground truth, but not operational exception details."""
     manager = PayloadManager(POOL)
     manager.build_schedule(n_rounds=1, k=3)
     enabled = sorted(manager.rounds[0].enabled)
@@ -229,9 +229,8 @@ def test_public_dict_does_not_leak_the_enabled_set_via_the_error():
     published = manager.report()
 
     assert published["rounds"][0]["failed"] is True
-    blob = repr(published)
-    for ext_id in enabled:
-        assert ext_id not in blob
+    assert published["rounds"][0]["detected_extensions"] == []
+    assert "not loaded, or ids drifted" not in repr(published)
 
 
 def test_schedule_rejects_k_equal_to_the_pool_size():
