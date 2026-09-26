@@ -430,6 +430,43 @@ def test_run_round_drives_the_page_before_sampling(settings, monkeypatch):
     assert calls == ["launch", "open_page", "interact", "run_script"]
 
 
+def test_the_bait_page_is_brought_to_the_front(settings):
+    """Extensions open welcome tabs on install, which hid the bait page in
+    every measured round - a hidden page never fires requestAnimationFrame,
+    and extensions that act only on the visible tab never act on it."""
+    from selenium.common.exceptions import NoSuchWindowException
+
+    class FakeSwitch:
+        def __init__(self, driver):
+            self.driver = driver
+
+        def window(self, handle):
+            if handle == "gone":
+                raise NoSuchWindowException("closed itself")
+            self.driver.current_window_handle = handle
+
+    class FakeDriver:
+        def __init__(self):
+            self.current_window_handle = "bait"
+            self.window_handles = ["welcome-1", "bait", "gone", "welcome-2"]
+            self.switch_to = FakeSwitch(self)
+            self.closed, self.cdp = [], []
+
+        def close(self):
+            self.closed.append(self.current_window_handle)
+
+        def execute_cdp_cmd(self, cmd, params):
+            self.cdp.append((self.current_window_handle, cmd))
+
+    session = ChromeSession(settings, "t")
+    session.driver = driver = FakeDriver()
+    session._bring_to_front()
+
+    assert driver.closed == ["welcome-1", "welcome-2"]
+    assert driver.current_window_handle == "bait"
+    assert driver.cdp == [("bait", "Page.bringToFront")]
+
+
 def test_sweep_does_not_match_a_sibling_round_by_prefix(settings, monkeypatch):
     """`run-1` is a prefix of `run-10`. With rounds running concurrently, a
     bare substring test would let round 1's teardown SIGKILL round 10's

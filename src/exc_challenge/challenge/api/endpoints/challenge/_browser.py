@@ -465,7 +465,35 @@ class ChromeSession:
         except WebDriverException as err:
             raise BrowserInfraError(f"could not load the bait page: {err}") from err
         time.sleep(settle_seconds)
+        self._bring_to_front()
         self._assert_page_rendered()
+
+    def _bring_to_front(self) -> None:
+        """Close every other tab and make the bait page the visible one.
+
+        Many extensions open a welcome tab on install, which pushes the bait
+        page into the background. Measured with 12 of the 89 loaded: hidden in
+        10 of 10 rounds, 3-6 extra tabs each. A hidden page never fires
+        `requestAnimationFrame`, and extensions that act only on the tab the
+        user is looking at never act on it - both our doing, not the miner's.
+        Done after the settle window, because some tabs open during it.
+        """
+        try:
+            _bait = self.driver.current_window_handle
+            for _handle in self.driver.window_handles:
+                if _handle == _bait:
+                    continue
+                try:
+                    self.driver.switch_to.window(_handle)
+                    self.driver.close()
+                except NoSuchWindowException:
+                    pass  # it closed itself in the meantime
+            self.driver.switch_to.window(_bait)
+            self.driver.execute_cdp_cmd("Page.bringToFront", {})
+        except WebDriverException as err:
+            raise BrowserInfraError(
+                f"could not bring the bait page to the front: {err}"
+            ) from err
 
     def _blame_for_stalled_load(self, groups: Sequence[str] | None) -> str | None:
         """Decide whether a stalled load was the submission's doing or ours.
