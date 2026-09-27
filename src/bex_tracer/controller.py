@@ -15,7 +15,7 @@ class BEXController(Controller):
         challenge_info: dict,
         miner_commits: list[MinerChallengeCommit],
         reference_comparison_commits: list[MinerChallengeCommit],
-        seed_inputs: list[dict] = [],
+        miners_docker_info: dict[str, dict],
     ):
 
         super().__init__(
@@ -23,7 +23,7 @@ class BEXController(Controller):
             challenge_info,
             miner_commits,
             reference_comparison_commits,
-            seed_inputs,
+            miners_docker_info,
         )
         comparison_config = self.challenge_info.get("comparison_config", {})
         self.comparison_min_acceptable_score = comparison_config.get(
@@ -57,7 +57,6 @@ class BEXController(Controller):
         _scoring_log.score = score
         _result_response = self._get_results_from_challenge()
         _scoring_log.miner_output["scoring_results"] = _result_response
-        _scoring_log.miner_output["telemetry"] = self._get_telemetry_from_challenge()
         return
 
     def _get_results_from_challenge(self) -> dict:
