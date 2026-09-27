@@ -1,160 +1,203 @@
-# Miner Commit - Extension Classification
+# BEX Tracer Miner Submission
 
-This is a miner commit API example for Extension Classification.
+This directory is the miner submission template. Add your detector files,
+configure the image name for your **private Docker Hub repository**, validate
+the JavaScript, then build and push the image.
 
-## ✨ Features
+Run all commands below from `examples/miner_commit/`.
 
-- Miner commit
-- Health check endpoint
-- FastAPI
-- Web service
+## Before you start
 
----
+You need:
 
-## 📋 What you submit
+- Docker with Docker Compose;
+- a Docker Hub account;
+- a **private** Docker Hub repository;
+- Node.js and npm for ESLint;
+- the BEX Tracer task's current `groups` map.
 
-The challenge enables a random subset of Chrome extensions, loads a bait page, and runs your
-JavaScript in that page. You return one boolean per extension: was it enabled?
+The validator must be able to pull the private image. Configure its Docker Hub
+pull credentials through the official miner submission workflow. Never put a
+Docker Hub password or personal access token in this repository, a JavaScript
+file, `compose.yml`, or the image.
 
-The pool is split into **groups** by category. You submit **one file per group** - all of them,
-in a single response - named `<group>.js`, each defining `window.detect_<group>`:
+## 1. Log in to Docker Hub
 
+Create a private repository in your Docker Hub account, then authenticate the
+Docker CLI:
+
+```sh
+docker login --username YOUR_DOCKERHUB_USERNAME
 ```
-groups = { "ad_blockers": [...], "vpn_proxy": [...], ... }   from GET /task
-            |
-            +--> ad_blockers.js  defining window.detect_ad_blockers
-            +--> vpn_proxy.js    defining window.detect_vpn_proxy
-                 ... one file per group, all of them, in one response
+
+Enter a Docker Hub personal access token at the password prompt. Confirm the
+command reports `Login Succeeded` before continuing.
+
+## 2. Set the private repository and tag
+
+Open `compose.yml` and replace the example `image:` value:
+
+```yaml
+services:
+  miner-api:
+    image: YOUR_DOCKERHUB_USERNAME/YOUR_PRIVATE_REPOSITORY:YOUR_TAG
 ```
 
-**The group names come from `GET /task` and nowhere else.** They are generated from the
-challenge's pool at runtime and change whenever the pool does, so anything hardcoded - including
-in this file - goes stale. `src/app.py` builds its file list from `miner_input.groups` for
-exactly that reason; a group with no detector gets an empty stub so the submission stays valid.
+Example:
 
-Put your per-group files in `src/commit/`. Any group without a file gets an empty stub that
-returns `false` for every name - a valid submission that scores 0, so you can start from nothing.
+```yaml
+services:
+  miner-api:
+    image: alice/bex-tracer-submission:v1
+```
+
+Requirements:
+
+- the Docker Hub repository must be private;
+- the repository must belong to the account used by `docker login`;
+- use a deliberate, immutable tag such as `v1` or a commit identifier;
+- use this exact image name when submitting the miner commit.
+
+Do not leave the template's
+`redteamsubnet61/submission-exc-challenge:latest` image name in place.
+
+## 3. Add the JavaScript submission
+
+Put detector files in:
+
+```text
+src/commit/
+```
+
+The challenge publishes its required files through `GET /task`:
 
 ```json
 {
-  "extension_names": ["FoxyProxy", "..."],
-  "groups": { "vpn_proxy": ["FoxyProxy", "Free VPN Proxy - 1VPN", "..."], "...": [] }
+  "groups": {
+    "ad_blockers": ["uBlock Origin Lite", "AdGuard AdBlocker"],
+    "developer_tools": ["..."]
+  }
 }
 ```
 
-Each entrypoint may be `async`, and returns names for **its own group only**:
+Create exactly one file per returned group:
+
+```text
+src/commit/ad_blockers.js
+src/commit/developer_tools.js
+...
+```
+
+Each `<group>.js` file defines `window.detect_<group>` and returns exact
+extension names owned by that group:
 
 ```js
-window.detect_vpn_proxy = async function () {
-  return { "FoxyProxy": true, /* ... */ };
+window.detect_ad_blockers = async function () {
+  return {
+    "uBlock Origin Lite": true,
+    "AdGuard AdBlocker": false,
+  };
 };
 ```
 
-### There are no extension ids to probe
+Rules:
 
-Extensions are loaded unpacked with `key` stripped from their manifests, so Chrome derives each
-id from the directory it was staged in - and every round uses a fresh directory. The id an
-extension has this round is gone the next one, and it is never its Chrome Web Store id. A
-hardcoded `chrome-extension://<store-id>/...` fetch always fails, and published id-keyed lookup
-tables are worthless here. Detect what the extension *does* to the page instead.
+- derive group and extension names from the current task;
+- return booleans keyed by exact extension display names;
+- answer only for names owned by that file's group;
+- keep every file at or below 750 lines and 262,144 UTF-8 bytes;
+- do not include unrelated files in `src/commit/`.
 
-### Rules that decide your score
+`src/app.py` reads `miner_input.groups` and returns the corresponding files
+from `src/commit/`. A missing detector becomes an all-false stub, so the API
+response remains valid, but those labels cannot earn score. Add every required
+group file before publishing.
 
-- **Every group needs a file.** A missing or unexpected filename is rejected outright -
-  the whole submission, not just that group.
-- **≤ 750 lines and ≤ 256 KB per file.**
-- **Every file runs every round**, in parallel, each in its own `try`/`catch`. A throw costs
-  only that group's names; the rest still score. The round is lost only if they all fail.
-- **A missing key counts as `false`**, as does a throw.
-- **Scoring is MCC over the whole pool.** A false positive costs real score, so an honest `false`
-  beats a hopeful `true`. Answering all-`true` or all-`false` scores 0.
-- **You are not told how many are enabled**, or which.
-- Your script runs under a fixed per-round time budget; overrunning it loses the round.
+## 4. Validate with ESLint
 
-### The environment
+The submission must pass the repository's `eslint.config.mjs` rules.
 
-- **No internet.** The challenge container has no DNS, so any request to another host fails -
-  for every extension and for your code alike. Only the bait page's own server answers.
-- **The bait page is served under a hostname, not `127.0.0.1`,** and is a secure context, so
-  secure-only APIs such as `crypto.subtle` are available.
-
-### Where to look
-
-Not at ids - see above; that route is closed. What is left is what the extension *does*. Most of
-the pool changes **browser APIs** rather than the page, so DOM diffing alone will not get you far:
-
-- **Changed values** - what the browser reports about itself can differ from a clean browser.
-- **Replaced functions** - a native function an extension has wrapped is no longer the original,
-  even when it tries to look like one.
-- **Changed behaviour** - calling the same API twice does not always give the same answer.
-- **Page footprint** - injected nodes, stylesheets, attributes stamped on `<html>` or `<body>`.
-- **Post-gesture behaviour** - some extensions do nothing until a real interaction.
-
-### What is allowed
-
-Anything a normal web page can do. Calling an API repeatedly, reading a function's source,
-inspecting prototypes and descriptors, triggering an error on purpose, dispatching events - all
-fair: detecting what an extension did *is* the challenge. Not allowed: reading or inferring the
-enabled set from anywhere but the page, disabling or undoing an extension, tampering with the
-harness (timers, wrapper, scoring, staged files), and answering `true` without evidence.
-
----
-
-## 🛠 Installation
-
-### 1. 🚧 Prerequisites
-
-- Install **Python (>= v3.10)** and **pip (>= 23)**:
-    - **[RECOMMENDED] [Miniconda (v3)](https://www.anaconda.com/docs/getting-started/miniconda/install)**
-    - *[arm64/aarch64] [Miniforge (v3)](https://github.com/conda-forge/miniforge)*
-    - *[Python virtual environment] [venv](https://docs.python.org/3/library/venv.html)*
-
-[OPTIONAL] For **DEVELOPMENT** environment:
-
-- Install [**git**](https://git-scm.com/downloads)
-- Setup an [**SSH key**](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh)
-
-### 2. 📦 Install dependencies
+Install the local lint dependencies once:
 
 ```sh
-pip install -r ./requirements.txt
+npm init --yes
+npm install --save-dev eslint @eslint/js globals
 ```
 
-### 3. 🏁 Start the server
+Run ESLint against all detector files using the checked-in configuration:
 
 ```sh
-cd src
-uvicorn app:app --host="0.0.0.0" --port=10002 --no-access-log --no-server-header --proxy-headers --forwarded-allow-ips="*"
-
-# For DEVELOPMENT:
-uvicorn app:app --host="0.0.0.0" --port=10002 --no-access-log --no-server-header --proxy-headers --forwarded-allow-ips="*" --reload
+npx eslint --config eslint.config.mjs "src/commit/**/*.js"
 ```
 
-### 4. ✅ Check server is running
-
-Check with CLI (curl):
+No output and exit code 0 means the check passed. Fix every reported error
+before building. ESLint can apply safe mechanical fixes:
 
 ```sh
-# Send a ping request with 'curl' to API server:
-curl -s http://localhost:10002/ping
+npx eslint --config eslint.config.mjs "src/commit/**/*.js" --fix
+npx eslint --config eslint.config.mjs "src/commit/**/*.js"
 ```
 
-Check with web browser:
+Review all automatic changes. A clean format does not prove the detectors are
+correct.
 
-- Health check: <http://localhost:10002/health>
-- Swagger: <http://localhost:10002/docs>
-- Redoc: <http://localhost:10002/redoc>
-- OpenAPI JSON: <http://localhost:10002/openapi.json>
+## 5. Build and push the image
 
----
-
-## 🏗️ Build Docker Image
-
-To build the docker image, run the following command:
+Build for the validator's `linux/amd64` platform. Docker Compose tags the
+result with the private image name configured in `compose.yml`:
 
 ```sh
-docker build -t redteamsubnet61/submission-exc-challenge:0.0.1 .
-
-# For MacOS (Apple Silicon) to build AMD64:
-DOCKER_BUILDKIT=1 docker build --platform linux/amd64 -t redteamsubnet61/submission-exc-challenge:0.0.1 .
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose build miner-api
 ```
+
+Optionally run the image locally:
+
+```sh
+docker compose up -d miner-api
+curl --fail http://localhost:10002/health
+docker compose down
+```
+
+Push the tagged image to the private Docker Hub repository:
+
+```sh
+docker compose push miner-api
+```
+
+Verify that Docker Hub received the tag:
+
+```sh
+docker buildx imagetools inspect \
+  YOUR_DOCKERHUB_USERNAME/YOUR_PRIVATE_REPOSITORY:YOUR_TAG
+```
+
+Record the pushed image reference and registry digest. Submit them through the
+official miner workflow together with the Docker Hub pull credential required
+for the validator to access the private repository.
+
+## Final checklist
+
+- [ ] Logged in to the correct Docker Hub account.
+- [ ] Created a private Docker Hub repository.
+- [ ] Replaced `image:` in `compose.yml` with your repository and tag.
+- [ ] Added one `src/commit/<group>.js` file per task group.
+- [ ] Used the correct `window.detect_<group>` entrypoint in every file.
+- [ ] Passed `eslint.config.mjs` with zero errors.
+- [ ] Built the image for `linux/amd64`.
+- [ ] Tested the container's `/health` endpoint.
+- [ ] Pushed the exact configured tag.
+- [ ] Recorded the registry digest.
+- [ ] Configured private-repository pull access through the official workflow.
+
+## Service contract
+
+The image runs a FastAPI service on port `10002`:
+
+- `GET /health` returns the service health;
+- `POST /solve` accepts the current task and returns
+  `{"commit_files": [...]}`;
+- `GET /docs` exposes the local OpenAPI interface.
+
+The `Dockerfile`, `src/app.py`, and `src/data_types.py` already implement
+this service contract. Miners normally change only `compose.yml` and the
+JavaScript files under `src/commit/`.
