@@ -1,6 +1,6 @@
 services:
   challenge-api:
-    image: redteamsubnet61/rest-bex-challenge:0.0.2
+    image: redteamsubnet61/rest-bex-challenge:0.0.3
     build:
       context: .
       dockerfile: ./src/bex_tracer/challenge/Dockerfile
