@@ -108,10 +108,10 @@ Rules:
 - keep every file at or below 750 lines and 262,144 UTF-8 bytes;
 - do not include unrelated files in `src/commit/`.
 
-`src/app.py` reads `miner_input.groups` and returns the corresponding files
-from `src/commit/`. A missing detector becomes an all-false stub, so the API
-response remains valid, but those labels cannot earn score. Add every required
-group file before publishing.
+`src/app.py` returns every `*.js` file found directly under `src/commit/`.
+The challenge still requires exactly one file for every current group, so a
+missing detector or an unrelated JavaScript file makes the submission invalid.
+Keep this directory synchronized with the current task before publishing.
 
 ## 4. Validate with ESLint
 
