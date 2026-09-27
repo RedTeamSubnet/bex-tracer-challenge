@@ -6,6 +6,14 @@ hide:
 
 # 📌 Release Notes
 
+## v1.0.0 (2026-09-27)
+
+<!-- Release notes generated using configuration in .github/release.yml at main -->
+
+
+
+**Full Changelog**: https://github.com/RedTeamSubnet/bex-tracer-challenge/compare/v0.0.3...v1.0.0
+
 ## v0.0.3 (2026-09-27)
 
 <!-- Release notes generated using configuration in .github/release.yml at main -->
