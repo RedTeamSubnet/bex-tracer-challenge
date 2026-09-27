@@ -27,27 +27,13 @@ from ._browser import (
 )
 from ._payload_manager import PayloadManager, RoundRecord
 from ._pool import load_name_to_id, load_pool_groups, load_pool_names
-from .schemas import MinerInput, MinerOutput
+from .schemas import  MinerOutput
 
 # Infra failures are already out of the denominator, so they cost sample size,
 # not score. Past this share too few rounds ran for the average to mean
 # anything. Counts `BrowserInfraError` only - a miner's own failure is not this
 # guard's business.
 _MAX_SETUP_FAILURE_RATIO = 0.2
-
-
-def get_task() -> MinerInput:
-    """The published pool, by name.
-
-    Ids are deliberately absent. They would also be useless: extensions load
-    unpacked without `key`, so Chrome derives a fresh id from the staging path
-    every round - see `_browser.derive_unpacked_id`.
-    """
-    return MinerInput(
-        extension_names=list(load_pool_names()),
-        groups={_g: list(_names) for _g, _names in load_pool_groups().items()},
-    )
-
 
 # Outcome of the most recent run, for GET /results. Kept here rather than on
 # the manager because a manager is per-run and is discarded with it. Writes are
