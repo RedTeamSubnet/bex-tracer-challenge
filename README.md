@@ -1,5 +1,7 @@
 # Extension Classification
 
+![BEX Tracer challenge banner](src/bex_tracer/challenge/templates/static/images/BEX-1-Banner.png)
+
 This is a RedTeam Subnet's extension classification repository.
 
 Documentation page: <https://docs.theredteam.io/latest/challenges/extension-classification>

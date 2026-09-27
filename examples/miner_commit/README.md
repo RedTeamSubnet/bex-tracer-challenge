@@ -1,5 +1,7 @@
 # BEX Tracer Miner Submission
 
+![BEX Tracer challenge banner](../../src/bex_tracer/challenge/templates/static/images/BEX-1-Banner.png)
+
 This directory is the miner submission template. Add your detector files,
 configure the image name for your **private Docker Hub repository**, validate
 the JavaScript, then build and push the image.

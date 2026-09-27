@@ -1,5 +1,7 @@
 # Extension Classification Challenge — Docs
 
+![BEX Tracer challenge banner](../src/bex_tracer/challenge/templates/static/images/BEX-1-Banner.png)
+
 A RedTeam Subnet challenge where miners submit JavaScript that fingerprints **which browser
 extensions are active** in a Chrome session.
 
