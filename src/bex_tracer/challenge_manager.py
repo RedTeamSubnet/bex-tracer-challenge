@@ -10,9 +10,9 @@ from redteam_core.validator.challenge_manager import ChallengeManager
 from redteam_core.validator.models import MinerChallengeInfo
 
 
-class EXCChallengeManager(ChallengeManager):
+class BEXChallengeManager(ChallengeManager):
 
-    def __init__(self, challenge_info: dict, metagraph: bt.metagraph):
+    def __init__(self, challenge_info: dict, metagraph: bt.Metagraph):
         super().__init__(challenge_info, metagraph)
 
         emission_config = self.challenge_info.get("emission_config", {})
@@ -28,15 +28,8 @@ class EXCChallengeManager(ChallengeManager):
         )
 
         self.max_similarity = 0.4
-        # Kept for parity with the sibling managers; `penalty` is never
-        # negative, so this floor never rejects anything on its own. The
-        # "no comparison happened" case is handled by `penalty is None`.
         self.min_similarity = 0
-        # Calibrated against this pool (21 extensions, k=5): all-false and
-        # all-true score 0.00, random guessing ~0.09, a plain WAR lookup
-        # table ~0.87. 0.3 sits well clear of guessing without rejecting a
-        # miner who has only solved some of the groups.
-        self.min_score = 0.3
+        self.min_score = self.challenge_info.get("challenge_min_acceptable_score", 0.85)
         self.break_point = 0.6
         self.max_input = 1.0
         self.min_value = 0
@@ -70,11 +63,6 @@ class EXCChallengeManager(ChallengeManager):
                     penalty = miner_commit.get_higest_comparison_score()
                     miner_commit.penalty = float(penalty)
                 else:
-                    # Left as None, NOT 0.0. `penalty` is Optional[float] and
-                    # None already means "no comparison ran" - the sibling
-                    # managers overwrite it with 0.0, which is indistinguishable
-                    # from "compared, and found completely dissimilar". They
-                    # then zero the score on it. See `_adjust_score_by_similarity`.
                     miner_commit.penalty = None
 
             except Exception as e:
@@ -84,10 +72,6 @@ class EXCChallengeManager(ChallengeManager):
                     f"{traceback.format_exc()}, {e}"
                 )
                 continue
-
-            # Acceptance criteria. A commit with nothing to compare against
-            # is not accepted-by-default and not rejected-by-default: it is
-            # judged on its score alone, which is the only evidence there is.
             _penalty = miner_commit.penalty
             miner_commit.accepted = miner_commit.score >= self.min_score and (
                 _penalty is None
@@ -119,7 +103,7 @@ class EXCChallengeManager(ChallengeManager):
 
             if miner_commit.accepted and miner_commit.encrypted_commit:
                 bt.logging.info(
-                    f"[CHALLENGE MANAGER - EXCChallengeManager] Adding miner commit `{miner_commit.miner_uid}` "
+                    f"[CHALLENGE MANAGER - BEXChallengeManager] Adding miner commit `{miner_commit.miner_uid}` "
                     "to unique commit set."
                 )
                 self._try_add_unique_commit(
@@ -289,5 +273,5 @@ class EXCChallengeManager(ChallengeManager):
 
 
 __all__ = [
-    "EXCChallengeManager",
+    "BEXChallengeManager",
 ]
