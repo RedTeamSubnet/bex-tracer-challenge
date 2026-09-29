@@ -15,21 +15,7 @@ services:
     volumes:
       - ./volumes/configs/rest-bex-challenge:/etc/rest-bex-challenge
       - ./volumes/storage/rest-bex-challenge/logs:/var/log/rest-bex-challenge
-    shm_size: 2gb
-    tmpfs:
-      - /run/exc:mode=1777,size=2g,exec
-    mem_limit: 8g
-    pids_limit: 4096
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - FOWNER
-      - SETUID
-      - SETGID
+    shm_size: "2g"
     ports:
       - "${BEX_API_PORT:-10001}:${BEX_API_PORT:-10001}"
     tty: true
