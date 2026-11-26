@@ -77,7 +77,7 @@ class BEXChallengeManager(ChallengeManager):
                 _penalty is None
                 or (
                     self.min_similarity <= _penalty
-                    <= self.comparison_min_acceptable_score
+                    < self.comparison_min_acceptable_score
                 )
             )
 
